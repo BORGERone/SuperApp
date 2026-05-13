@@ -24,10 +24,12 @@ export const API_ENDPOINTS = {
     SEND: '/api/mail/send',
   },
   TASKS: {
-    BOARDS: '/api/tasks/boards',
-    BOARD: '/api/tasks/boards/:id',
-    TASKS: '/api/tasks/boards/:boardId/tasks',
-    TASK: '/api/tasks/boards/:boardId/tasks/:id',
+    COLUMNS: '/api/tasks/columns',
+    COLUMN: '/api/tasks/columns/:id',
+    CARDS: '/api/tasks/cards',
+    CARD: '/api/tasks/cards/:id',
+    CARD_COMMENTS: '/api/tasks/cards/:cardId/comments',
+    COMMENT: '/api/tasks/comments/:id',
   },
 } as const;
 
