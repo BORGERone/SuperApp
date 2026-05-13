@@ -52,6 +52,12 @@ export const tasksApi = {
     return data.columns;
   },
 
+  async getArchivedColumns(): Promise<TaskColumn[]> {
+    const response = await fetch(`${API_BASE}/columns?archived=true`, { headers: buildHeaders() });
+    const data = await handleResponse<{ columns: TaskColumn[] }>(response);
+    return data.columns;
+  },
+
   async createColumn(input: CreateColumnInput): Promise<TaskColumn> {
     const response = await fetch(`${API_BASE}/columns`, {
       method: 'POST',
@@ -249,6 +255,8 @@ export const useCreateComment = () => {
       tasksApi.createComment(cardId, body),
     onSuccess: (_, variables) => {
       queryClient.invalidateQueries({ queryKey: commentsKey(variables.cardId) });
+      // Обновляем все карточки, чтобы счётчик комментариев пересчитался динамически.
+      queryClient.invalidateQueries({ queryKey: CARDS_KEY });
     },
   });
 };
@@ -260,6 +268,41 @@ export const useDeleteComment = () => {
       tasksApi.deleteComment(commentId),
     onSuccess: (_, variables) => {
       queryClient.invalidateQueries({ queryKey: commentsKey(variables.cardId) });
+      queryClient.invalidateQueries({ queryKey: CARDS_KEY });
+    },
+  });
+};
+
+const ARCHIVED_COLUMNS_KEY = ['task-columns', 'archived'] as const;
+
+export const useArchivedTaskColumns = (enabled = true) => {
+  return useQuery({
+    queryKey: ARCHIVED_COLUMNS_KEY,
+    queryFn: tasksApi.getArchivedColumns,
+    enabled: enabled && !!localStorage.getItem('accessToken'),
+  });
+};
+
+export const useArchiveColumn = () => {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: (id: string) => tasksApi.updateColumn(id, { archived: true }),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: COLUMNS_KEY });
+      queryClient.invalidateQueries({ queryKey: ARCHIVED_COLUMNS_KEY });
+      queryClient.invalidateQueries({ queryKey: CARDS_KEY });
+    },
+  });
+};
+
+export const useUnarchiveColumn = () => {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: (id: string) => tasksApi.updateColumn(id, { archived: false }),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: COLUMNS_KEY });
+      queryClient.invalidateQueries({ queryKey: ARCHIVED_COLUMNS_KEY });
+      queryClient.invalidateQueries({ queryKey: CARDS_KEY });
     },
   });
 };

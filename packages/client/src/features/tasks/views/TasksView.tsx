@@ -1,13 +1,15 @@
 import React, { useEffect, useMemo, useState } from 'react';
-import { Filter, RefreshCw, Search, Users } from 'lucide-react';
+import { Archive, Filter, RefreshCw, Search, Users } from 'lucide-react';
 import { useIsMutating, useQueryClient } from '@tanstack/react-query';
 import {
+  useArchivedTaskColumns,
   useTaskCards,
   useTaskColumns,
 } from '../api/tasksApi';
 import { TaskCard, TaskColumn } from '../models/tasksModel';
 import { TaskColumnView } from '../components/TaskColumnView';
 import { AddColumnForm } from '../components/AddColumnForm';
+import { ArchivePanel } from '../components/ArchivePanel';
 import { CardModal } from '../components/CardModal';
 import { useUsers } from '../../auth/api/usersApi';
 
@@ -43,11 +45,13 @@ export const TasksView: React.FC = () => {
   const queryClient = useQueryClient();
   const { data: columns = [], isLoading: columnsLoading, error: columnsError } = useTaskColumns();
   const { data: cards = [], isLoading: cardsLoading, error: cardsError } = useTaskCards();
+  const { data: archivedColumns = [] } = useArchivedTaskColumns();
   const { data: users = [] } = useUsers();
   const [selectedCardId, setSelectedCardId] = useState<string | null>(null);
   const [currentUserId, setCurrentUserId] = useState<string | null>(() => readCurrentUserId());
   const [searchQuery, setSearchQuery] = useState('');
   const [assigneeFilter, setAssigneeFilter] = useState('');
+  const [isArchiveOpen, setIsArchiveOpen] = useState(false);
 
   const mutatingCount = useIsMutating();
   const isSyncing = mutatingCount > 0;
@@ -85,21 +89,15 @@ export const TasksView: React.FC = () => {
     return grouped;
   }, [visibleCards]);
 
-  // Подсчёт количества комментариев для отображения на карточках (по кешу запросов)
+  // Счётчики комментариев приходят прямо в карточках и обновляются динамически
+  // при инвалидации запроса карточек после добавления/удаления комментариев.
   const commentsCountByCard = useMemo(() => {
     const result: Record<string, number> = {};
-    const cache = queryClient.getQueryCache().findAll({ queryKey: ['task-comments'] });
-    cache.forEach((entry) => {
-      const key = entry.queryKey;
-      if (key.length >= 2 && typeof key[1] === 'string') {
-        const data = entry.state.data;
-        if (Array.isArray(data)) {
-          result[key[1] as string] = data.length;
-        }
-      }
+    cards.forEach((card) => {
+      result[card.id] = card.commentsCount ?? 0;
     });
     return result;
-  }, [queryClient, cards]);
+  }, [cards]);
 
   const assigneeOptions = useMemo(() => {
     const set = new Set<string>();
@@ -187,6 +185,21 @@ export const TasksView: React.FC = () => {
               <RefreshCw size={14} />
               Обновить
             </button>
+            <button
+              type="button"
+              onClick={() => setIsArchiveOpen(true)}
+              className="inline-flex items-center gap-1.5 rounded-xl border border-amber-200 bg-amber-50 px-3 py-2 text-sm font-semibold text-amber-700 transition-colors hover:bg-amber-100"
+              aria-label="Открыть архив"
+              title="Открыть архив колонок"
+            >
+              <Archive size={14} />
+              Архив
+              {archivedColumns.length > 0 && (
+                <span className="ml-1 inline-flex items-center justify-center rounded-full bg-amber-200 px-1.5 text-[10px] font-bold text-amber-800">
+                  {archivedColumns.length}
+                </span>
+              )}
+            </button>
           </div>
         </div>
 
@@ -212,7 +225,7 @@ export const TasksView: React.FC = () => {
         </div>
       )}
 
-      <div className="flex-1 min-h-0 overflow-x-auto overflow-y-hidden">
+      <div className="tasks-scroll flex-1 min-h-0 overflow-x-auto overflow-y-hidden">
         <div className="flex gap-4 px-6 lg:px-8 pb-6 min-h-full items-start">
           {isLoading && columns.length === 0 ? (
             <div className="glass-card rounded-3xl p-8 text-center text-gray-600">
@@ -241,6 +254,8 @@ export const TasksView: React.FC = () => {
           onClose={() => setSelectedCardId(null)}
         />
       )}
+
+      {isArchiveOpen && <ArchivePanel onClose={() => setIsArchiveOpen(false)} />}
     </div>
   );
 };

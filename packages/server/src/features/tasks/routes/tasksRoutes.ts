@@ -2,7 +2,7 @@ import { Hono } from 'hono';
 import { z } from 'zod';
 import { db } from '../../../db';
 import { taskColumns, taskCards, taskComments, users } from '../../../db/schema';
-import { eq, asc, inArray } from 'drizzle-orm';
+import { eq, asc, inArray, sql } from 'drizzle-orm';
 import { authMiddleware } from '../../../shared/middleware/authMiddleware';
 
 const tasks = new Hono();
@@ -22,6 +22,7 @@ const updateColumnSchema = z.object({
   title: z.string().min(1).max(255).optional(),
   deadline: z.string().datetime().nullable().optional(),
   position: z.number().int().optional(),
+  archived: z.boolean().optional(),
 });
 
 const createCardSchema = z.object({
@@ -60,7 +61,7 @@ function parseAssignees(value: string | null): string[] {
   }
 }
 
-function serializeCard(card: typeof taskCards.$inferSelect) {
+function serializeCard(card: typeof taskCards.$inferSelect, commentsCount = 0) {
   return {
     id: card.id,
     columnId: card.columnId,
@@ -73,6 +74,7 @@ function serializeCard(card: typeof taskCards.$inferSelect) {
     ownerId: card.ownerId,
     createdAt: card.createdAt.toISOString(),
     updatedAt: card.updatedAt.toISOString(),
+    commentsCount,
   };
 }
 
@@ -83,6 +85,8 @@ function serializeColumn(column: typeof taskColumns.$inferSelect) {
     deadline: column.deadline ? column.deadline.toISOString() : null,
     position: column.position,
     ownerId: column.ownerId,
+    archived: !!column.archived,
+    archivedAt: column.archivedAt ? column.archivedAt.toISOString() : null,
     createdAt: column.createdAt.toISOString(),
     updatedAt: column.updatedAt.toISOString(),
   };
@@ -102,16 +106,23 @@ function serializeComment(comment: typeof taskComments.$inferSelect, author?: { 
 
 // ===== Колонки =====
 
-// Получение всех колонок
+// Получение всех колонок (по умолчанию без архивных, ?archived=true — только архив, ?archived=all — все)
 tasks.get('/columns', async (c) => {
   try {
+    const archivedParam = c.req.query('archived');
     const list = await db
       .select()
       .from(taskColumns)
       .orderBy(asc(taskColumns.position), asc(taskColumns.createdAt))
       .execute();
 
-    return c.json({ columns: list.map(serializeColumn) });
+    const filtered = list.filter((column) => {
+      if (archivedParam === 'all') return true;
+      if (archivedParam === 'true') return !!column.archived;
+      return !column.archived;
+    });
+
+    return c.json({ columns: filtered.map(serializeColumn) });
   } catch (error) {
     console.error('Error fetching task columns:', error);
     return c.json({ error: 'Не удалось получить колонки' }, 500);
@@ -182,6 +193,10 @@ tasks.put('/columns/:id', async (c) => {
       updateData.deadline = data.deadline ? new Date(data.deadline) : null;
     }
     if (data.position !== undefined) updateData.position = data.position;
+    if (data.archived !== undefined) {
+      updateData.archived = data.archived;
+      updateData.archivedAt = data.archived ? new Date() : null;
+    }
 
     await db
       .update(taskColumns)
@@ -244,16 +259,42 @@ tasks.delete('/columns/:id', async (c) => {
 
 // ===== Карточки =====
 
-// Получение всех карточек
+// Получение всех карточек (в выдаче — по умолчанию без архивных колонок, ?archived=all — все)
 tasks.get('/cards', async (c) => {
   try {
+    const archivedParam = c.req.query('archived');
     const list = await db
       .select()
       .from(taskCards)
       .orderBy(asc(taskCards.columnId), asc(taskCards.position), asc(taskCards.createdAt))
       .execute();
 
-    return c.json({ cards: list.map(serializeCard) });
+    let filtered = list;
+    if (archivedParam !== 'all') {
+      const columnsList = await db.select().from(taskColumns).execute();
+      const archivedColumnIds = new Set(
+        columnsList.filter((column) => !!column.archived).map((column) => column.id),
+      );
+      filtered = list.filter((card) => !archivedColumnIds.has(card.columnId));
+    }
+
+    // Подсчёт комментариев для карточек выводится вместе с карточками,
+    // чтобы счётчик обновлялся динамически при инвалидации запроса карточек.
+    let countByCard = new Map<string, number>();
+    if (filtered.length > 0) {
+      const cardIds = filtered.map((card) => card.id);
+      const counts = await db
+        .select({ cardId: taskComments.cardId, count: sql<number>`COUNT(*)` })
+        .from(taskComments)
+        .where(inArray(taskComments.cardId, cardIds))
+        .groupBy(taskComments.cardId)
+        .execute();
+      countByCard = new Map(counts.map((row) => [row.cardId, Number(row.count) || 0]));
+    }
+
+    return c.json({
+      cards: filtered.map((card) => serializeCard(card, countByCard.get(card.id) ?? 0)),
+    });
   } catch (error) {
     console.error('Error fetching task cards:', error);
     return c.json({ error: 'Не удалось получить карточки' }, 500);
@@ -307,7 +348,7 @@ tasks.post('/cards', async (c) => {
 
     await db.insert(taskCards).values(newCard).execute();
 
-    return c.json({ card: serializeCard(newCard as typeof taskCards.$inferSelect) });
+    return c.json({ card: serializeCard(newCard as typeof taskCards.$inferSelect, 0) });
   } catch (error) {
     if (error instanceof z.ZodError) {
       return c.json({ error: 'Ошибка валидации', details: error.errors }, 400);
@@ -360,7 +401,14 @@ tasks.put('/cards/:id', async (c) => {
       .where(eq(taskCards.id, cardId))
       .execute();
 
-    return c.json({ card: serializeCard(updated[0]) });
+    const commentCountRows = await db
+      .select({ count: sql<number>`COUNT(*)` })
+      .from(taskComments)
+      .where(eq(taskComments.cardId, cardId))
+      .execute();
+    const commentsCount = Number(commentCountRows[0]?.count ?? 0) || 0;
+
+    return c.json({ card: serializeCard(updated[0], commentsCount) });
   } catch (error) {
     if (error instanceof z.ZodError) {
       return c.json({ error: 'Ошибка валидации', details: error.errors }, 400);

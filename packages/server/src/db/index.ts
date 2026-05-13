@@ -76,6 +76,8 @@ sqlite.exec(`
     deadline INTEGER,
     position INTEGER NOT NULL DEFAULT 0,
     owner_id TEXT NOT NULL,
+    archived INTEGER NOT NULL DEFAULT 0,
+    archived_at INTEGER,
     created_at INTEGER NOT NULL,
     updated_at INTEGER NOT NULL,
     FOREIGN KEY (owner_id) REFERENCES users(id)
@@ -107,6 +109,21 @@ sqlite.exec(`
     FOREIGN KEY (author_id) REFERENCES users(id)
   );
 `);
+
+// Мини-миграции для существующих БД, созданных до добавления колонок архивирования
+function ensureColumn(table: string, column: string, definition: string) {
+  try {
+    const rows = sqlite.query(`PRAGMA table_info(${table})`).all() as Array<{ name: string }>;
+    if (!rows.some((row) => row.name === column)) {
+      sqlite.exec(`ALTER TABLE ${table} ADD COLUMN ${column} ${definition}`);
+    }
+  } catch (error) {
+    console.error(`Не удалось проверить/добавить колонку ${column} в ${table}:`, error);
+  }
+}
+
+ensureColumn('task_columns', 'archived', 'INTEGER NOT NULL DEFAULT 0');
+ensureColumn('task_columns', 'archived_at', 'INTEGER');
 
 // Инициализация базы данных с начальными пользователями
 async function initDatabase() {

@@ -6,6 +6,8 @@ export interface TaskColumn {
   deadline: string | null;
   position: number;
   ownerId: string;
+  archived: boolean;
+  archivedAt: string | null;
   createdAt: string;
   updatedAt: string;
 }
@@ -22,6 +24,7 @@ export interface TaskCard {
   ownerId: string;
   createdAt: string;
   updatedAt: string;
+  commentsCount: number;
 }
 
 export interface TaskComment {
@@ -42,6 +45,7 @@ export interface CreateColumnInput {
 export interface UpdateColumnInput {
   title?: string;
   deadline?: string | null;
+  archived?: boolean;
 }
 
 export interface CreateCardInput {
@@ -70,10 +74,11 @@ export function computeDeadlineState(deadline: string | null, completed: boolean
   const due = new Date(deadline);
   if (Number.isNaN(due.getTime())) return 'none';
   const now = new Date();
-  const startOfToday = new Date(now.getFullYear(), now.getMonth(), now.getDate());
-  const startOfTomorrow = new Date(startOfToday);
+  // Просрочка имеет приоритет: если момент дедлайна уже прошёл — карточка красная,
+  // даже если это сегодня (например, дедлайн был в 12:00, сейчас 14:00).
+  if (due.getTime() < now.getTime()) return 'overdue';
+  const startOfTomorrow = new Date(now.getFullYear(), now.getMonth(), now.getDate());
   startOfTomorrow.setDate(startOfTomorrow.getDate() + 1);
-  if (due < startOfToday) return 'overdue';
   if (due < startOfTomorrow) return 'today';
   return 'future';
 }

@@ -1,9 +1,9 @@
-import React, { useEffect, useRef, useState } from 'react';
-import { Calendar, MoreHorizontal, Pencil, Plus, Trash2, X } from 'lucide-react';
+import React, { useEffect, useState } from 'react';
+import { Archive, Calendar, Plus, X } from 'lucide-react';
 import { TaskCard, TaskColumn, computeDeadlineState } from '../models/tasksModel';
 import {
+  useArchiveColumn,
   useCreateCard,
-  useDeleteColumn,
   useUpdateColumn,
 } from '../api/tasksApi';
 import { CardItem } from './CardItem';
@@ -49,7 +49,7 @@ export const TaskColumnView: React.FC<TaskColumnViewProps> = ({
   onOpenCard,
 }) => {
   const updateColumn = useUpdateColumn();
-  const deleteColumn = useDeleteColumn();
+  const archiveColumn = useArchiveColumn();
   const createCard = useCreateCard();
 
   const [editingDeadline, setEditingDeadline] = useState(false);
@@ -57,23 +57,11 @@ export const TaskColumnView: React.FC<TaskColumnViewProps> = ({
   const [draftDeadline, setDraftDeadline] = useState(isoToLocalInput(column.deadline));
   const [isAddingCard, setIsAddingCard] = useState(false);
   const [newCardTitle, setNewCardTitle] = useState('');
-  const [menuOpen, setMenuOpen] = useState(false);
-  const menuRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
     setDraftTitle(column.title);
     setDraftDeadline(isoToLocalInput(column.deadline));
   }, [column.id, column.title, column.deadline]);
-
-  useEffect(() => {
-    const handleClickOutside = (event: MouseEvent) => {
-      if (menuRef.current && !menuRef.current.contains(event.target as Node)) {
-        setMenuOpen(false);
-      }
-    };
-    document.addEventListener('mousedown', handleClickOutside);
-    return () => document.removeEventListener('mousedown', handleClickOutside);
-  }, []);
 
   const deadlineState = computeDeadlineState(column.deadline, false);
   const deadlineBadgeClasses =
@@ -114,17 +102,16 @@ export const TaskColumnView: React.FC<TaskColumnViewProps> = ({
     }
   };
 
-  const handleDelete = async () => {
-    setMenuOpen(false);
+  const handleArchive = async () => {
     const confirmText =
       cards.length > 0
-        ? `Удалить колонку "${column.title}" вместе с ${cards.length} карточками?`
-        : `Удалить колонку "${column.title}"?`;
+        ? `Перенести колонку «${column.title}» в архив вместе с ${cards.length} карточками?`
+        : `Перенести колонку «${column.title}» в архив?`;
     if (!window.confirm(confirmText)) return;
     try {
-      await deleteColumn.mutateAsync(column.id);
+      await archiveColumn.mutateAsync(column.id);
     } catch (error) {
-      console.error('Не удалось удалить колонку:', error);
+      console.error('Не удалось архивировать колонку:', error);
     }
   };
 
@@ -213,42 +200,20 @@ export const TaskColumnView: React.FC<TaskColumnViewProps> = ({
           <span className="rounded-full bg-white/80 px-3 py-1 text-xs font-bold text-gray-500">
             {cards.length}
           </span>
-          <div className="relative" ref={menuRef}>
-            <button
-              type="button"
-              onClick={() => setMenuOpen((prev) => !prev)}
-              className="rounded-lg p-1.5 text-gray-400 transition-colors hover:bg-white/80 hover:text-gray-700"
-              aria-label="Меню колонки"
-            >
-              <MoreHorizontal size={16} />
-            </button>
-            {menuOpen && (
-              <div className="absolute right-0 top-full z-30 mt-1 w-44 overflow-hidden rounded-xl border border-gray-200 bg-white/95 shadow-lg">
-                <button
-                  type="button"
-                  onClick={() => {
-                    setMenuOpen(false);
-                    setEditingDeadline(true);
-                    setDraftDeadline(isoToLocalInput(column.deadline));
-                  }}
-                  className="flex w-full items-center gap-2 px-3 py-2 text-sm text-gray-700 hover:bg-gray-50"
-                >
-                  <Pencil size={14} /> Изменить дедлайн
-                </button>
-                <button
-                  type="button"
-                  onClick={handleDelete}
-                  className="flex w-full items-center gap-2 px-3 py-2 text-sm text-red-600 hover:bg-red-50"
-                >
-                  <Trash2 size={14} /> Удалить колонку
-                </button>
-              </div>
-            )}
-          </div>
+          <button
+            type="button"
+            onClick={handleArchive}
+            disabled={archiveColumn.isPending}
+            className="rounded-lg p-1.5 text-gray-400 transition-colors hover:bg-amber-50 hover:text-amber-600 disabled:cursor-not-allowed disabled:opacity-50"
+            aria-label="Перенести колонку в архив"
+            title="Перенести в архив"
+          >
+            <Archive size={16} />
+          </button>
         </div>
       </header>
 
-      <div className="flex-1 min-h-0 overflow-y-auto pr-1">
+      <div className="tasks-scroll flex-1 min-h-0 overflow-y-auto pr-1">
         <div className="flex flex-col gap-3">
           {cards.length === 0 ? (
             <div className="flex items-center justify-center rounded-2xl border border-dashed border-gray-200 bg-white/35 p-6 text-center text-sm text-gray-400">

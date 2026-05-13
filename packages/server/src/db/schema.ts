@@ -58,6 +58,8 @@ export const taskColumns = sqliteTable('task_columns', {
   deadline: integer('deadline', { mode: 'timestamp' }),
   position: integer('position').notNull().default(0),
   ownerId: text('owner_id').notNull().references(() => users.id),
+  archived: integer('archived', { mode: 'boolean' }).notNull().default(false),
+  archivedAt: integer('archived_at', { mode: 'timestamp' }),
   createdAt: integer('created_at', { mode: 'timestamp' }).notNull(),
   updatedAt: integer('updated_at', { mode: 'timestamp' }).notNull(),
 });

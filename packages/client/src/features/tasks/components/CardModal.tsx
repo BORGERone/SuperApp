@@ -208,7 +208,7 @@ export const CardModal: React.FC<CardModalProps> = ({ card, columns, currentUser
           </button>
         </div>
 
-        <div className="flex-1 overflow-y-auto p-6 space-y-6">
+        <div className="tasks-scroll flex-1 overflow-y-auto p-6 space-y-6">
           {errorMessage && (
             <div className="bg-red-100/80 border border-red-200 text-red-700 px-3 py-2 rounded-lg text-sm">
               {errorMessage}
@@ -265,7 +265,7 @@ export const CardModal: React.FC<CardModalProps> = ({ card, columns, currentUser
               <span className="text-xs text-gray-500">({comments.length})</span>
             </div>
 
-            <div className="space-y-3 max-h-60 overflow-y-auto pr-1">
+            <div className="tasks-scroll space-y-3 max-h-60 overflow-y-auto pr-1">
               {commentsLoading && <div className="text-sm text-gray-500">Загрузка комментариев...</div>}
               {!commentsLoading && comments.length === 0 && (
                 <div className="text-sm text-gray-500">Комментариев пока нет — добавьте первый!</div>
