@@ -9,7 +9,7 @@ const isElectron = typeof window !== 'undefined' && window.electronAPI !== undef
 interface UserAutocompleteProps {
   value: string;
   onChange: (value: string) => void;
-  onSelect: (user: { username: string; email: string }) => void;
+  onSelect: (user: { id?: string; username: string; email: string }) => void;
   placeholder?: string;
 }
 

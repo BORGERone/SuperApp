@@ -4,6 +4,46 @@
 const isElectron = typeof window !== 'undefined' && (window as any).electronAPI !== undefined;
 const API_BASE_URL = (import.meta.env as any).VITE_API_URL || (isElectron ? 'http://localhost:3002' : '');
 
+interface RefreshResponse {
+  accessToken: string;
+  user: {
+    id: string;
+    email: string;
+    username: string;
+    role: string;
+  };
+}
+
+async function refreshAccessToken() {
+  const refreshToken = localStorage.getItem('refreshToken');
+
+  if (!refreshToken) {
+    return false;
+  }
+
+  const response = await fetch(`${API_BASE_URL}/api/auth/refresh`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ refreshToken }),
+  });
+
+  if (!response.ok) {
+    return false;
+  }
+
+  const data = (await response.json()) as RefreshResponse;
+  localStorage.setItem('accessToken', data.accessToken);
+  localStorage.setItem('user', JSON.stringify(data.user));
+  return true;
+}
+
+const clearAuthAndRedirect = () => {
+  localStorage.removeItem('accessToken');
+  localStorage.removeItem('refreshToken');
+  localStorage.removeItem('user');
+  window.location.href = '/login';
+};
+
 export async function apiRequest<T>(
   endpoint: string,
   options: RequestInit = {}
@@ -22,21 +62,34 @@ export async function apiRequest<T>(
     headers['Authorization'] = `Bearer ${token}`;
   }
   
-  const response = await fetch(url, {
+  let response = await fetch(url, {
     ...options,
     headers,
   });
   
   console.log('API Response status:', response.status);
   
+  if (response.status === 401 && endpoint !== '/api/auth/refresh') {
+    const refreshed = await refreshAccessToken();
+
+    if (refreshed) {
+      const updatedToken = localStorage.getItem('accessToken');
+      response = await fetch(url, {
+        ...options,
+        headers: {
+          ...headers,
+          ...(updatedToken ? { Authorization: `Bearer ${updatedToken}` } : {}),
+        },
+      });
+      console.log('API Response status after refresh:', response.status);
+    }
+  }
+
   if (!response.ok) {
     // Обработка 401 ошибки (истекший токен)
     if (response.status === 401) {
       console.log('Token expired, redirecting to login');
-      localStorage.removeItem('accessToken');
-      localStorage.removeItem('refreshToken');
-      localStorage.removeItem('user');
-      window.location.href = '/login';
+      clearAuthAndRedirect();
       throw new Error('Token expired');
     }
     

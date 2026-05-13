@@ -61,15 +61,42 @@ export const boards = sqliteTable('boards', {
   updatedAt: integer('updated_at', { mode: 'timestamp' }).notNull(),
 });
 
+// Таблица колонок задач
+export const taskColumns = sqliteTable('task_columns', {
+  id: text('id').primaryKey(),
+  boardId: text('board_id').notNull().references(() => boards.id),
+  name: text('name').notNull(),
+  deadline: text('deadline'),
+  order: integer('order').notNull().default(0),
+  ownerId: text('owner_id').notNull().references(() => users.id),
+  createdAt: integer('created_at', { mode: 'timestamp' }).notNull(),
+  updatedAt: integer('updated_at', { mode: 'timestamp' }).notNull(),
+});
+
 // Таблица задач
 export const tasks = sqliteTable('tasks', {
   id: text('id').primaryKey(),
   title: text('title').notNull(),
   description: text('description'),
-  status: text('status').notNull().$type<'todo' | 'in_progress' | 'done'>(),
   boardId: text('board_id').notNull().references(() => boards.id),
-  assigneeId: text('assignee_id').references(() => users.id),
+  columnId: text('column_id').references(() => taskColumns.id),
+  assigneeIds: text('assignee_ids').notNull().default('[]'),
+  labels: text('labels').notNull().default('[]'),
+  priority: text('priority').notNull().default('medium').$type<'low' | 'medium' | 'high'>(),
+  dueDate: text('due_date'),
+  isCompleted: integer('is_completed', { mode: 'boolean' }).notNull().default(false),
+  order: integer('order').notNull().default(0),
   ownerId: text('owner_id').notNull().references(() => users.id),
+  createdAt: integer('created_at', { mode: 'timestamp' }).notNull(),
+  updatedAt: integer('updated_at', { mode: 'timestamp' }).notNull(),
+});
+
+// Таблица комментариев к задачам
+export const taskComments = sqliteTable('task_comments', {
+  id: text('id').primaryKey(),
+  taskId: text('task_id').notNull().references(() => tasks.id),
+  authorId: text('author_id').notNull().references(() => users.id),
+  body: text('body').notNull(),
   createdAt: integer('created_at', { mode: 'timestamp' }).notNull(),
   updatedAt: integer('updated_at', { mode: 'timestamp' }).notNull(),
 });
@@ -80,4 +107,6 @@ export type File = typeof files.$inferSelect;
 export type FilePermission = typeof filePermissions.$inferSelect;
 export type Email = typeof emails.$inferSelect;
 export type Board = typeof boards.$inferSelect;
+export type TaskColumn = typeof taskColumns.$inferSelect;
 export type Task = typeof tasks.$inferSelect;
+export type TaskComment = typeof taskComments.$inferSelect;
