@@ -45,7 +45,7 @@ export const TasksView: React.FC = () => {
     () =>
       Array.from(
         new Set(
-          useTasksStore
+          allCards
             .filter(card => !activeBoard || card.boardId === activeBoard.id)
             .map(card => card.assignee)
             .filter(Boolean)
