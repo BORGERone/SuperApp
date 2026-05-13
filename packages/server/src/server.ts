@@ -3,6 +3,7 @@ import { cors } from 'hono/cors';
 import authRouter, { initializeTestUsers } from './features/auth/routes/authRoutes';
 import driveRouter from './features/drive/routes/driveRoutes';
 import { mail } from './features/mail/routes/mailRoutes';
+import { tasks } from './features/tasks/routes/tasksRoutes';
 
 const app = new Hono();
 
@@ -40,6 +41,9 @@ app.route('/api/drive', driveRouter);
 
 // Mail routes
 app.route('/api/mail', mail);
+
+// Tasks routes
+app.route('/api/tasks', tasks);
 
 // Initialize test users
 initializeTestUsers();

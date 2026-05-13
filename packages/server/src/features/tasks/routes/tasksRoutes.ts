@@ -1,0 +1,505 @@
+import { Hono } from 'hono';
+import { z } from 'zod';
+import { db } from '../../../db';
+import { taskColumns, taskCards, taskComments, users } from '../../../db/schema';
+import { eq, asc, inArray } from 'drizzle-orm';
+import { authMiddleware } from '../../../shared/middleware/authMiddleware';
+
+const tasks = new Hono();
+
+// Применяем авторизацию ко всем маршрутам модуля задач
+tasks.use('*', authMiddleware);
+
+// ===== Схемы валидации =====
+
+const createColumnSchema = z.object({
+  title: z.string().min(1).max(255),
+  deadline: z.string().datetime().nullable().optional(),
+  position: z.number().int().optional(),
+});
+
+const updateColumnSchema = z.object({
+  title: z.string().min(1).max(255).optional(),
+  deadline: z.string().datetime().nullable().optional(),
+  position: z.number().int().optional(),
+});
+
+const createCardSchema = z.object({
+  columnId: z.string().min(1),
+  title: z.string().min(1).max(255),
+  description: z.string().optional().default(''),
+  deadline: z.string().datetime().nullable().optional(),
+  completed: z.boolean().optional().default(false),
+  assignees: z.array(z.string()).optional().default([]),
+  position: z.number().int().optional(),
+});
+
+const updateCardSchema = z.object({
+  columnId: z.string().min(1).optional(),
+  title: z.string().min(1).max(255).optional(),
+  description: z.string().optional(),
+  deadline: z.string().datetime().nullable().optional(),
+  completed: z.boolean().optional(),
+  assignees: z.array(z.string()).optional(),
+  position: z.number().int().optional(),
+});
+
+const createCommentSchema = z.object({
+  body: z.string().min(1).max(4000),
+});
+
+// ===== Утилиты =====
+
+function parseAssignees(value: string | null): string[] {
+  if (!value) return [];
+  try {
+    const parsed = JSON.parse(value);
+    return Array.isArray(parsed) ? parsed.filter((v): v is string => typeof v === 'string') : [];
+  } catch {
+    return [];
+  }
+}
+
+function serializeCard(card: typeof taskCards.$inferSelect) {
+  return {
+    id: card.id,
+    columnId: card.columnId,
+    title: card.title,
+    description: card.description ?? '',
+    deadline: card.deadline ? card.deadline.toISOString() : null,
+    completed: !!card.completed,
+    assignees: parseAssignees(card.assignees),
+    position: card.position,
+    ownerId: card.ownerId,
+    createdAt: card.createdAt.toISOString(),
+    updatedAt: card.updatedAt.toISOString(),
+  };
+}
+
+function serializeColumn(column: typeof taskColumns.$inferSelect) {
+  return {
+    id: column.id,
+    title: column.title,
+    deadline: column.deadline ? column.deadline.toISOString() : null,
+    position: column.position,
+    ownerId: column.ownerId,
+    createdAt: column.createdAt.toISOString(),
+    updatedAt: column.updatedAt.toISOString(),
+  };
+}
+
+function serializeComment(comment: typeof taskComments.$inferSelect, author?: { id: string; username: string; email: string } | null) {
+  return {
+    id: comment.id,
+    cardId: comment.cardId,
+    authorId: comment.authorId,
+    authorName: author?.username ?? null,
+    authorEmail: author?.email ?? null,
+    body: comment.body,
+    createdAt: comment.createdAt.toISOString(),
+  };
+}
+
+// ===== Колонки =====
+
+// Получение всех колонок
+tasks.get('/columns', async (c) => {
+  try {
+    const list = await db
+      .select()
+      .from(taskColumns)
+      .orderBy(asc(taskColumns.position), asc(taskColumns.createdAt))
+      .execute();
+
+    return c.json({ columns: list.map(serializeColumn) });
+  } catch (error) {
+    console.error('Error fetching task columns:', error);
+    return c.json({ error: 'Не удалось получить колонки' }, 500);
+  }
+});
+
+// Создание колонки
+tasks.post('/columns', async (c) => {
+  try {
+    const user = c.get('user');
+    const body = await c.req.json();
+    const data = createColumnSchema.parse(body);
+
+    const now = new Date();
+    const id = crypto.randomUUID();
+
+    let position = data.position;
+    if (position === undefined) {
+      const existing = await db.select().from(taskColumns).execute();
+      position = existing.length;
+    }
+
+    const newColumn = {
+      id,
+      title: data.title,
+      deadline: data.deadline ? new Date(data.deadline) : null,
+      position,
+      ownerId: user.id,
+      createdAt: now,
+      updatedAt: now,
+    };
+
+    await db.insert(taskColumns).values(newColumn).execute();
+
+    return c.json({ column: serializeColumn(newColumn as typeof taskColumns.$inferSelect) });
+  } catch (error) {
+    if (error instanceof z.ZodError) {
+      return c.json({ error: 'Ошибка валидации', details: error.errors }, 400);
+    }
+    console.error('Error creating column:', error);
+    return c.json({ error: 'Не удалось создать колонку' }, 500);
+  }
+});
+
+// Обновление колонки
+tasks.put('/columns/:id', async (c) => {
+  try {
+    const columnId = c.req.param('id');
+    const body = await c.req.json();
+    const data = updateColumnSchema.parse(body);
+
+    const existing = await db
+      .select()
+      .from(taskColumns)
+      .where(eq(taskColumns.id, columnId))
+      .execute();
+
+    if (!existing.length) {
+      return c.json({ error: 'Колонка не найдена' }, 404);
+    }
+
+    const updateData: Partial<typeof taskColumns.$inferInsert> = {
+      updatedAt: new Date(),
+    };
+
+    if (data.title !== undefined) updateData.title = data.title;
+    if (data.deadline !== undefined) {
+      updateData.deadline = data.deadline ? new Date(data.deadline) : null;
+    }
+    if (data.position !== undefined) updateData.position = data.position;
+
+    await db
+      .update(taskColumns)
+      .set(updateData)
+      .where(eq(taskColumns.id, columnId))
+      .execute();
+
+    const updated = await db
+      .select()
+      .from(taskColumns)
+      .where(eq(taskColumns.id, columnId))
+      .execute();
+
+    return c.json({ column: serializeColumn(updated[0]) });
+  } catch (error) {
+    if (error instanceof z.ZodError) {
+      return c.json({ error: 'Ошибка валидации', details: error.errors }, 400);
+    }
+    console.error('Error updating column:', error);
+    return c.json({ error: 'Не удалось обновить колонку' }, 500);
+  }
+});
+
+// Удаление колонки (и всех её карточек/комментариев)
+tasks.delete('/columns/:id', async (c) => {
+  try {
+    const columnId = c.req.param('id');
+
+    const existing = await db
+      .select()
+      .from(taskColumns)
+      .where(eq(taskColumns.id, columnId))
+      .execute();
+
+    if (!existing.length) {
+      return c.json({ error: 'Колонка не найдена' }, 404);
+    }
+
+    // Получаем карточки и удаляем их комментарии
+    const cards = await db
+      .select()
+      .from(taskCards)
+      .where(eq(taskCards.columnId, columnId))
+      .execute();
+
+    if (cards.length > 0) {
+      const cardIds = cards.map((card) => card.id);
+      await db.delete(taskComments).where(inArray(taskComments.cardId, cardIds)).execute();
+      await db.delete(taskCards).where(eq(taskCards.columnId, columnId)).execute();
+    }
+
+    await db.delete(taskColumns).where(eq(taskColumns.id, columnId)).execute();
+
+    return c.json({ success: true });
+  } catch (error) {
+    console.error('Error deleting column:', error);
+    return c.json({ error: 'Не удалось удалить колонку' }, 500);
+  }
+});
+
+// ===== Карточки =====
+
+// Получение всех карточек
+tasks.get('/cards', async (c) => {
+  try {
+    const list = await db
+      .select()
+      .from(taskCards)
+      .orderBy(asc(taskCards.columnId), asc(taskCards.position), asc(taskCards.createdAt))
+      .execute();
+
+    return c.json({ cards: list.map(serializeCard) });
+  } catch (error) {
+    console.error('Error fetching task cards:', error);
+    return c.json({ error: 'Не удалось получить карточки' }, 500);
+  }
+});
+
+// Создание карточки
+tasks.post('/cards', async (c) => {
+  try {
+    const user = c.get('user');
+    const body = await c.req.json();
+    const data = createCardSchema.parse(body);
+
+    // Проверяем существование колонки
+    const column = await db
+      .select()
+      .from(taskColumns)
+      .where(eq(taskColumns.id, data.columnId))
+      .execute();
+
+    if (!column.length) {
+      return c.json({ error: 'Колонка не найдена' }, 404);
+    }
+
+    const now = new Date();
+    const id = crypto.randomUUID();
+
+    let position = data.position;
+    if (position === undefined) {
+      const existing = await db
+        .select()
+        .from(taskCards)
+        .where(eq(taskCards.columnId, data.columnId))
+        .execute();
+      position = existing.length;
+    }
+
+    const newCard = {
+      id,
+      columnId: data.columnId,
+      title: data.title,
+      description: data.description ?? '',
+      deadline: data.deadline ? new Date(data.deadline) : null,
+      completed: data.completed ?? false,
+      assignees: JSON.stringify(data.assignees ?? []),
+      position,
+      ownerId: user.id,
+      createdAt: now,
+      updatedAt: now,
+    };
+
+    await db.insert(taskCards).values(newCard).execute();
+
+    return c.json({ card: serializeCard(newCard as typeof taskCards.$inferSelect) });
+  } catch (error) {
+    if (error instanceof z.ZodError) {
+      return c.json({ error: 'Ошибка валидации', details: error.errors }, 400);
+    }
+    console.error('Error creating card:', error);
+    return c.json({ error: 'Не удалось создать карточку' }, 500);
+  }
+});
+
+// Обновление карточки
+tasks.put('/cards/:id', async (c) => {
+  try {
+    const cardId = c.req.param('id');
+    const body = await c.req.json();
+    const data = updateCardSchema.parse(body);
+
+    const existing = await db
+      .select()
+      .from(taskCards)
+      .where(eq(taskCards.id, cardId))
+      .execute();
+
+    if (!existing.length) {
+      return c.json({ error: 'Карточка не найдена' }, 404);
+    }
+
+    const updateData: Partial<typeof taskCards.$inferInsert> = {
+      updatedAt: new Date(),
+    };
+
+    if (data.columnId !== undefined) updateData.columnId = data.columnId;
+    if (data.title !== undefined) updateData.title = data.title;
+    if (data.description !== undefined) updateData.description = data.description;
+    if (data.deadline !== undefined) {
+      updateData.deadline = data.deadline ? new Date(data.deadline) : null;
+    }
+    if (data.completed !== undefined) updateData.completed = data.completed;
+    if (data.assignees !== undefined) updateData.assignees = JSON.stringify(data.assignees);
+    if (data.position !== undefined) updateData.position = data.position;
+
+    await db
+      .update(taskCards)
+      .set(updateData)
+      .where(eq(taskCards.id, cardId))
+      .execute();
+
+    const updated = await db
+      .select()
+      .from(taskCards)
+      .where(eq(taskCards.id, cardId))
+      .execute();
+
+    return c.json({ card: serializeCard(updated[0]) });
+  } catch (error) {
+    if (error instanceof z.ZodError) {
+      return c.json({ error: 'Ошибка валидации', details: error.errors }, 400);
+    }
+    console.error('Error updating card:', error);
+    return c.json({ error: 'Не удалось обновить карточку' }, 500);
+  }
+});
+
+// Удаление карточки
+tasks.delete('/cards/:id', async (c) => {
+  try {
+    const cardId = c.req.param('id');
+
+    const existing = await db
+      .select()
+      .from(taskCards)
+      .where(eq(taskCards.id, cardId))
+      .execute();
+
+    if (!existing.length) {
+      return c.json({ error: 'Карточка не найдена' }, 404);
+    }
+
+    await db.delete(taskComments).where(eq(taskComments.cardId, cardId)).execute();
+    await db.delete(taskCards).where(eq(taskCards.id, cardId)).execute();
+
+    return c.json({ success: true });
+  } catch (error) {
+    console.error('Error deleting card:', error);
+    return c.json({ error: 'Не удалось удалить карточку' }, 500);
+  }
+});
+
+// ===== Комментарии =====
+
+// Получение комментариев карточки
+tasks.get('/cards/:id/comments', async (c) => {
+  try {
+    const cardId = c.req.param('id');
+
+    const comments = await db
+      .select()
+      .from(taskComments)
+      .where(eq(taskComments.cardId, cardId))
+      .orderBy(asc(taskComments.createdAt))
+      .execute();
+
+    const authorIds = Array.from(new Set(comments.map((cmt) => cmt.authorId)));
+    const authors = authorIds.length
+      ? await db
+          .select({ id: users.id, username: users.username, email: users.email })
+          .from(users)
+          .where(inArray(users.id, authorIds))
+          .execute()
+      : [];
+
+    const authorMap = new Map(authors.map((a) => [a.id, a]));
+
+    return c.json({
+      comments: comments.map((cmt) => serializeComment(cmt, authorMap.get(cmt.authorId) ?? null)),
+    });
+  } catch (error) {
+    console.error('Error fetching comments:', error);
+    return c.json({ error: 'Не удалось получить комментарии' }, 500);
+  }
+});
+
+// Добавление комментария
+tasks.post('/cards/:id/comments', async (c) => {
+  try {
+    const user = c.get('user');
+    const cardId = c.req.param('id');
+    const body = await c.req.json();
+    const data = createCommentSchema.parse(body);
+
+    const card = await db
+      .select()
+      .from(taskCards)
+      .where(eq(taskCards.id, cardId))
+      .execute();
+
+    if (!card.length) {
+      return c.json({ error: 'Карточка не найдена' }, 404);
+    }
+
+    const now = new Date();
+    const newComment = {
+      id: crypto.randomUUID(),
+      cardId,
+      authorId: user.id,
+      body: data.body,
+      createdAt: now,
+    };
+
+    await db.insert(taskComments).values(newComment).execute();
+
+    return c.json({
+      comment: serializeComment(newComment as typeof taskComments.$inferSelect, {
+        id: user.id,
+        username: user.username,
+        email: user.email,
+      }),
+    });
+  } catch (error) {
+    if (error instanceof z.ZodError) {
+      return c.json({ error: 'Ошибка валидации', details: error.errors }, 400);
+    }
+    console.error('Error creating comment:', error);
+    return c.json({ error: 'Не удалось добавить комментарий' }, 500);
+  }
+});
+
+// Удаление комментария (автор или администратор)
+tasks.delete('/comments/:id', async (c) => {
+  try {
+    const user = c.get('user');
+    const commentId = c.req.param('id');
+
+    const existing = await db
+      .select()
+      .from(taskComments)
+      .where(eq(taskComments.id, commentId))
+      .execute();
+
+    if (!existing.length) {
+      return c.json({ error: 'Комментарий не найден' }, 404);
+    }
+
+    if (existing[0].authorId !== user.id && user.role !== 'admin') {
+      return c.json({ error: 'Недостаточно прав для удаления комментария' }, 403);
+    }
+
+    await db.delete(taskComments).where(eq(taskComments.id, commentId)).execute();
+    return c.json({ success: true });
+  } catch (error) {
+    console.error('Error deleting comment:', error);
+    return c.json({ error: 'Не удалось удалить комментарий' }, 500);
+  }
+});
+
+export { tasks };
