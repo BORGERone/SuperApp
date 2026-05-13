@@ -3,7 +3,7 @@ import { zValidator } from '@hono/zod-validator';
 import { z } from 'zod';
 import { db } from '../../../db';
 import { users } from '../../../db/schema';
-import { generateAccessToken, generateRefreshToken } from '../../../shared/utils/jwt';
+import { generateAccessToken, generateRefreshToken, verifyRefreshToken } from '../../../shared/utils/jwt';
 import bcrypt from 'bcryptjs';
 import { or, eq } from 'drizzle-orm';
 
@@ -139,14 +139,44 @@ authRouter.get('/users', async (c) => {
 
 // Обновление токена
 authRouter.post('/refresh', async (c) => {
-  const { refreshToken } = await c.req.json();
-  
-  if (!refreshToken) {
-    return c.json({ error: 'Refresh token required' }, 400);
+  try {
+    const { refreshToken } = await c.req.json();
+    
+    if (!refreshToken) {
+      return c.json({ error: 'Refresh token required' }, 400);
+    }
+
+    const payload = verifyRefreshToken(refreshToken);
+
+    if (!payload) {
+      return c.json({ error: 'Invalid refresh token' }, 401);
+    }
+
+    const user = await db.select().from(users).where(eq(users.id, payload.userId)).limit(1);
+
+    if (user.length === 0) {
+      return c.json({ error: 'User not found' }, 404);
+    }
+
+    const accessToken = generateAccessToken({
+      userId: user[0].id,
+      email: user[0].email,
+      role: user[0].role,
+    });
+
+    return c.json({
+      accessToken,
+      user: {
+        id: user[0].id,
+        email: user[0].email,
+        username: user[0].username,
+        role: user[0].role,
+      },
+    });
+  } catch (error) {
+    console.error('Refresh token error:', error);
+    return c.json({ error: 'Failed to refresh token' }, 500);
   }
-  
-  // TODO: Реализовать проверку refresh token и генерацию нового access token
-  return c.json({ error: 'Not implemented' }, 501);
 });
 
 // Инициализация тестовых пользователей
