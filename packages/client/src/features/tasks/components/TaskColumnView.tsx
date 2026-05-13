@@ -1,5 +1,5 @@
 import React, { useEffect, useRef, useState } from 'react';
-import { Calendar, Check, MoreHorizontal, Pencil, Plus, Trash2, X } from 'lucide-react';
+import { Calendar, MoreHorizontal, Pencil, Plus, Trash2, X } from 'lucide-react';
 import { TaskCard, TaskColumn, computeDeadlineState } from '../models/tasksModel';
 import {
   useCreateCard,
@@ -30,14 +30,13 @@ function localInputToIso(value: string): string | null {
   return date.toISOString();
 }
 
-function formatDeadline(value: string | null): string {
+function formatDeadlineShort(value: string | null): string {
   if (!value) return '';
   const date = new Date(value);
   if (Number.isNaN(date.getTime())) return '';
   return date.toLocaleString('ru-RU', {
     day: '2-digit',
     month: '2-digit',
-    year: 'numeric',
     hour: '2-digit',
     minute: '2-digit',
   });
@@ -53,17 +52,17 @@ export const TaskColumnView: React.FC<TaskColumnViewProps> = ({
   const deleteColumn = useDeleteColumn();
   const createCard = useCreateCard();
 
-  const [isEditing, setIsEditing] = useState(false);
-  const [editTitle, setEditTitle] = useState(column.title);
-  const [editDeadline, setEditDeadline] = useState(isoToLocalInput(column.deadline));
+  const [editingDeadline, setEditingDeadline] = useState(false);
+  const [draftTitle, setDraftTitle] = useState(column.title);
+  const [draftDeadline, setDraftDeadline] = useState(isoToLocalInput(column.deadline));
   const [isAddingCard, setIsAddingCard] = useState(false);
   const [newCardTitle, setNewCardTitle] = useState('');
   const [menuOpen, setMenuOpen] = useState(false);
   const menuRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
-    setEditTitle(column.title);
-    setEditDeadline(isoToLocalInput(column.deadline));
+    setDraftTitle(column.title);
+    setDraftDeadline(isoToLocalInput(column.deadline));
   }, [column.id, column.title, column.deadline]);
 
   useEffect(() => {
@@ -77,27 +76,41 @@ export const TaskColumnView: React.FC<TaskColumnViewProps> = ({
   }, []);
 
   const deadlineState = computeDeadlineState(column.deadline, false);
-  const headerAccent =
+  const deadlineBadgeClasses =
     deadlineState === 'overdue'
-      ? 'border-red-400 bg-red-50/80'
+      ? 'bg-red-100 text-red-700'
       : deadlineState === 'today'
-        ? 'border-yellow-400 bg-yellow-50/80'
-        : 'border-gray-200 bg-white/70';
+        ? 'bg-yellow-100 text-yellow-700'
+        : column.deadline
+          ? 'bg-blue-50 text-blue-700'
+          : 'bg-white/70 text-gray-500';
 
-  const handleSave = async () => {
-    const nextTitle = editTitle.trim();
-    if (!nextTitle) return;
+  const saveTitle = async (nextTitle: string) => {
+    const trimmed = nextTitle.trim();
+    if (!trimmed || trimmed === column.title) {
+      setDraftTitle(column.title);
+      return;
+    }
     try {
-      await updateColumn.mutateAsync({
-        id: column.id,
-        input: {
-          title: nextTitle,
-          deadline: localInputToIso(editDeadline),
-        },
-      });
-      setIsEditing(false);
+      await updateColumn.mutateAsync({ id: column.id, input: { title: trimmed } });
     } catch (error) {
-      console.error('Не удалось сохранить колонку:', error);
+      console.error('Не удалось переименовать колонку:', error);
+      setDraftTitle(column.title);
+    }
+  };
+
+  const saveDeadline = async (nextDeadline: string) => {
+    const nextIso = localInputToIso(nextDeadline);
+    if (nextIso === column.deadline) {
+      setEditingDeadline(false);
+      return;
+    }
+    try {
+      await updateColumn.mutateAsync({ id: column.id, input: { deadline: nextIso } });
+      setEditingDeadline(false);
+    } catch (error) {
+      console.error('Не удалось обновить дедлайн:', error);
+      setDraftDeadline(isoToLocalInput(column.deadline));
     }
   };
 
@@ -134,131 +147,129 @@ export const TaskColumnView: React.FC<TaskColumnViewProps> = ({
   };
 
   return (
-    <div className="w-80 flex-shrink-0 glass-card rounded-xl flex flex-col max-h-full">
-      <div className={`rounded-t-xl border-b ${headerAccent} px-4 py-3`}> 
-        {isEditing ? (
-          <div className="space-y-2">
-            <input
-              autoFocus
-              type="text"
-              value={editTitle}
-              onChange={(event) => setEditTitle(event.target.value)}
-              onKeyDown={(event) => {
-                if (event.key === 'Enter') handleSave();
-                if (event.key === 'Escape') setIsEditing(false);
-              }}
-              className="w-full px-2 py-1 border border-gray-200 rounded-md bg-white text-gray-900 focus:outline-none focus:ring-2 focus:ring-blue-400"
-              placeholder="Название колонки"
-            />
-            <div className="flex items-center gap-2">
-              <label className="text-xs text-gray-600 flex items-center gap-1">
-                <Calendar size={12} /> Дедлайн
-              </label>
-              <input
-                type="datetime-local"
-                value={editDeadline}
-                onChange={(event) => setEditDeadline(event.target.value)}
-                className="flex-1 px-2 py-1 border border-gray-200 rounded-md bg-white text-gray-800 text-sm focus:outline-none focus:ring-2 focus:ring-blue-400"
-              />
-              {editDeadline && (
-                <button
-                  onClick={() => setEditDeadline('')}
-                  className="p-1 rounded-md hover:bg-white text-gray-500"
-                  title="Очистить дедлайн"
-                >
-                  <X size={14} />
-                </button>
-              )}
-            </div>
-            <div className="flex items-center justify-end gap-2">
-              <button
-                onClick={() => setIsEditing(false)}
-                className="px-3 py-1 text-sm rounded-md bg-white/80 border border-gray-200 hover:bg-white"
-              >
-                Отмена
-              </button>
-              <button
-                onClick={handleSave}
-                disabled={updateColumn.isPending}
-                className="px-3 py-1 text-sm rounded-md bg-blue-500 text-white hover:bg-blue-600 disabled:opacity-50 flex items-center gap-1"
-              >
-                <Check size={14} /> Сохранить
-              </button>
-            </div>
-          </div>
-        ) : (
-          <div className="flex items-start gap-2">
-            <div className="flex-1 min-w-0">
-              <div className="flex items-center gap-2">
-                <h3 className="text-base font-semibold text-gray-800 truncate">{column.title}</h3>
-                <span className="text-xs text-gray-500">({cards.length})</span>
-              </div>
-              {column.deadline ? (
-                <div
-                  className={`mt-1 inline-flex items-center gap-1 text-xs font-medium rounded-full px-2 py-0.5 ${
-                    deadlineState === 'overdue'
-                      ? 'bg-red-200 text-red-800'
-                      : deadlineState === 'today'
-                        ? 'bg-yellow-200 text-yellow-800'
-                        : 'bg-blue-100 text-blue-700'
-                  }`}
-                >
-                  <Calendar size={12} />
-                  Срок: {formatDeadline(column.deadline)}
-                </div>
-              ) : (
-                <div className="mt-1 text-xs text-gray-500">Дедлайн не задан</div>
-              )}
-            </div>
-            <div className="relative" ref={menuRef}>
-              <button
-                onClick={() => setMenuOpen((prev) => !prev)}
-                className="p-1.5 rounded-md hover:bg-white/70 text-gray-600"
-                aria-label="Меню колонки"
-              >
-                <MoreHorizontal size={16} />
-              </button>
-              {menuOpen && (
-                <div className="absolute right-0 top-full mt-1 z-30 w-40 bg-white/95 border border-gray-200 rounded-lg shadow-lg overflow-hidden">
-                  <button
-                    onClick={() => {
-                      setIsEditing(true);
-                      setMenuOpen(false);
-                    }}
-                    className="w-full flex items-center gap-2 px-3 py-2 text-sm text-gray-700 hover:bg-gray-50"
-                  >
-                    <Pencil size={14} /> Редактировать
-                  </button>
-                  <button
-                    onClick={handleDelete}
-                    className="w-full flex items-center gap-2 px-3 py-2 text-sm text-red-600 hover:bg-red-50"
-                  >
-                    <Trash2 size={14} /> Удалить колонку
-                  </button>
-                </div>
-              )}
-            </div>
-          </div>
-        )}
-      </div>
-
-      <div className="flex-1 overflow-y-auto p-3 space-y-2">
-        {cards.length === 0 && (
-          <div className="text-xs text-gray-500 text-center py-6">Пока нет карточек</div>
-        )}
-        {cards.map((card) => (
-          <CardItem
-            key={card.id}
-            card={card}
-            commentsCount={commentsCountByCard[card.id] ?? 0}
-            onOpen={onOpenCard}
+    <section className="glass-card flex w-[340px] flex-shrink-0 flex-col self-start rounded-3xl p-4 max-h-[calc(100vh-220px)]">
+      <header className="mb-3 flex items-start justify-between gap-2">
+        <div className="min-w-0 flex-1">
+          <input
+            value={draftTitle}
+            onChange={(event) => setDraftTitle(event.target.value)}
+            onBlur={(event) => saveTitle(event.target.value)}
+            onKeyDown={(event) => {
+              if (event.key === 'Enter') (event.target as HTMLInputElement).blur();
+              if (event.key === 'Escape') {
+                setDraftTitle(column.title);
+                (event.target as HTMLInputElement).blur();
+              }
+            }}
+            className="w-full rounded-xl border border-transparent bg-transparent px-2 py-1 text-lg font-bold text-gray-900 hover:border-indigo-100 hover:bg-white/60 focus:border-indigo-200 focus:bg-white/80 focus:outline-none"
+            aria-label="Название колонки"
+            placeholder="Название колонки"
           />
-        ))}
+          <div className="mt-1 flex items-center gap-2 text-xs">
+            <Calendar size={13} className="text-gray-400" />
+            {editingDeadline ? (
+              <>
+                <input
+                  type="datetime-local"
+                  autoFocus
+                  value={draftDeadline}
+                  onChange={(event) => setDraftDeadline(event.target.value)}
+                  onBlur={(event) => saveDeadline(event.target.value)}
+                  onKeyDown={(event) => {
+                    if (event.key === 'Enter') (event.target as HTMLInputElement).blur();
+                    if (event.key === 'Escape') {
+                      setDraftDeadline(isoToLocalInput(column.deadline));
+                      setEditingDeadline(false);
+                    }
+                  }}
+                  className="rounded-lg border border-indigo-200 bg-white/80 px-2 py-1 text-xs focus:outline-none"
+                />
+                {draftDeadline && (
+                  <button
+                    type="button"
+                    onClick={() => saveDeadline('')}
+                    className="rounded p-1 text-gray-400 hover:bg-white hover:text-gray-700"
+                    title="Очистить дедлайн"
+                  >
+                    <X size={12} />
+                  </button>
+                )}
+              </>
+            ) : (
+              <button
+                type="button"
+                onClick={() => {
+                  setDraftDeadline(isoToLocalInput(column.deadline));
+                  setEditingDeadline(true);
+                }}
+                className={`inline-flex items-center gap-1 rounded-full px-2 py-0.5 font-semibold ${deadlineBadgeClasses}`}
+              >
+                {column.deadline ? formatDeadlineShort(column.deadline) : 'Без дедлайна'}
+              </button>
+            )}
+          </div>
+        </div>
+        <div className="flex items-center gap-2">
+          <span className="rounded-full bg-white/80 px-3 py-1 text-xs font-bold text-gray-500">
+            {cards.length}
+          </span>
+          <div className="relative" ref={menuRef}>
+            <button
+              type="button"
+              onClick={() => setMenuOpen((prev) => !prev)}
+              className="rounded-lg p-1.5 text-gray-400 transition-colors hover:bg-white/80 hover:text-gray-700"
+              aria-label="Меню колонки"
+            >
+              <MoreHorizontal size={16} />
+            </button>
+            {menuOpen && (
+              <div className="absolute right-0 top-full z-30 mt-1 w-44 overflow-hidden rounded-xl border border-gray-200 bg-white/95 shadow-lg">
+                <button
+                  type="button"
+                  onClick={() => {
+                    setMenuOpen(false);
+                    setEditingDeadline(true);
+                    setDraftDeadline(isoToLocalInput(column.deadline));
+                  }}
+                  className="flex w-full items-center gap-2 px-3 py-2 text-sm text-gray-700 hover:bg-gray-50"
+                >
+                  <Pencil size={14} /> Изменить дедлайн
+                </button>
+                <button
+                  type="button"
+                  onClick={handleDelete}
+                  className="flex w-full items-center gap-2 px-3 py-2 text-sm text-red-600 hover:bg-red-50"
+                >
+                  <Trash2 size={14} /> Удалить колонку
+                </button>
+              </div>
+            )}
+          </div>
+        </div>
+      </header>
+
+      <div className="flex-1 min-h-0 overflow-y-auto pr-1">
+        <div className="flex flex-col gap-3">
+          {cards.length === 0 ? (
+            <div className="flex items-center justify-center rounded-2xl border border-dashed border-gray-200 bg-white/35 p-6 text-center text-sm text-gray-400">
+              Карточек пока нет. Создайте задачу ниже.
+            </div>
+          ) : (
+            cards.map((card) => (
+              <CardItem
+                key={card.id}
+                card={card}
+                commentsCount={commentsCountByCard[card.id] ?? 0}
+                onOpen={onOpenCard}
+              />
+            ))
+          )}
+        </div>
       </div>
 
-      <div className="p-3 border-t border-gray-200/60">
+      <div className="mt-4">
         {isAddingCard ? (
-          <div className="space-y-2">
+          <div className="rounded-2xl border border-indigo-100 bg-white/80 p-3 shadow-sm">
             <textarea
               autoFocus
               value={newCardTitle}
@@ -275,22 +286,24 @@ export const TaskColumnView: React.FC<TaskColumnViewProps> = ({
               }}
               rows={2}
               placeholder="Название карточки..."
-              className="w-full px-3 py-2 border border-gray-200 rounded-md bg-white text-gray-900 focus:outline-none focus:ring-2 focus:ring-blue-400 resize-none"
+              className="glass-input w-full resize-none rounded-xl px-3 py-2 text-sm"
             />
-            <div className="flex items-center gap-2">
+            <div className="mt-2 flex gap-2">
               <button
+                type="button"
                 onClick={handleAddCard}
                 disabled={createCard.isPending || !newCardTitle.trim()}
-                className="px-3 py-1 text-sm rounded-md bg-blue-500 text-white hover:bg-blue-600 disabled:opacity-50"
+                className="btn-glass flex-1 rounded-xl px-4 py-2 text-sm font-semibold disabled:cursor-not-allowed disabled:opacity-50"
               >
                 Добавить
               </button>
               <button
+                type="button"
                 onClick={() => {
                   setIsAddingCard(false);
                   setNewCardTitle('');
                 }}
-                className="px-3 py-1 text-sm rounded-md bg-white border border-gray-200 hover:bg-gray-50"
+                className="btn-glass-secondary rounded-xl px-4 py-2 text-sm font-semibold"
               >
                 Отмена
               </button>
@@ -298,13 +311,15 @@ export const TaskColumnView: React.FC<TaskColumnViewProps> = ({
           </div>
         ) : (
           <button
+            type="button"
             onClick={() => setIsAddingCard(true)}
-            className="w-full flex items-center justify-center gap-2 px-3 py-2 text-sm rounded-md text-gray-600 hover:bg-white/70 border border-dashed border-gray-300"
+            className="inline-flex w-full items-center justify-center gap-2 rounded-2xl border border-dashed border-indigo-200 bg-white/45 px-4 py-3 text-sm font-semibold text-indigo-600 transition-all hover:border-indigo-300 hover:bg-white/80"
           >
-            <Plus size={16} /> Добавить карточку
+            <Plus size={16} />
+            Добавить карточку
           </button>
         )}
       </div>
-    </div>
+    </section>
   );
 };

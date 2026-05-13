@@ -1,7 +1,16 @@
 import React, { useMemo } from 'react';
-import { CheckCircle2, Circle, Clock, MessageSquare, User as UserIcon } from 'lucide-react';
+import {
+  Calendar,
+  CheckCircle2,
+  Circle,
+  GripVertical,
+  MessageSquare,
+  Pencil,
+  Trash2,
+  UserCircle,
+} from 'lucide-react';
 import { TaskCard, computeDeadlineState } from '../models/tasksModel';
-import { useUpdateCard } from '../api/tasksApi';
+import { useDeleteCard, useUpdateCard } from '../api/tasksApi';
 import { useUsers } from '../../auth/api/usersApi';
 
 interface CardItemProps {
@@ -26,11 +35,12 @@ function formatDeadline(value: string | null): string {
 export const CardItem: React.FC<CardItemProps> = ({ card, commentsCount, onOpen }) => {
   const { data: users = [] } = useUsers();
   const updateCard = useUpdateCard();
+  const deleteCard = useDeleteCard();
 
   const userMap = useMemo(() => {
     const map = new Map<string, { username: string; email: string }>();
     (users as Array<{ id: string; username: string; email: string }>).forEach((user) =>
-      map.set(user.id, user)
+      map.set(user.id, user),
     );
     return map;
   }, [users]);
@@ -38,21 +48,21 @@ export const CardItem: React.FC<CardItemProps> = ({ card, commentsCount, onOpen 
   const deadlineState = computeDeadlineState(card.deadline, card.completed);
 
   const cardClasses = card.completed
-    ? 'bg-green-100/80 border-green-300 ring-1 ring-green-200'
+    ? 'border-emerald-300 bg-emerald-50/95 shadow-emerald-100'
     : deadlineState === 'overdue'
-      ? 'bg-red-100/80 border-red-300 ring-1 ring-red-200'
+      ? 'border-red-300 bg-red-50/95 shadow-red-100'
       : deadlineState === 'today'
-        ? 'bg-yellow-100/80 border-yellow-300 ring-1 ring-yellow-200'
-        : 'bg-white/80 border-gray-200 hover:bg-white';
+        ? 'border-yellow-300 bg-yellow-50/95 shadow-yellow-100'
+        : 'border-white/70 bg-white/75';
 
   const deadlineLabel = formatDeadline(card.deadline);
   const deadlineBadgeClasses = card.completed
-    ? 'bg-green-200 text-green-800'
+    ? 'bg-emerald-100 text-emerald-700'
     : deadlineState === 'overdue'
-      ? 'bg-red-200 text-red-800'
+      ? 'bg-red-100 text-red-700'
       : deadlineState === 'today'
-        ? 'bg-yellow-200 text-yellow-800'
-        : 'bg-gray-100 text-gray-700';
+        ? 'bg-yellow-100 text-yellow-700'
+        : 'bg-blue-50 text-blue-700';
 
   const handleToggleCompleted = async (event: React.MouseEvent) => {
     event.stopPropagation();
@@ -66,77 +76,122 @@ export const CardItem: React.FC<CardItemProps> = ({ card, commentsCount, onOpen 
     }
   };
 
+  const handleEdit = (event: React.MouseEvent) => {
+    event.stopPropagation();
+    onOpen(card);
+  };
+
+  const handleDelete = async (event: React.MouseEvent) => {
+    event.stopPropagation();
+    if (!window.confirm('Удалить карточку безвозвратно?')) return;
+    try {
+      await deleteCard.mutateAsync(card.id);
+    } catch (error) {
+      console.error('Не удалось удалить карточку:', error);
+    }
+  };
+
   return (
-    <div
+    <article
       onClick={() => onOpen(card)}
-      className={`group relative rounded-lg border ${cardClasses} p-3 shadow-sm cursor-pointer transition-colors`}
+      className={`group cursor-pointer rounded-2xl border p-4 shadow-sm transition-all duration-200 hover:-translate-y-1 hover:shadow-xl ${cardClasses}`}
     >
-      <div className="flex items-start gap-2">
-        <button
-          onClick={handleToggleCompleted}
-          className={`mt-0.5 flex-shrink-0 ${
-            card.completed ? 'text-green-600' : 'text-gray-400 hover:text-gray-600'
-          }`}
-          aria-label={card.completed ? 'Снять отметку выполнения' : 'Отметить выполненной'}
-          title={card.completed ? 'Снять отметку выполнения' : 'Отметить выполненной'}
-        >
-          {card.completed ? <CheckCircle2 size={20} /> : <Circle size={20} />}
-        </button>
-        <div className="flex-1 min-w-0">
-          <div
-            className={`text-sm font-medium text-gray-900 break-words ${
-              card.completed ? 'line-through text-gray-500' : ''
+      <div className="mb-2 flex items-start gap-2">
+        <GripVertical className="mt-1 flex-shrink-0 text-gray-300" size={18} />
+        <div className="min-w-0 flex-1">
+          <h3
+            className={`text-sm font-bold text-gray-900 break-words ${
+              card.completed ? 'text-gray-500 line-through' : ''
             }`}
           >
             {card.title}
-          </div>
+          </h3>
           {card.description && (
-            <div className="text-xs text-gray-600 mt-1 line-clamp-2 whitespace-pre-wrap break-words">
+            <p className="mt-1 line-clamp-3 text-xs leading-5 text-gray-500 break-words whitespace-pre-wrap">
               {card.description}
-            </div>
+            </p>
           )}
-
-          <div className="flex flex-wrap items-center gap-2 mt-2">
-            {deadlineLabel && (
-              <div
-                className={`inline-flex items-center gap-1 text-xs font-medium rounded-full px-2 py-0.5 ${deadlineBadgeClasses}`}
-              >
-                <Clock size={12} />
-                {deadlineLabel}
-              </div>
-            )}
-            {commentsCount > 0 && (
-              <div className="inline-flex items-center gap-1 text-xs text-gray-600">
-                <MessageSquare size={12} />
-                {commentsCount}
-              </div>
-            )}
-            {card.assignees.length > 0 && (
-              <div className="flex flex-wrap items-center gap-1">
-                {card.assignees.slice(0, 3).map((userId) => {
-                  const user = userMap.get(userId);
-                  const label = user?.username || user?.email || userId;
-                  return (
-                    <div
-                      key={userId}
-                      className="inline-flex items-center gap-1 text-xs bg-blue-100/70 text-blue-700 rounded-full px-2 py-0.5 max-w-[140px]"
-                      title={user?.email || label}
-                    >
-                      <UserIcon size={10} />
-                      <span className="truncate">{label}</span>
-                    </div>
-                  );
-                })}
-                {card.assignees.length > 3 && (
-                  <div className="text-xs text-gray-500">
-                    +{card.assignees.length - 3}
-                  </div>
-                )}
-              </div>
-            )}
-          </div>
+        </div>
+        <div className="flex flex-shrink-0 items-center gap-1 opacity-0 transition-opacity group-hover:opacity-100">
+          <button
+            type="button"
+            onClick={handleToggleCompleted}
+            className={`rounded-lg p-1.5 transition-colors ${
+              card.completed
+                ? 'text-emerald-600 hover:bg-emerald-50'
+                : 'text-gray-400 hover:bg-emerald-50 hover:text-emerald-600'
+            }`}
+            aria-label={card.completed ? 'Снять отметку выполнения' : 'Отметить выполненной'}
+            title={card.completed ? 'Снять отметку выполнения' : 'Отметить выполненной'}
+          >
+            {card.completed ? <CheckCircle2 size={14} /> : <Circle size={14} />}
+          </button>
+          <button
+            type="button"
+            onClick={handleEdit}
+            className="rounded-lg p-1.5 text-gray-400 transition-colors hover:bg-indigo-50 hover:text-indigo-600"
+            aria-label="Редактировать карточку"
+            title="Открыть карточку"
+          >
+            <Pencil size={14} />
+          </button>
+          <button
+            type="button"
+            onClick={handleDelete}
+            className="rounded-lg p-1.5 text-gray-400 transition-colors hover:bg-rose-50 hover:text-rose-600"
+            aria-label="Удалить карточку"
+            title="Удалить карточку"
+          >
+            <Trash2 size={14} />
+          </button>
         </div>
       </div>
-    </div>
+
+      <div className="ml-7 flex flex-wrap items-center gap-1.5 text-[11px] text-gray-500">
+        {deadlineLabel && (
+          <span
+            className={`inline-flex items-center gap-1 rounded-full px-2 py-0.5 font-semibold ${deadlineBadgeClasses}`}
+          >
+            <Calendar size={12} />
+            {deadlineLabel}
+          </span>
+        )}
+        {card.completed && (
+          <span className="inline-flex items-center gap-1 rounded-full bg-emerald-100 px-2 py-0.5 font-bold text-emerald-700">
+            <CheckCircle2 size={12} />
+            Выполнено
+          </span>
+        )}
+        {card.assignees.length > 0 && (
+          <div className="flex flex-wrap items-center gap-1">
+            {card.assignees.slice(0, 3).map((userId) => {
+              const user = userMap.get(userId);
+              const label = user?.username || user?.email || userId;
+              return (
+                <span
+                  key={userId}
+                  className="inline-flex max-w-[140px] items-center gap-1 rounded-full bg-indigo-50 px-2 py-0.5 font-semibold text-indigo-600"
+                  title={user?.email || label}
+                >
+                  <UserCircle size={12} />
+                  <span className="truncate">{label}</span>
+                </span>
+              );
+            })}
+            {card.assignees.length > 3 && (
+              <span className="text-[11px] font-semibold text-gray-400">
+                +{card.assignees.length - 3}
+              </span>
+            )}
+          </div>
+        )}
+        {commentsCount > 0 && (
+          <span className="inline-flex items-center gap-1 rounded-full bg-white/80 px-2 py-0.5 font-medium text-gray-600">
+            <MessageSquare size={12} />
+            {commentsCount}
+          </span>
+        )}
+      </div>
+    </article>
   );
 };
