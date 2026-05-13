@@ -2,7 +2,9 @@ import React, { useEffect, useMemo, useState } from 'react';
 import { Archive, Filter, RefreshCw, Search, Users } from 'lucide-react';
 import { useIsMutating, useQueryClient } from '@tanstack/react-query';
 import {
+  cardsCacheKey,
   useArchivedTaskColumns,
+  useReorderCards,
   useTaskCards,
   useTaskColumns,
 } from '../api/tasksApi';
@@ -11,6 +13,7 @@ import { TaskColumnView } from '../components/TaskColumnView';
 import { AddColumnForm } from '../components/AddColumnForm';
 import { ArchivePanel } from '../components/ArchivePanel';
 import { CardModal } from '../components/CardModal';
+import { CardDragProvider } from '../dnd/CardDragContext';
 import { useUsers } from '../../auth/api/usersApi';
 
 function readCurrentUserId(): string | null {
@@ -110,8 +113,83 @@ export const TasksView: React.FC = () => {
     return cards.find((card) => card.id === selectedCardId) ?? null;
   }, [cards, selectedCardId]);
 
+  const reorderCards = useReorderCards();
+
   const isLoading = columnsLoading || cardsLoading;
   const error = columnsError || cardsError;
+
+  const handleDropCard = (
+    cardId: string,
+    targetColumnId: string,
+    targetIndex: number,
+  ) => {
+    const movingCard = cards.find((card) => card.id === cardId);
+    if (!movingCard) return;
+
+    const sortByPosition = (list: TaskCard[]) =>
+      [...list].sort((a, b) => {
+        if (a.position !== b.position) return a.position - b.position;
+        return a.createdAt.localeCompare(b.createdAt);
+      });
+
+    const sourceColumnId = movingCard.columnId;
+    const sameColumn = sourceColumnId === targetColumnId;
+
+    const sourceCards = sortByPosition(
+      cards.filter((card) => card.columnId === sourceColumnId),
+    );
+    const targetCardsBase = sameColumn
+      ? sourceCards
+      : sortByPosition(cards.filter((card) => card.columnId === targetColumnId));
+
+    const withoutMoving = targetCardsBase.filter((card) => card.id !== cardId);
+    const clampedIndex = Math.max(0, Math.min(targetIndex, withoutMoving.length));
+    const newTarget = [
+      ...withoutMoving.slice(0, clampedIndex),
+      movingCard,
+      ...withoutMoving.slice(clampedIndex),
+    ];
+
+    const updates: Array<{ id: string; columnId: string; position: number }> = [];
+    newTarget.forEach((card, index) => {
+      // Сравниваем с фактическим текущим состоянием карточки (без переноса).
+      const wasInTargetColumn = card.columnId === targetColumnId;
+      if (!wasInTargetColumn || card.position !== index) {
+        updates.push({ id: card.id, columnId: targetColumnId, position: index });
+      }
+    });
+
+    let newSource: TaskCard[] | null = null;
+    if (!sameColumn) {
+      newSource = sourceCards.filter((card) => card.id !== cardId);
+      newSource.forEach((card, index) => {
+        if (card.position !== index) {
+          updates.push({ id: card.id, columnId: sourceColumnId, position: index });
+        }
+      });
+    }
+
+    if (updates.length === 0) return;
+
+    // Оптимистично обновляем кеш реакт-запроса до ответа сервера, чтобы перемещение
+    // отображалось мгновенно. Серверный ответ потом перезапишет этот кеш.
+    queryClient.setQueryData<TaskCard[]>(cardsCacheKey, (prev) => {
+      if (!prev) return prev;
+      const updateMap = new Map(updates.map((u) => [u.id, u]));
+      return prev.map((card) => {
+        const update = updateMap.get(card.id);
+        if (!update) return card;
+        return { ...card, columnId: update.columnId, position: update.position };
+      });
+    });
+
+    reorderCards.mutate(updates, {
+      onError: (mutationError) => {
+        console.error('Не удалось переместить карточку:', mutationError);
+        queryClient.invalidateQueries({ queryKey: cardsCacheKey });
+      },
+    });
+  };
 
   const handleRefresh = () => {
     queryClient.invalidateQueries({ queryKey: ['task-columns'] });
@@ -130,6 +208,7 @@ export const TasksView: React.FC = () => {
   );
 
   return (
+    <CardDragProvider>
     <div className="flex flex-col h-full min-h-0">
       <div className="px-6 lg:px-8 pt-6 pb-4">
         <div className="flex flex-col gap-4 xl:flex-row xl:items-end xl:justify-between">
@@ -239,6 +318,7 @@ export const TasksView: React.FC = () => {
                 cards={cardsByColumn.get(column.id) ?? []}
                 commentsCountByCard={commentsCountByCard}
                 onOpenCard={(card) => setSelectedCardId(card.id)}
+                onDropCard={handleDropCard}
               />
             ))
           )}
@@ -257,5 +337,6 @@ export const TasksView: React.FC = () => {
 
       {isArchiveOpen && <ArchivePanel onClose={() => setIsArchiveOpen(false)} />}
     </div>
+    </CardDragProvider>
   );
 };

@@ -7,12 +7,14 @@ import {
   useUpdateColumn,
 } from '../api/tasksApi';
 import { CardItem } from './CardItem';
+import { useCardDrag } from '../dnd/CardDragContext';
 
 interface TaskColumnViewProps {
   column: TaskColumn;
   cards: TaskCard[];
   commentsCountByCard: Record<string, number>;
   onOpenCard: (card: TaskCard) => void;
+  onDropCard: (cardId: string, targetColumnId: string, targetIndex: number) => void;
 }
 
 function isoToLocalInput(value: string | null): string {
@@ -47,10 +49,12 @@ export const TaskColumnView: React.FC<TaskColumnViewProps> = ({
   cards,
   commentsCountByCard,
   onOpenCard,
+  onDropCard,
 }) => {
   const updateColumn = useUpdateColumn();
   const archiveColumn = useArchiveColumn();
   const createCard = useCreateCard();
+  const drag = useCardDrag();
 
   const [editingDeadline, setEditingDeadline] = useState(false);
   const [draftTitle, setDraftTitle] = useState(column.title);
@@ -213,21 +217,76 @@ export const TaskColumnView: React.FC<TaskColumnViewProps> = ({
         </div>
       </header>
 
-      <div className="tasks-scroll flex-1 min-h-0 overflow-y-auto pr-1">
+      <div
+        className="tasks-scroll flex-1 min-h-0 overflow-y-auto pr-1"
+        onDragOver={(event) => {
+          const live = drag.readState();
+          if (!live.draggingCardId) return;
+          event.preventDefault();
+          event.dataTransfer.dropEffect = 'move';
+          // Если курсор не над карточкой, ставим в конец списка.
+          if (live.hoverColumnId !== column.id) {
+            drag.setHover(column.id, cards.length);
+          }
+        }}
+        onDragLeave={(event) => {
+          // Уходим из колонки только если курсор реально вышел за её пределы.
+          const related = event.relatedTarget as Node | null;
+          if (!related || !(event.currentTarget as HTMLElement).contains(related)) {
+            drag.clearHover(column.id);
+          }
+        }}
+        onDrop={(event) => {
+          const live = drag.readState();
+          if (!live.draggingCardId) return;
+          event.preventDefault();
+          const cardId = live.draggingCardId;
+          const targetIndex = live.hoverIndex ?? cards.length;
+          onDropCard(cardId, column.id, targetIndex);
+          drag.endDrag();
+        }}
+      >
         <div className="flex flex-col gap-3">
           {cards.length === 0 ? (
-            <div className="flex items-center justify-center rounded-2xl border border-dashed border-gray-200 bg-white/35 p-6 text-center text-sm text-gray-400">
-              Карточек пока нет. Создайте задачу ниже.
+            <div
+              className={`flex items-center justify-center rounded-2xl border border-dashed p-6 text-center text-sm transition-colors ${
+                drag.hoverColumnId === column.id && drag.draggingCardId
+                  ? 'border-indigo-300 bg-indigo-50/70 text-indigo-600'
+                  : 'border-gray-200 bg-white/35 text-gray-400'
+              }`}
+            >
+              {drag.hoverColumnId === column.id && drag.draggingCardId
+                ? 'Перенести карточку сюда'
+                : 'Карточек пока нет. Создайте задачу ниже.'}
             </div>
           ) : (
-            cards.map((card) => (
-              <CardItem
-                key={card.id}
-                card={card}
-                commentsCount={commentsCountByCard[card.id] ?? 0}
-                onOpen={onOpenCard}
+            <>
+              {cards.map((card, index) => (
+                <CardItem
+                  key={card.id}
+                  card={card}
+                  commentsCount={commentsCountByCard[card.id] ?? 0}
+                  onOpen={onOpenCard}
+                  index={index}
+                  columnId={column.id}
+                />
+              ))}
+              {/* Зона ниже последней карточки — позволяет дропнуть в конец колонки. */}
+              <div
+                className={`-mt-1 h-3 rounded-full transition-all ${
+                  drag.hoverColumnId === column.id && drag.hoverIndex === cards.length
+                    ? 'bg-indigo-500/80 shadow-[0_0_10px_rgba(99,102,241,0.55)]'
+                    : 'bg-transparent'
+                }`}
+                onDragOver={(event) => {
+                  const live = drag.readState();
+                  if (!live.draggingCardId) return;
+                  event.preventDefault();
+                  event.stopPropagation();
+                  drag.setHover(column.id, cards.length);
+                }}
               />
-            ))
+            </>
           )}
         </div>
       </div>

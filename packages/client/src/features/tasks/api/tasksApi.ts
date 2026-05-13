@@ -120,6 +120,18 @@ export const tasksApi = {
     await handleResponse<{ success: true }>(response);
   },
 
+  async reorderCards(
+    updates: Array<{ id: string; columnId: string; position: number }>,
+  ): Promise<void> {
+    if (updates.length === 0) return;
+    const response = await fetch(`${API_BASE}/cards/reorder`, {
+      method: 'POST',
+      headers: buildHeaders(),
+      body: JSON.stringify({ updates }),
+    });
+    await handleResponse<{ success: true; count: number }>(response);
+  },
+
   async getComments(cardId: string): Promise<TaskComment[]> {
     const response = await fetch(`${API_BASE}/cards/${cardId}/comments`, {
       headers: buildHeaders(),
@@ -247,6 +259,19 @@ export const useDeleteCard = () => {
     },
   });
 };
+
+export const useReorderCards = () => {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: (updates: Array<{ id: string; columnId: string; position: number }>) =>
+      tasksApi.reorderCards(updates),
+    onSettled: () => {
+      queryClient.invalidateQueries({ queryKey: CARDS_KEY });
+    },
+  });
+};
+
+export const cardsCacheKey = CARDS_KEY;
 
 export const useCreateComment = () => {
   const queryClient = useQueryClient();

@@ -1,4 +1,4 @@
-import React, { useMemo } from 'react';
+import React, { useMemo, useRef } from 'react';
 import {
   Calendar,
   CheckCircle2,
@@ -12,11 +12,14 @@ import {
 import { TaskCard, computeDeadlineState } from '../models/tasksModel';
 import { useDeleteCard, useUpdateCard } from '../api/tasksApi';
 import { useUsers } from '../../auth/api/usersApi';
+import { CARD_DRAG_MIME, useCardDrag } from '../dnd/CardDragContext';
 
 interface CardItemProps {
   card: TaskCard;
   commentsCount: number;
   onOpen: (card: TaskCard) => void;
+  index: number;
+  columnId: string;
 }
 
 function formatDeadline(value: string | null): string {
@@ -32,10 +35,54 @@ function formatDeadline(value: string | null): string {
   });
 }
 
-export const CardItem: React.FC<CardItemProps> = ({ card, commentsCount, onOpen }) => {
+export const CardItem: React.FC<CardItemProps> = ({
+  card,
+  commentsCount,
+  onOpen,
+  index,
+  columnId,
+}) => {
   const { data: users = [] } = useUsers();
   const updateCard = useUpdateCard();
   const deleteCard = useDeleteCard();
+  const drag = useCardDrag();
+  const cardRef = useRef<HTMLElement>(null);
+
+  const isDragging = drag.draggingCardId === card.id;
+  const isHoverTopHere =
+    drag.hoverColumnId === columnId && drag.hoverIndex === index && !isDragging;
+  const isHoverBottomLast =
+    drag.hoverColumnId === columnId &&
+    drag.hoverIndex === index + 1 &&
+    !isDragging;
+
+  const handleDragStart = (event: React.DragEvent<HTMLElement>) => {
+    try {
+      event.dataTransfer.effectAllowed = 'move';
+      event.dataTransfer.setData(CARD_DRAG_MIME, card.id);
+      event.dataTransfer.setData('text/plain', card.id);
+    } catch {
+      // Некоторые браузеры ограничивают setData по MIME-типу — игнорируем.
+    }
+    drag.beginDrag(card.id, columnId);
+  };
+
+  const handleDragEnd = () => {
+    drag.endDrag();
+  };
+
+  const handleDragOver = (event: React.DragEvent<HTMLElement>) => {
+    const live = drag.readState();
+    if (!live.draggingCardId || live.draggingCardId === card.id) return;
+    event.preventDefault();
+    event.stopPropagation();
+    event.dataTransfer.dropEffect = 'move';
+    const rect = cardRef.current?.getBoundingClientRect();
+    if (!rect) return;
+    const midpoint = rect.top + rect.height / 2;
+    const targetIndex = event.clientY < midpoint ? index : index + 1;
+    drag.setHover(columnId, targetIndex);
+  };
 
   const userMap = useMemo(() => {
     const map = new Map<string, { username: string; email: string }>();
@@ -93,11 +140,27 @@ export const CardItem: React.FC<CardItemProps> = ({ card, commentsCount, onOpen 
 
   return (
     <article
+      ref={cardRef}
+      draggable
+      onDragStart={handleDragStart}
+      onDragEnd={handleDragEnd}
+      onDragOver={handleDragOver}
       onClick={() => onOpen(card)}
-      className={`group cursor-pointer rounded-2xl border p-4 shadow-sm transition-all duration-200 hover:-translate-y-1 hover:shadow-xl ${cardClasses}`}
+      className={`group relative cursor-pointer rounded-2xl border p-4 shadow-sm transition-all duration-200 hover:-translate-y-1 hover:shadow-xl ${cardClasses} ${
+        isDragging ? 'pointer-events-none scale-[0.98] opacity-40' : ''
+      }`}
     >
+      {isHoverTopHere && (
+        <div className="pointer-events-none absolute -top-1.5 left-2 right-2 h-1 rounded-full bg-indigo-500 shadow-[0_0_10px_rgba(99,102,241,0.55)]" />
+      )}
+      {isHoverBottomLast && (
+        <div className="pointer-events-none absolute -bottom-1.5 left-2 right-2 h-1 rounded-full bg-indigo-500 shadow-[0_0_10px_rgba(99,102,241,0.55)]" />
+      )}
       <div className="mb-2 flex items-start gap-2">
-        <GripVertical className="mt-1 flex-shrink-0 text-gray-300" size={18} />
+        <GripVertical
+          className="mt-1 flex-shrink-0 cursor-grab text-gray-300 group-hover:text-indigo-400"
+          size={18}
+        />
         <div className="min-w-0 flex-1">
           <h3
             className={`text-sm font-bold text-gray-900 break-words ${

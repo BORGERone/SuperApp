@@ -49,6 +49,19 @@ const createCommentSchema = z.object({
   body: z.string().min(1).max(4000),
 });
 
+const reorderCardsSchema = z.object({
+  updates: z
+    .array(
+      z.object({
+        id: z.string().min(1),
+        columnId: z.string().min(1),
+        position: z.number().int(),
+      }),
+    )
+    .min(1)
+    .max(500),
+});
+
 // ===== Утилиты =====
 
 function parseAssignees(value: string | null): string[] {
@@ -415,6 +428,36 @@ tasks.put('/cards/:id', async (c) => {
     }
     console.error('Error updating card:', error);
     return c.json({ error: 'Не удалось обновить карточку' }, 500);
+  }
+});
+
+// Пакетное переупорядочивание карточек (drag-and-drop)
+tasks.post('/cards/reorder', async (c) => {
+  try {
+    const body = await c.req.json();
+    const data = reorderCardsSchema.parse(body);
+
+    const now = new Date();
+    // Используем последовательные апдейты, чтобы изменения применились атомарно для клиента
+    for (const update of data.updates) {
+      await db
+        .update(taskCards)
+        .set({
+          columnId: update.columnId,
+          position: update.position,
+          updatedAt: now,
+        })
+        .where(eq(taskCards.id, update.id))
+        .execute();
+    }
+
+    return c.json({ success: true, count: data.updates.length });
+  } catch (error) {
+    if (error instanceof z.ZodError) {
+      return c.json({ error: 'Ошибка валидации', details: error.errors }, 400);
+    }
+    console.error('Error reordering cards:', error);
+    return c.json({ error: 'Не удалось обновить порядок карточек' }, 500);
   }
 });
 
