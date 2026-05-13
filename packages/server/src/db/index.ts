@@ -69,6 +69,43 @@ sqlite.exec(`
     updated_at INTEGER NOT NULL,
     FOREIGN KEY (owner_id) REFERENCES users(id)
   );
+
+  CREATE TABLE IF NOT EXISTS task_columns (
+    id TEXT PRIMARY KEY,
+    name TEXT NOT NULL,
+    deadline INTEGER,
+    position INTEGER NOT NULL DEFAULT 0,
+    owner_id TEXT NOT NULL,
+    created_at INTEGER NOT NULL,
+    updated_at INTEGER NOT NULL,
+    FOREIGN KEY (owner_id) REFERENCES users(id)
+  );
+
+  CREATE TABLE IF NOT EXISTS task_cards (
+    id TEXT PRIMARY KEY,
+    column_id TEXT NOT NULL,
+    title TEXT NOT NULL,
+    description TEXT,
+    deadline INTEGER,
+    is_completed INTEGER NOT NULL DEFAULT 0,
+    assignees TEXT NOT NULL DEFAULT '[]',
+    position INTEGER NOT NULL DEFAULT 0,
+    owner_id TEXT NOT NULL,
+    created_at INTEGER NOT NULL,
+    updated_at INTEGER NOT NULL,
+    FOREIGN KEY (column_id) REFERENCES task_columns(id),
+    FOREIGN KEY (owner_id) REFERENCES users(id)
+  );
+
+  CREATE TABLE IF NOT EXISTS task_card_comments (
+    id TEXT PRIMARY KEY,
+    card_id TEXT NOT NULL,
+    user_id TEXT NOT NULL,
+    body TEXT NOT NULL,
+    created_at INTEGER NOT NULL,
+    FOREIGN KEY (card_id) REFERENCES task_cards(id),
+    FOREIGN KEY (user_id) REFERENCES users(id)
+  );
 `);
 
 // Инициализация базы данных с начальными пользователями

@@ -51,7 +51,7 @@ export const emails = sqliteTable('emails', {
   updatedAt: integer('updated_at', { mode: 'timestamp' }).notNull(),
 });
 
-// Таблица досок задач
+// Таблица досок задач (устаревшее, оставлено для совместимости)
 export const boards = sqliteTable('boards', {
   id: text('id').primaryKey(),
   name: text('name').notNull(),
@@ -61,7 +61,7 @@ export const boards = sqliteTable('boards', {
   updatedAt: integer('updated_at', { mode: 'timestamp' }).notNull(),
 });
 
-// Таблица задач
+// Таблица задач (устаревшее, оставлено для совместимости)
 export const tasks = sqliteTable('tasks', {
   id: text('id').primaryKey(),
   title: text('title').notNull(),
@@ -74,6 +74,41 @@ export const tasks = sqliteTable('tasks', {
   updatedAt: integer('updated_at', { mode: 'timestamp' }).notNull(),
 });
 
+// Таблица пользовательских колонок задач
+export const taskColumns = sqliteTable('task_columns', {
+  id: text('id').primaryKey(),
+  name: text('name').notNull(),
+  deadline: integer('deadline', { mode: 'timestamp' }),
+  position: integer('position').notNull().default(0),
+  ownerId: text('owner_id').notNull().references(() => users.id),
+  createdAt: integer('created_at', { mode: 'timestamp' }).notNull(),
+  updatedAt: integer('updated_at', { mode: 'timestamp' }).notNull(),
+});
+
+// Таблица карточек задач
+export const taskCards = sqliteTable('task_cards', {
+  id: text('id').primaryKey(),
+  columnId: text('column_id').notNull().references(() => taskColumns.id),
+  title: text('title').notNull(),
+  description: text('description'),
+  deadline: integer('deadline', { mode: 'timestamp' }),
+  isCompleted: integer('is_completed', { mode: 'boolean' }).notNull().default(false),
+  assignees: text('assignees').notNull().default('[]'), // JSON массив user id
+  position: integer('position').notNull().default(0),
+  ownerId: text('owner_id').notNull().references(() => users.id),
+  createdAt: integer('created_at', { mode: 'timestamp' }).notNull(),
+  updatedAt: integer('updated_at', { mode: 'timestamp' }).notNull(),
+});
+
+// Таблица комментариев к карточкам
+export const taskCardComments = sqliteTable('task_card_comments', {
+  id: text('id').primaryKey(),
+  cardId: text('card_id').notNull().references(() => taskCards.id),
+  userId: text('user_id').notNull().references(() => users.id),
+  body: text('body').notNull(),
+  createdAt: integer('created_at', { mode: 'timestamp' }).notNull(),
+});
+
 // Типы для TypeScript
 export type User = typeof users.$inferSelect;
 export type File = typeof files.$inferSelect;
@@ -81,3 +116,6 @@ export type FilePermission = typeof filePermissions.$inferSelect;
 export type Email = typeof emails.$inferSelect;
 export type Board = typeof boards.$inferSelect;
 export type Task = typeof tasks.$inferSelect;
+export type TaskColumn = typeof taskColumns.$inferSelect;
+export type TaskCard = typeof taskCards.$inferSelect;
+export type TaskCardComment = typeof taskCardComments.$inferSelect;
