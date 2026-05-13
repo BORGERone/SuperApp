@@ -59,8 +59,10 @@ export const CardItem: React.FC<CardItemProps> = ({
   const handleDragStart = (event: React.DragEvent<HTMLElement>) => {
     try {
       event.dataTransfer.effectAllowed = 'move';
-      event.dataTransfer.setData(CARD_DRAG_MIME, card.id);
+      // В Electron drop не срабатывает без setData('text', ...) — известный воркараунд из Chromium.
+      event.dataTransfer.setData('text', card.id);
       event.dataTransfer.setData('text/plain', card.id);
+      event.dataTransfer.setData(CARD_DRAG_MIME, card.id);
     } catch {
       // Некоторые браузеры ограничивают setData по MIME-типу — игнорируем.
     }
@@ -69,6 +71,16 @@ export const CardItem: React.FC<CardItemProps> = ({
 
   const handleDragEnd = () => {
     drag.endDrag();
+  };
+
+  const handleDragEnter = (event: React.DragEvent<HTMLElement>) => {
+    const live = drag.readState();
+    if (!live.draggingCardId || live.draggingCardId === card.id) return;
+    // preventDefault на dragenter обязателен в некоторых версиях Chromium/Electron,
+    // иначе drop не сработает.
+    event.preventDefault();
+    event.stopPropagation();
+    event.dataTransfer.dropEffect = 'move';
   };
 
   const handleDragOver = (event: React.DragEvent<HTMLElement>) => {
@@ -144,6 +156,7 @@ export const CardItem: React.FC<CardItemProps> = ({
       draggable
       onDragStart={handleDragStart}
       onDragEnd={handleDragEnd}
+      onDragEnter={handleDragEnter}
       onDragOver={handleDragOver}
       onClick={() => onOpen(card)}
       className={`group relative cursor-pointer rounded-2xl border p-4 shadow-sm transition-all duration-200 hover:-translate-y-1 hover:shadow-xl ${cardClasses} ${

@@ -1,4 +1,4 @@
-import React, { createContext, useCallback, useContext, useMemo, useRef, useState } from 'react';
+import React, { createContext, useCallback, useContext, useEffect, useMemo, useRef, useState } from 'react';
 
 export interface CardDragState {
   draggingCardId: string | null;
@@ -63,6 +63,26 @@ export const CardDragProvider: React.FC<{ children: React.ReactNode }> = ({ chil
   }, [apply]);
 
   const readState = useCallback(() => ref.current, []);
+
+  // Пока тащим карточку, перехватываем dragover/drop на уровне окна — иначе
+  // Electron (и Chromium в полноэкранных сценариях) рассматривает drop как
+  // открытие файла и не доставляет событие нашему дроп-таргету.
+  useEffect(() => {
+    if (!state.draggingCardId) return;
+    const onWindowDragOver = (event: DragEvent) => {
+      event.preventDefault();
+      if (event.dataTransfer) event.dataTransfer.dropEffect = 'move';
+    };
+    const onWindowDrop = (event: DragEvent) => {
+      event.preventDefault();
+    };
+    window.addEventListener('dragover', onWindowDragOver);
+    window.addEventListener('drop', onWindowDrop);
+    return () => {
+      window.removeEventListener('dragover', onWindowDragOver);
+      window.removeEventListener('drop', onWindowDrop);
+    };
+  }, [state.draggingCardId]);
 
   const value = useMemo<CardDragApi>(
     () => ({

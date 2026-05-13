@@ -219,6 +219,13 @@ export const TaskColumnView: React.FC<TaskColumnViewProps> = ({
 
       <div
         className="tasks-scroll flex-1 min-h-0 overflow-y-auto pr-1"
+        onDragEnter={(event) => {
+          const live = drag.readState();
+          if (!live.draggingCardId) return;
+          // Обязательный preventDefault на dragenter для Electron/Chromium.
+          event.preventDefault();
+          event.dataTransfer.dropEffect = 'move';
+        }}
         onDragOver={(event) => {
           const live = drag.readState();
           if (!live.draggingCardId) return;
@@ -278,6 +285,12 @@ export const TaskColumnView: React.FC<TaskColumnViewProps> = ({
                     ? 'bg-indigo-500/80 shadow-[0_0_10px_rgba(99,102,241,0.55)]'
                     : 'bg-transparent'
                 }`}
+                onDragEnter={(event) => {
+                  const live = drag.readState();
+                  if (!live.draggingCardId) return;
+                  event.preventDefault();
+                  event.stopPropagation();
+                }}
                 onDragOver={(event) => {
                   const live = drag.readState();
                   if (!live.draggingCardId) return;
