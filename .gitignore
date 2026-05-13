@@ -1,0 +1,48 @@
+# Dependencies
+node_modules/
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+bun.lock
+package-lock.json
+
+# Build outputs
+dist/
+build/
+target/
+*.log
+
+# Environment variables
+.env
+.env.local
+.env.*.local
+
+# IDE
+.vscode/
+.idea/
+*.swp
+*.swo
+*~
+
+# OS
+.DS_Store
+Thumbs.db
+
+# Uploads
+uploads/*
+!uploads/.gitkeep
+
+# Test files
+test*.txt
+test*.html
+test*.cjs
+test*.js
+
+# Logs
+*.log
+electron.log
+server.log
+
+# Temporary files
+*.tmp
+*.temp

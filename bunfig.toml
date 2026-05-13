@@ -1,0 +1,14 @@
+[workspaces]
+# Настройка workspaces для монорепозитория
+["packages/*"]
+
+[install]
+# Автоматическая установка peer dependencies
+auto = true
+
+# Использовать строгий режим peer dependencies
+strict = true
+
+[test]
+# Настройки для тестов
+preload = "./test/setup.ts"

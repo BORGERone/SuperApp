@@ -1,0 +1,169 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Клиентские логи</title>
+    <style>
+        body {
+            font-family: 'Courier New', monospace;
+            margin: 0;
+            padding: 20px;
+            background-color: #1a1a1a;
+            color: #00ff00;
+        }
+        .container {
+            max-width: 1200px;
+            margin: 0 auto;
+        }
+        .header {
+            background: #333;
+            padding: 10px;
+            margin-bottom: 20px;
+            border-radius: 5px;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+        }
+        .controls {
+            display: flex;
+            gap: 10px;
+        }
+        button {
+            background: #007acc;
+            color: white;
+            border: none;
+            padding: 8px 16px;
+            border-radius: 4px;
+            cursor: pointer;
+            font-family: 'Courier New', monospace;
+        }
+        button:hover {
+            background: #005a9e;
+        }
+        .logs {
+            background: #000;
+            border: 1px solid #333;
+            border-radius: 5px;
+            padding: 15px;
+            height: 70vh;
+            overflow-y: auto;
+            white-space: pre-wrap;
+            font-size: 12px;
+            line-height: 1.4;
+        }
+        .log-entry {
+            margin-bottom: 5px;
+            padding: 5px;
+            border-radius: 3px;
+        }
+        .log-entry.info {
+            border-left: 3px solid #007acc;
+            background: rgba(0, 122, 204, 0.1);
+        }
+        .log-entry.error {
+            border-left: 3px solid #ff4444;
+            background: rgba(255, 68, 68, 0.1);
+            color: #ff6b6b;
+        }
+        .log-entry.warn {
+            border-left: 3px solid #ffaa00;
+            background: rgba(255, 170, 0, 0.1);
+            color: #ffcc00;
+        }
+        .timestamp {
+            color: #888;
+            font-size: 10px;
+        }
+        .level {
+            font-weight: bold;
+            margin-right: 10px;
+        }
+        .message {
+            margin-left: 10px;
+        }
+        .data {
+            margin-top: 5px;
+            margin-left: 20px;
+            color: #ccc;
+            font-size: 11px;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <div class="header">
+            <h2>🔍 Клиентские логи приложения</h2>
+            <div class="controls">
+                <button onclick="clearLogs()">Очистить логи</button>
+                <button onclick="exportLogs()">Экспортировать</button>
+                <button onclick="refreshLogs()">Обновить</button>
+            </div>
+        </div>
+        <div id="logs" class="logs">
+            <div>Загрузка логов...</div>
+        </div>
+    </div>
+
+    <script>
+        function loadLogs() {
+            const logs = JSON.parse(localStorage.getItem('client-debug.log') || '[]');
+            const logsContainer = document.getElementById('logs');
+            
+            if (logs.length === 0) {
+                logsContainer.innerHTML = '<div>Логи отсутствуют</div>';
+                return;
+            }
+            
+            logsContainer.innerHTML = logs
+                .slice()
+                .reverse()
+                .map(log => {
+                    const timestamp = new Date(log.timestamp).toLocaleString('ru-RU');
+                    const level = log.level || 'INFO';
+                    const message = log.message || '';
+                    const data = log.data ? JSON.stringify(log.data, null, 2) : '';
+                    
+                    return `
+                        <div class="log-entry ${level.toLowerCase()}">
+                            <div>
+                                <span class="timestamp">${timestamp}</span>
+                                <span class="level">[${level}]</span>
+                                <span class="message">${message}</span>
+                            </div>
+                            ${data ? `<div class="data">${data}</div>` : ''}
+                        </div>
+                    `;
+                })
+                .join('');
+        }
+        
+        function clearLogs() {
+            if (confirm('Вы уверены, что хотите очистить все логи?')) {
+                localStorage.removeItem('client-debug.log');
+                loadLogs();
+            }
+        }
+        
+        function exportLogs() {
+            const logs = JSON.parse(localStorage.getItem('client-debug.log') || '[]');
+            const blob = new Blob([JSON.stringify(logs, null, 2)], { type: 'application/json' });
+            const url = URL.createObjectURL(blob);
+            const a = document.createElement('a');
+            a.href = url;
+            a.download = `client-logs-${new Date().toISOString().split('T')[0]}.json`;
+            a.click();
+        }
+        
+        function refreshLogs() {
+            loadLogs();
+        }
+        
+        // Автоматическое обновление каждые 2 секунды
+        setInterval(loadLogs, 2000);
+        
+        // Загрузка при открытии
+        loadLogs();
+    </script>
+</body>
+</html>

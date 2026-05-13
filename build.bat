@@ -1,0 +1,3 @@
+@echo off
+echo Building SuperApp...
+npm run tauri build

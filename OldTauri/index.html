@@ -1,0 +1,120 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>SuperApp</title>
+    <link rel="stylesheet" href="style.css">
+    <script src="https://unpkg.com/@lottiefiles/dotlottie-wc@0.9.10/dist/dotlottie-wc.js" type="module"></script>
+</head>
+<body>
+    <div id="app">
+        <!-- Экран авторизации -->
+        <div id="login-screen" class="screen">
+            <div class="login-container">
+                <h1>SuperApp</h1>
+                <h2>Сетевой диск</h2>
+                <form id="login-form">
+                    <div class="form-group">
+                        <label for="username">Имя пользователя</label>
+                        <input type="text" id="username" name="username" required>
+                    </div>
+                    <div class="form-group">
+                        <label for="password">Пароль</label>
+                        <input type="password" id="password" name="password" required>
+                    </div>
+                    <div class="form-group">
+                        <label class="checkbox-label">
+                            <input type="checkbox" id="remember-password">
+                            <span>Запомнить пароль</span>
+                        </label>
+                    </div>
+                    <button type="submit" class="btn btn-primary">Войти</button>
+                </form>
+                <div id="login-error" class="error-message"></div>
+            </div>
+        </div>
+
+        <!-- Экран сетевого диска -->
+        <div id="drive-screen" class="screen hidden">
+            <div class="drive-container">
+                <header class="drive-header">
+                    <h1>Сетевой диск</h1>
+                    <div class="user-info">
+                        <span id="current-user"></span>
+                        <button id="logout-btn" class="btn btn-secondary btn-outline">Выйти</button>
+                    </div>
+                </header>
+
+                <div class="drive-toolbar">
+                    <button id="upload-btn" class="btn btn-primary">
+                        <span>📤</span>
+                        <span>Загрузить файл</span>
+                    </button>
+                    <button id="create-folder-btn" class="btn btn-secondary">
+                        <span>📁</span>
+                        <span>Создать папку</span>
+                    </button>
+                    <button id="refresh-btn" class="btn btn-secondary">
+                        <span>🔄</span>
+                        <span>Обновить</span>
+                    </button>
+                    <button id="view-mode-btn" class="btn btn-secondary">
+                        <span>📋</span>
+                    </button>
+                </div>
+
+                <div class="breadcrumb">
+                    <button id="back-btn" class="btn btn-secondary" disabled>
+                        <span>←</span>
+                        <span>Назад</span>
+                    </button>
+                    <span id="current-path">/</span>
+                </div>
+
+                <div id="file-list" class="file-list">
+                    <!-- Файлы будут загружены динамически -->
+                </div>
+
+                <!-- Островок действий -->
+                <div id="action-island" class="action-island hidden">
+                    <div class="action-island-title">Выберите действие</div>
+                    <div class="action-island-buttons">
+                        <button id="island-download-btn" class="btn btn-secondary">Скачать</button>
+                        <button id="island-delete-btn" class="btn btn-danger">Удалить</button>
+                        <button id="island-permissions-btn" class="btn btn-secondary hidden">Права доступа</button>
+                    </div>
+                </div>
+
+                <!-- Прогрессбар загрузки -->
+                <div id="upload-progress" class="upload-progress hidden">
+                    <div class="progress-bar">
+                        <div class="progress-fill"></div>
+                    </div>
+                    <div class="progress-text">Загрузка...</div>
+                </div>
+
+                <!-- Модальное окно прав доступа -->
+                <div id="permissions-modal" class="modal hidden">
+                    <div class="modal-content">
+                        <div class="modal-header">
+                            <h3>Права доступа</h3>
+                            <button id="close-permissions-modal" class="btn btn-secondary">✕</button>
+                        </div>
+                        <div class="modal-body">
+                            <div id="permissions-list"></div>
+                        </div>
+                        <div class="modal-footer">
+                            <button id="save-permissions-btn" class="btn btn-primary">Сохранить</button>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <input type="file" id="file-input" multiple style="display: none;">
+
+    <script type="module" src="main.js"></script>
+</body>
+</html>
