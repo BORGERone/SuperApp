@@ -106,22 +106,30 @@ export const CardItem: React.FC<CardItemProps> = ({
 
   const deadlineState = computeDeadlineState(card.deadline, card.completed);
 
-  const cardClasses = card.completed
-    ? 'border-emerald-300 bg-emerald-50/95 shadow-emerald-100'
+  const accentBarClasses = card.completed
+    ? 'bg-emerald-400/80'
     : deadlineState === 'overdue'
-      ? 'border-red-300 bg-red-50/95 shadow-red-100'
+      ? 'bg-red-400/80'
       : deadlineState === 'today'
-        ? 'border-yellow-300 bg-yellow-50/95 shadow-yellow-100'
-        : 'border-white/70 bg-white/75';
+        ? 'bg-amber-400/80'
+        : 'bg-slate-300/60';
+
+  const cardSurfaceClasses = card.completed
+    ? 'border-emerald-200/70 bg-emerald-50/65 hover:bg-emerald-50/80'
+    : deadlineState === 'overdue'
+      ? 'border-red-200/70 bg-red-50/65 hover:bg-red-50/80'
+      : deadlineState === 'today'
+        ? 'border-amber-200/70 bg-amber-50/65 hover:bg-amber-50/80'
+        : 'border-white/60 bg-white/55 hover:bg-white/75';
 
   const deadlineLabel = formatDeadline(card.deadline);
   const deadlineBadgeClasses = card.completed
-    ? 'bg-emerald-100 text-emerald-700'
+    ? 'bg-emerald-100/80 text-emerald-700 ring-1 ring-emerald-200/60'
     : deadlineState === 'overdue'
-      ? 'bg-red-100 text-red-700'
+      ? 'bg-red-100/80 text-red-700 ring-1 ring-red-200/60'
       : deadlineState === 'today'
-        ? 'bg-yellow-100 text-yellow-700'
-        : 'bg-blue-50 text-blue-700';
+        ? 'bg-amber-100/80 text-amber-700 ring-1 ring-amber-200/60'
+        : 'bg-slate-100/80 text-slate-600 ring-1 ring-slate-200/60';
 
   const handleToggleCompleted = async (event: React.MouseEvent) => {
     event.stopPropagation();
@@ -159,43 +167,44 @@ export const CardItem: React.FC<CardItemProps> = ({
       onDragEnter={handleDragEnter}
       onDragOver={handleDragOver}
       onClick={() => onOpen(card)}
-      className={`group relative cursor-pointer rounded-2xl border p-4 shadow-sm transition-all duration-200 hover:-translate-y-1 hover:shadow-xl ${cardClasses} ${
+      className={`group relative cursor-pointer rounded-2xl border p-4 pl-5 shadow-[0_1px_2px_rgba(15,23,42,0.04),0_4px_18px_-12px_rgba(15,23,42,0.18)] backdrop-blur-md transition-[background-color,border-color,box-shadow] duration-200 hover:border-indigo-300/70 hover:shadow-[0_2px_4px_rgba(15,23,42,0.05),0_10px_28px_-12px_rgba(79,70,229,0.35)] ${cardSurfaceClasses} ${
         isDragging ? 'pointer-events-none scale-[0.98] opacity-40' : ''
       }`}
     >
+      <span aria-hidden className={`pointer-events-none absolute left-0 top-2 bottom-2 w-[3px] rounded-full ${accentBarClasses}`} />
       {isHoverTopHere && (
         <div className="pointer-events-none absolute -top-1.5 left-2 right-2 h-1 rounded-full bg-indigo-500 shadow-[0_0_10px_rgba(99,102,241,0.55)]" />
       )}
       {isHoverBottomLast && (
         <div className="pointer-events-none absolute -bottom-1.5 left-2 right-2 h-1 rounded-full bg-indigo-500 shadow-[0_0_10px_rgba(99,102,241,0.55)]" />
       )}
-      <div className="mb-2 flex items-start gap-2">
+      <div className="flex items-start gap-2">
         <GripVertical
-          className="mt-1 flex-shrink-0 cursor-grab text-gray-300 group-hover:text-indigo-400"
-          size={18}
+          className="mt-0.5 flex-shrink-0 cursor-grab text-slate-300 transition-colors group-hover:text-indigo-400"
+          size={16}
         />
         <div className="min-w-0 flex-1">
           <h3
-            className={`text-sm font-bold text-gray-900 break-words ${
-              card.completed ? 'text-gray-500 line-through' : ''
+            className={`text-[13px] font-semibold leading-snug tracking-tight text-slate-900 break-words ${
+              card.completed ? 'text-slate-400 line-through' : ''
             }`}
           >
             {card.title}
           </h3>
           {card.description && (
-            <p className="mt-1 line-clamp-3 text-xs leading-5 text-gray-500 break-words whitespace-pre-wrap">
+            <p className="mt-1 line-clamp-2 text-[11.5px] leading-[1.45] text-slate-500 break-words whitespace-pre-wrap">
               {card.description}
             </p>
           )}
         </div>
-        <div className="flex flex-shrink-0 items-center gap-1 opacity-0 transition-opacity group-hover:opacity-100">
+        <div className="flex flex-shrink-0 items-center gap-0.5 opacity-0 transition-opacity group-hover:opacity-100 focus-within:opacity-100">
           <button
             type="button"
             onClick={handleToggleCompleted}
-            className={`rounded-lg p-1.5 transition-colors ${
+            className={`rounded-md p-1.5 transition-colors ${
               card.completed
-                ? 'text-emerald-600 hover:bg-emerald-50'
-                : 'text-gray-400 hover:bg-emerald-50 hover:text-emerald-600'
+                ? 'text-emerald-600 hover:bg-emerald-100/60'
+                : 'text-slate-400 hover:bg-emerald-100/60 hover:text-emerald-600'
             }`}
             aria-label={card.completed ? 'Снять отметку выполнения' : 'Отметить выполненной'}
             title={card.completed ? 'Снять отметку выполнения' : 'Отметить выполненной'}
@@ -205,7 +214,7 @@ export const CardItem: React.FC<CardItemProps> = ({
           <button
             type="button"
             onClick={handleEdit}
-            className="rounded-lg p-1.5 text-gray-400 transition-colors hover:bg-indigo-50 hover:text-indigo-600"
+            className="rounded-md p-1.5 text-slate-400 transition-colors hover:bg-indigo-100/60 hover:text-indigo-600"
             aria-label="Редактировать карточку"
             title="Открыть карточку"
           >
@@ -214,7 +223,7 @@ export const CardItem: React.FC<CardItemProps> = ({
           <button
             type="button"
             onClick={handleDelete}
-            className="rounded-lg p-1.5 text-gray-400 transition-colors hover:bg-rose-50 hover:text-rose-600"
+            className="rounded-md p-1.5 text-slate-400 transition-colors hover:bg-rose-100/60 hover:text-rose-600"
             aria-label="Удалить карточку"
             title="Удалить карточку"
           >
@@ -223,18 +232,18 @@ export const CardItem: React.FC<CardItemProps> = ({
         </div>
       </div>
 
-      <div className="ml-7 flex flex-wrap items-center gap-1.5 text-[11px] text-gray-500">
+      <div className="ml-6 mt-2 flex flex-wrap items-center gap-1 text-[10.5px] text-slate-500">
         {deadlineLabel && (
           <span
-            className={`inline-flex items-center gap-1 rounded-full px-2 py-0.5 font-semibold ${deadlineBadgeClasses}`}
+            className={`inline-flex items-center gap-1 rounded-full px-2 py-[2px] font-semibold ${deadlineBadgeClasses}`}
           >
-            <Calendar size={12} />
+            <Calendar size={11} />
             {deadlineLabel}
           </span>
         )}
         {card.completed && (
-          <span className="inline-flex items-center gap-1 rounded-full bg-emerald-100 px-2 py-0.5 font-bold text-emerald-700">
-            <CheckCircle2 size={12} />
+          <span className="inline-flex items-center gap-1 rounded-full bg-emerald-100/80 px-2 py-[2px] font-semibold text-emerald-700 ring-1 ring-emerald-200/60">
+            <CheckCircle2 size={11} />
             Выполнено
           </span>
         )}
@@ -246,28 +255,42 @@ export const CardItem: React.FC<CardItemProps> = ({
               return (
                 <span
                   key={userId}
-                  className="inline-flex max-w-[140px] items-center gap-1 rounded-full bg-indigo-50 px-2 py-0.5 font-semibold text-indigo-600"
+                  className="inline-flex max-w-[120px] items-center gap-1 rounded-full bg-indigo-50/80 px-2 py-[2px] font-semibold text-indigo-600 ring-1 ring-indigo-200/60"
                   title={user?.email || label}
                 >
-                  <UserCircle size={12} />
+                  <UserCircle size={11} />
                   <span className="truncate">{label}</span>
                 </span>
               );
             })}
             {card.assignees.length > 3 && (
-              <span className="text-[11px] font-semibold text-gray-400">
+              <span className="text-[10.5px] font-semibold text-slate-400">
                 +{card.assignees.length - 3}
               </span>
             )}
           </div>
         )}
         {commentsCount > 0 && (
-          <span className="inline-flex items-center gap-1 rounded-full bg-white/80 px-2 py-0.5 font-medium text-gray-600">
-            <MessageSquare size={12} />
+          <span className="ml-auto inline-flex items-center gap-1 rounded-full bg-white/70 px-2 py-[2px] font-semibold text-slate-500 ring-1 ring-slate-200/60">
+            <MessageSquare size={11} />
             {commentsCount}
           </span>
         )}
       </div>
+
+      {card.lastComment && (
+        <div className="ml-6 mt-2 rounded-xl border border-white/60 bg-white/55 px-2.5 py-1.5 text-[11px] backdrop-blur-sm">
+          <div className="flex items-center gap-1 text-[10px] font-semibold uppercase tracking-wide text-slate-400">
+            <MessageSquare size={10} />
+            <span className="truncate">
+              {card.lastComment.authorName || card.lastComment.authorEmail || 'Комментарий'}
+            </span>
+          </div>
+          <p className="line-clamp-2 text-[11.5px] leading-[1.45] text-slate-600 break-words whitespace-pre-wrap">
+            {card.lastComment.body}
+          </p>
+        </div>
+      )}
     </article>
   );
 };

@@ -74,7 +74,18 @@ function parseAssignees(value: string | null): string[] {
   }
 }
 
-function serializeCard(card: typeof taskCards.$inferSelect, commentsCount = 0) {
+interface LastCommentPreview {
+  authorName: string | null;
+  authorEmail: string | null;
+  body: string;
+  createdAt: string;
+}
+
+function serializeCard(
+  card: typeof taskCards.$inferSelect,
+  commentsCount = 0,
+  lastComment: LastCommentPreview | null = null,
+) {
   return {
     id: card.id,
     columnId: card.columnId,
@@ -88,6 +99,7 @@ function serializeCard(card: typeof taskCards.$inferSelect, commentsCount = 0) {
     createdAt: card.createdAt.toISOString(),
     updatedAt: card.updatedAt.toISOString(),
     commentsCount,
+    lastComment,
   };
 }
 
@@ -294,6 +306,7 @@ tasks.get('/cards', async (c) => {
     // Подсчёт комментариев для карточек выводится вместе с карточками,
     // чтобы счётчик обновлялся динамически при инвалидации запроса карточек.
     let countByCard = new Map<string, number>();
+    let lastByCard = new Map<string, LastCommentPreview>();
     if (filtered.length > 0) {
       const cardIds = filtered.map((card) => card.id);
       const counts = await db
@@ -303,10 +316,37 @@ tasks.get('/cards', async (c) => {
         .groupBy(taskComments.cardId)
         .execute();
       countByCard = new Map(counts.map((row) => [row.cardId, Number(row.count) || 0]));
+
+      // Последний комментарий по каждой карточке — для превью на доске.
+      const lastRows = await db
+        .select({
+          cardId: taskComments.cardId,
+          body: taskComments.body,
+          createdAt: taskComments.createdAt,
+          authorId: taskComments.authorId,
+          username: users.username,
+          email: users.email,
+        })
+        .from(taskComments)
+        .leftJoin(users, eq(users.id, taskComments.authorId))
+        .where(inArray(taskComments.cardId, cardIds))
+        .orderBy(asc(taskComments.cardId), sql`${taskComments.createdAt} DESC`)
+        .execute();
+      for (const row of lastRows) {
+        if (lastByCard.has(row.cardId)) continue;
+        lastByCard.set(row.cardId, {
+          authorName: row.username ?? null,
+          authorEmail: row.email ?? null,
+          body: row.body,
+          createdAt: row.createdAt.toISOString(),
+        });
+      }
     }
 
     return c.json({
-      cards: filtered.map((card) => serializeCard(card, countByCard.get(card.id) ?? 0)),
+      cards: filtered.map((card) =>
+        serializeCard(card, countByCard.get(card.id) ?? 0, lastByCard.get(card.id) ?? null),
+      ),
     });
   } catch (error) {
     console.error('Error fetching task cards:', error);

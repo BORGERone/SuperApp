@@ -1,5 +1,17 @@
 import React, { useEffect, useMemo, useState } from 'react';
-import { CheckCircle2, Circle, MessageSquare, Send, Trash2, User as UserIcon, X } from 'lucide-react';
+import {
+  Calendar,
+  CheckCircle2,
+  Circle,
+  Columns,
+  FileText,
+  MessageSquare,
+  Send,
+  Trash2,
+  User as UserIcon,
+  Users,
+  X,
+} from 'lucide-react';
 import { TaskCard, TaskColumn, computeDeadlineState } from '../models/tasksModel';
 import {
   useCreateComment,
@@ -170,58 +182,87 @@ export const CardModal: React.FC<CardModalProps> = ({ card, columns, currentUser
         : deadlineState === 'future'
           ? 'Срок ещё впереди'
           : 'Срок не задан';
+  const deadlineHintTone =
+    deadlineState === 'overdue'
+      ? 'text-red-600'
+      : deadlineState === 'today'
+        ? 'text-amber-600'
+        : deadlineState === 'future'
+          ? 'text-indigo-600'
+          : 'text-slate-500';
+  const accentBarClasses = completed
+    ? 'bg-emerald-400/80'
+    : deadlineState === 'overdue'
+      ? 'bg-red-400/80'
+      : deadlineState === 'today'
+        ? 'bg-amber-400/80'
+        : 'bg-slate-300/60';
+
+  const sectionClass =
+    'rounded-2xl border border-white/60 bg-white/55 p-4 backdrop-blur-md shadow-[0_1px_2px_rgba(15,23,42,0.04),0_4px_18px_-12px_rgba(15,23,42,0.18)]';
+  const labelClass =
+    'mb-2 flex items-center gap-1.5 text-[11px] font-semibold uppercase tracking-wide text-slate-500';
+  const fieldClass =
+    'w-full rounded-xl border border-white/70 bg-white/70 px-3 py-2 text-sm text-slate-900 shadow-inner placeholder:text-slate-400 focus:border-indigo-300/70 focus:bg-white/90 focus:outline-none focus:ring-2 focus:ring-indigo-200/60';
 
   return (
     <div
-      className="fixed inset-0 bg-black/50 flex items-center justify-center z-40 p-4"
+      className="fixed inset-0 z-40 flex items-center justify-center bg-slate-900/40 p-4 backdrop-blur-sm"
       onClick={onClose}
     >
       <div
-        className="glass-card rounded-xl w-full max-w-3xl max-h-[95vh] flex flex-col"
+        className="glass-card relative flex max-h-[95vh] w-full max-w-3xl flex-col overflow-hidden rounded-3xl"
         onClick={(event) => event.stopPropagation()}
       >
-        <div className="flex items-center justify-between p-6 border-b border-gray-200/50">
-          <div className="flex items-center gap-3 flex-1 min-w-0">
-            <button
-              onClick={handleToggleCompleted}
-              className={`p-1 rounded-full transition-colors ${
-                completed ? 'text-green-600' : 'text-gray-400 hover:text-gray-600'
-              }`}
-              title={completed ? 'Снять отметку выполнения' : 'Отметить выполненной'}
-            >
-              {completed ? <CheckCircle2 size={28} /> : <Circle size={28} />}
-            </button>
+        <span aria-hidden className={`absolute left-0 top-6 bottom-6 w-1 rounded-r-full ${accentBarClasses}`} />
+
+        <div className="flex items-start gap-3 border-b border-white/40 px-6 py-5 pl-7">
+          <button
+            onClick={handleToggleCompleted}
+            className={`mt-1 rounded-full p-1 transition-colors ${
+              completed ? 'text-emerald-600' : 'text-slate-400 hover:text-emerald-600'
+            }`}
+            title={completed ? 'Снять отметку выполнения' : 'Отметить выполненной'}
+          >
+            {completed ? <CheckCircle2 size={26} /> : <Circle size={26} />}
+          </button>
+          <div className="min-w-0 flex-1">
+            <div className="text-[11px] font-semibold uppercase tracking-[0.16em] text-indigo-500/80">
+              Карточка задачи
+            </div>
             <input
               type="text"
               value={title}
               onChange={(event) => setTitle(event.target.value)}
               placeholder="Заголовок карточки"
-              className="flex-1 min-w-0 text-xl font-semibold text-gray-800 bg-transparent border-b border-transparent focus:border-blue-300 focus:outline-none px-1 py-1"
+              className="mt-1 w-full min-w-0 border-b border-transparent bg-transparent px-0.5 py-1 text-xl font-semibold tracking-tight text-slate-900 placeholder:text-slate-400 focus:border-indigo-300/70 focus:outline-none"
             />
           </div>
           <button
             onClick={onClose}
-            className="p-2 rounded-lg hover:bg-white/60 transition-colors"
+            className="rounded-xl p-2 text-slate-500 transition-colors hover:bg-white/60 hover:text-slate-700"
             aria-label="Закрыть"
           >
-            <X size={20} className="text-gray-600" />
+            <X size={18} />
           </button>
         </div>
 
-        <div className="tasks-scroll flex-1 overflow-y-auto p-6 space-y-6">
+        <div className="tasks-scroll flex-1 space-y-4 overflow-y-auto px-6 py-5 pl-7">
           {errorMessage && (
-            <div className="bg-red-100/80 border border-red-200 text-red-700 px-3 py-2 rounded-lg text-sm">
+            <div className="rounded-2xl border border-red-200/70 bg-red-50/80 px-4 py-2.5 text-sm text-red-700 backdrop-blur-sm">
               {errorMessage}
             </div>
           )}
 
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-            <div>
-              <label className="block text-sm font-medium text-gray-700 mb-2">Колонка</label>
+          <div className="grid grid-cols-1 gap-3 md:grid-cols-2">
+            <div className={sectionClass}>
+              <div className={labelClass}>
+                <Columns size={12} /> Колонка
+              </div>
               <select
                 value={columnId}
                 onChange={(event) => setColumnId(event.target.value)}
-                className="w-full px-3 py-2 border border-gray-200/60 rounded-lg bg-white/80 text-gray-900 focus:outline-none focus:ring-2 focus:ring-blue-400"
+                className={fieldClass}
               >
                 {columns.map((column) => (
                   <option key={column.id} value={column.id}>
@@ -230,74 +271,86 @@ export const CardModal: React.FC<CardModalProps> = ({ card, columns, currentUser
                 ))}
               </select>
             </div>
-            <div>
-              <label className="block text-sm font-medium text-gray-700 mb-2">Дедлайн</label>
+            <div className={sectionClass}>
+              <div className={labelClass}>
+                <Calendar size={12} /> Дедлайн
+              </div>
               <input
                 type="datetime-local"
                 value={deadlineInput}
                 onChange={(event) => setDeadlineInput(event.target.value)}
-                className="w-full px-3 py-2 border border-gray-200/60 rounded-lg bg-white/80 text-gray-900 focus:outline-none focus:ring-2 focus:ring-blue-400"
+                className={fieldClass}
               />
-              <div className="text-xs text-gray-500 mt-1">{deadlineHint}</div>
+              <div className={`mt-1.5 text-[11.5px] font-medium ${deadlineHintTone}`}>{deadlineHint}</div>
             </div>
           </div>
 
-          <div>
-            <label className="block text-sm font-medium text-gray-700 mb-2">Описание</label>
+          <div className={sectionClass}>
+            <div className={labelClass}>
+              <FileText size={12} /> Описание
+            </div>
             <textarea
               value={description}
               onChange={(event) => setDescription(event.target.value)}
               rows={6}
               placeholder="Опишите задачу подробнее..."
-              className="w-full px-3 py-2 border border-gray-200/60 rounded-lg bg-white/80 text-gray-900 focus:outline-none focus:ring-2 focus:ring-blue-400 resize-y"
+              className={`${fieldClass} resize-y`}
             />
           </div>
 
-          <div>
-            <label className="block text-sm font-medium text-gray-700 mb-2">Ответственные</label>
+          <div className={sectionClass}>
+            <div className={labelClass}>
+              <Users size={12} /> Ответственные
+            </div>
             <AssigneePicker selected={assignees} onChange={setAssignees} />
           </div>
 
-          <div>
-            <div className="flex items-center gap-2 mb-3">
-              <MessageSquare size={18} className="text-gray-600" />
-              <h3 className="text-base font-semibold text-gray-800">Комментарии</h3>
-              <span className="text-xs text-gray-500">({comments.length})</span>
+          <div className={sectionClass}>
+            <div className="mb-3 flex items-center gap-2">
+              <span className={`${labelClass} !mb-0`}>
+                <MessageSquare size={12} /> Комментарии
+              </span>
+              <span className="rounded-full bg-white/70 px-2 py-[1px] text-[11px] font-semibold text-slate-500 ring-1 ring-slate-200/60">
+                {comments.length}
+              </span>
             </div>
 
-            <div className="tasks-scroll space-y-3 max-h-60 overflow-y-auto pr-1">
-              {commentsLoading && <div className="text-sm text-gray-500">Загрузка комментариев...</div>}
+            <div className="tasks-scroll max-h-60 space-y-2 overflow-y-auto pr-1">
+              {commentsLoading && <div className="text-sm text-slate-500">Загрузка комментариев...</div>}
               {!commentsLoading && comments.length === 0 && (
-                <div className="text-sm text-gray-500">Комментариев пока нет — добавьте первый!</div>
+                <div className="rounded-xl border border-dashed border-slate-200/70 bg-white/40 px-3 py-4 text-center text-[12.5px] text-slate-500">
+                  Комментариев пока нет — добавьте первый.
+                </div>
               )}
               {comments.map((comment) => {
                 const author = userMap.get(comment.authorId);
-                const authorLabel = comment.authorName || author?.username || comment.authorEmail || 'Пользователь';
+                const authorLabel =
+                  comment.authorName || author?.username || comment.authorEmail || 'Пользователь';
                 const canDelete = comment.authorId === currentUserId;
                 return (
                   <div
                     key={comment.id}
-                    className="bg-white/70 border border-gray-200/60 rounded-lg px-3 py-2"
+                    className="rounded-xl border border-white/60 bg-white/70 px-3 py-2 backdrop-blur-sm"
                   >
-                    <div className="flex items-center justify-between gap-2 mb-1">
-                      <div className="flex items-center gap-2 text-sm font-medium text-gray-800">
-                        <UserIcon size={14} className="text-blue-600" />
-                        <span className="truncate max-w-[200px]">{authorLabel}</span>
-                        <span className="text-xs text-gray-500 font-normal">
+                    <div className="mb-1 flex items-center justify-between gap-2">
+                      <div className="flex items-center gap-2 text-[12.5px] font-semibold text-slate-700">
+                        <UserIcon size={13} className="text-indigo-500" />
+                        <span className="max-w-[200px] truncate">{authorLabel}</span>
+                        <span className="text-[11px] font-normal text-slate-400">
                           {formatDateTime(comment.createdAt)}
                         </span>
                       </div>
                       {canDelete && (
                         <button
                           onClick={() => handleDeleteComment(comment.id)}
-                          className="p-1 rounded-md hover:bg-red-100/60 text-red-500 transition-colors"
+                          className="rounded-md p-1 text-rose-500 transition-colors hover:bg-rose-100/60"
                           aria-label="Удалить комментарий"
                         >
-                          <Trash2 size={14} />
+                          <Trash2 size={13} />
                         </button>
                       )}
                     </div>
-                    <div className="text-sm text-gray-700 whitespace-pre-wrap break-words">
+                    <div className="whitespace-pre-wrap break-words text-[13px] leading-snug text-slate-700">
                       {comment.body}
                     </div>
                   </div>
@@ -305,7 +358,7 @@ export const CardModal: React.FC<CardModalProps> = ({ card, columns, currentUser
               })}
             </div>
 
-            <div className="mt-3 flex gap-2 items-start">
+            <div className="mt-3 flex items-start gap-2">
               <textarea
                 value={commentText}
                 onChange={(event) => setCommentText(event.target.value)}
@@ -317,44 +370,48 @@ export const CardModal: React.FC<CardModalProps> = ({ card, columns, currentUser
                 }}
                 rows={2}
                 placeholder="Написать комментарий... (Ctrl+Enter — отправить)"
-                className="flex-1 px-3 py-2 border border-gray-200/60 rounded-lg bg-white/80 text-gray-900 focus:outline-none focus:ring-2 focus:ring-blue-400 resize-y"
+                className={`${fieldClass} flex-1 resize-y`}
               />
               <button
                 onClick={handleAddComment}
                 disabled={createComment.isPending || !commentText.trim()}
-                className="px-4 py-2 bg-blue-500 text-white rounded-lg hover:bg-blue-600 disabled:opacity-50 disabled:cursor-not-allowed flex items-center gap-2"
+                className="btn-glass inline-flex items-center gap-2 rounded-xl px-4 py-2 text-sm font-semibold disabled:cursor-not-allowed disabled:opacity-50"
               >
-                <Send size={16} />
+                <Send size={14} />
                 Отправить
               </button>
             </div>
           </div>
         </div>
 
-        <div className="flex items-center justify-between gap-3 p-6 border-t border-gray-200/50">
+        <div className="flex flex-wrap items-center justify-between gap-3 border-t border-white/40 px-6 py-4 pl-7">
           <button
             onClick={handleDeleteCard}
-            className="px-4 py-2 bg-red-500/90 text-white rounded-lg hover:bg-red-600 flex items-center gap-2"
+            className="btn-glass-danger inline-flex items-center gap-2 rounded-xl px-4 py-2 text-sm font-semibold"
           >
-            <Trash2 size={16} />
+            <Trash2 size={14} />
             Удалить карточку
           </button>
           <div className="flex items-center gap-3">
-            {savingState === 'saving' && <span className="text-sm text-gray-500">Сохранение...</span>}
-            {savingState === 'saved' && <span className="text-sm text-green-600">Сохранено</span>}
+            {savingState === 'saving' && (
+              <span className="text-[12.5px] font-medium text-slate-500">Сохранение...</span>
+            )}
+            {savingState === 'saved' && (
+              <span className="text-[12.5px] font-semibold text-emerald-600">Сохранено</span>
+            )}
             {savingState === 'error' && (
-              <span className="text-sm text-red-600">Ошибка сохранения</span>
+              <span className="text-[12.5px] font-semibold text-red-600">Ошибка сохранения</span>
             )}
             <button
               onClick={onClose}
-              className="px-4 py-2 bg-white/80 border border-gray-200 text-gray-700 rounded-lg hover:bg-white"
+              className="btn-glass-secondary rounded-xl px-4 py-2 text-sm font-semibold"
             >
               Закрыть
             </button>
             <button
               onClick={handleSave}
               disabled={updateCard.isPending}
-              className="px-4 py-2 bg-blue-500 text-white rounded-lg hover:bg-blue-600 disabled:opacity-50 disabled:cursor-not-allowed"
+              className="btn-glass rounded-xl px-4 py-2 text-sm font-semibold disabled:cursor-not-allowed disabled:opacity-50"
             >
               Сохранить
             </button>

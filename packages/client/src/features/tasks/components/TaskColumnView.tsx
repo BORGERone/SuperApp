@@ -70,12 +70,12 @@ export const TaskColumnView: React.FC<TaskColumnViewProps> = ({
   const deadlineState = computeDeadlineState(column.deadline, false);
   const deadlineBadgeClasses =
     deadlineState === 'overdue'
-      ? 'bg-red-100 text-red-700'
+      ? 'bg-red-100/80 text-red-700 ring-1 ring-red-200/60'
       : deadlineState === 'today'
-        ? 'bg-yellow-100 text-yellow-700'
+        ? 'bg-amber-100/80 text-amber-700 ring-1 ring-amber-200/60'
         : column.deadline
-          ? 'bg-blue-50 text-blue-700'
-          : 'bg-white/70 text-gray-500';
+          ? 'bg-indigo-100/70 text-indigo-700 ring-1 ring-indigo-200/60'
+          : 'bg-white/70 text-slate-500 ring-1 ring-slate-200/60';
 
   const saveTitle = async (nextTitle: string) => {
     const trimmed = nextTitle.trim();
@@ -138,8 +138,8 @@ export const TaskColumnView: React.FC<TaskColumnViewProps> = ({
   };
 
   return (
-    <section className="glass-card flex w-[340px] flex-shrink-0 flex-col self-start rounded-3xl p-4 max-h-[calc(100vh-220px)]">
-      <header className="mb-3 flex items-start justify-between gap-2">
+    <section className="glass-card flex w-[340px] flex-shrink-0 flex-col self-start rounded-3xl p-3.5 max-h-[calc(100vh-220px)]">
+      <header className="mb-2 flex items-start justify-between gap-2">
         <div className="min-w-0 flex-1">
           <input
             value={draftTitle}
@@ -152,12 +152,12 @@ export const TaskColumnView: React.FC<TaskColumnViewProps> = ({
                 (event.target as HTMLInputElement).blur();
               }
             }}
-            className="w-full rounded-xl border border-transparent bg-transparent px-2 py-1 text-lg font-bold text-gray-900 hover:border-indigo-100 hover:bg-white/60 focus:border-indigo-200 focus:bg-white/80 focus:outline-none"
+            className="w-full rounded-xl border border-transparent bg-transparent px-2 py-1 text-[15px] font-semibold tracking-tight text-slate-900 hover:border-indigo-100 hover:bg-white/60 focus:border-indigo-200 focus:bg-white/80 focus:outline-none"
             aria-label="Название колонки"
             placeholder="Название колонки"
           />
-          <div className="mt-1 flex items-center gap-2 text-xs">
-            <Calendar size={13} className="text-gray-400" />
+          <div className="mt-0.5 flex items-center gap-2 text-[11px]">
+            <Calendar size={12} className="text-slate-400" />
             {editingDeadline ? (
               <>
                 <input
@@ -193,32 +193,32 @@ export const TaskColumnView: React.FC<TaskColumnViewProps> = ({
                   setDraftDeadline(isoToLocalInput(column.deadline));
                   setEditingDeadline(true);
                 }}
-                className={`inline-flex items-center gap-1 rounded-full px-2 py-0.5 font-semibold ${deadlineBadgeClasses}`}
+                className={`inline-flex items-center gap-1 rounded-full px-2 py-[2px] font-semibold ${deadlineBadgeClasses}`}
               >
                 {column.deadline ? formatDeadlineShort(column.deadline) : 'Без дедлайна'}
               </button>
             )}
           </div>
         </div>
-        <div className="flex items-center gap-2">
-          <span className="rounded-full bg-white/80 px-3 py-1 text-xs font-bold text-gray-500">
+        <div className="flex items-center gap-1.5">
+          <span className="rounded-full bg-white/70 px-2.5 py-[3px] text-[11px] font-semibold text-slate-500 ring-1 ring-slate-200/60">
             {cards.length}
           </span>
           <button
             type="button"
             onClick={handleArchive}
             disabled={archiveColumn.isPending}
-            className="rounded-lg p-1.5 text-gray-400 transition-colors hover:bg-amber-50 hover:text-amber-600 disabled:cursor-not-allowed disabled:opacity-50"
+            className="rounded-lg p-1.5 text-slate-400 transition-colors hover:bg-amber-100/60 hover:text-amber-600 disabled:cursor-not-allowed disabled:opacity-50"
             aria-label="Перенести колонку в архив"
             title="Перенести в архив"
           >
-            <Archive size={16} />
+            <Archive size={15} />
           </button>
         </div>
       </header>
 
       <div
-        className="tasks-scroll flex-1 min-h-0 overflow-y-auto pr-1"
+        className="tasks-scroll flex-1 min-h-0 overflow-y-auto px-0.5 py-1.5 pr-1"
         onDragEnter={(event) => {
           const live = drag.readState();
           if (!live.draggingCardId) return;
@@ -253,13 +253,13 @@ export const TaskColumnView: React.FC<TaskColumnViewProps> = ({
           drag.endDrag();
         }}
       >
-        <div className="flex flex-col gap-3">
+        <div className="flex flex-col gap-2.5">
           {cards.length === 0 ? (
             <div
-              className={`flex items-center justify-center rounded-2xl border border-dashed p-6 text-center text-sm transition-colors ${
+              className={`flex items-center justify-center rounded-2xl border border-dashed p-6 text-center text-[12.5px] transition-colors ${
                 drag.hoverColumnId === column.id && drag.draggingCardId
                   ? 'border-indigo-300 bg-indigo-50/70 text-indigo-600'
-                  : 'border-gray-200 bg-white/35 text-gray-400'
+                  : 'border-slate-200/70 bg-white/35 text-slate-400'
               }`}
             >
               {drag.hoverColumnId === column.id && drag.draggingCardId
@@ -304,9 +304,9 @@ export const TaskColumnView: React.FC<TaskColumnViewProps> = ({
         </div>
       </div>
 
-      <div className="mt-4">
+      <div className="mt-3">
         {isAddingCard ? (
-          <div className="rounded-2xl border border-indigo-100 bg-white/80 p-3 shadow-sm">
+          <div className="rounded-2xl border border-indigo-100/70 bg-white/65 p-3 shadow-sm backdrop-blur-md">
             <textarea
               autoFocus
               value={newCardTitle}
@@ -350,9 +350,9 @@ export const TaskColumnView: React.FC<TaskColumnViewProps> = ({
           <button
             type="button"
             onClick={() => setIsAddingCard(true)}
-            className="inline-flex w-full items-center justify-center gap-2 rounded-2xl border border-dashed border-indigo-200 bg-white/45 px-4 py-3 text-sm font-semibold text-indigo-600 transition-all hover:border-indigo-300 hover:bg-white/80"
+            className="inline-flex w-full items-center justify-center gap-2 rounded-2xl border border-dashed border-indigo-200/70 bg-white/40 px-4 py-2.5 text-[12.5px] font-semibold text-indigo-600 transition-all hover:border-indigo-300 hover:bg-white/70"
           >
-            <Plus size={16} />
+            <Plus size={14} />
             Добавить карточку
           </button>
         )}

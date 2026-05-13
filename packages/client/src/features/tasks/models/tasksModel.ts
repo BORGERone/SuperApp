@@ -12,6 +12,13 @@ export interface TaskColumn {
   updatedAt: string;
 }
 
+export interface TaskCardLastComment {
+  authorName: string | null;
+  authorEmail: string | null;
+  body: string;
+  createdAt: string;
+}
+
 export interface TaskCard {
   id: string;
   columnId: string;
@@ -25,6 +32,7 @@ export interface TaskCard {
   createdAt: string;
   updatedAt: string;
   commentsCount: number;
+  lastComment: TaskCardLastComment | null;
 }
 
 export interface TaskComment {
