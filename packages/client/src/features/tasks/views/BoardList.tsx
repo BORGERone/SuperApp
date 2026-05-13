@@ -6,7 +6,7 @@ interface BoardListProps {
   boards: TaskBoard[];
   activeBoardId: string;
   boardDraft: BoardDraft;
-  currentUser: string;
+  currentUserId: string;
   isAdmin: boolean;
   onBoardDraftChange: (draft: BoardDraft) => void;
   onCreateBoard: () => void;
@@ -18,7 +18,7 @@ export const BoardList: React.FC<BoardListProps> = ({
   boards,
   activeBoardId,
   boardDraft,
-  currentUser,
+  currentUserId,
   isAdmin,
   onBoardDraftChange,
   onCreateBoard,
@@ -27,14 +27,14 @@ export const BoardList: React.FC<BoardListProps> = ({
 }) => (
   <aside className="glass-card flex h-fit w-full flex-col gap-4 rounded-3xl p-5 lg:w-80">
     <div>
-      <p className="text-xs font-bold uppercase tracking-[0.3em] text-indigo-500">Boards</p>
+      <p className="text-xs font-bold uppercase tracking-[0.3em] text-indigo-500">Доски</p>
       <h2 className="mt-1 text-2xl font-bold text-gray-900">Доски задач</h2>
     </div>
 
     <div className="space-y-2">
       {boards.map(board => {
         const isActive = board.id === activeBoardId;
-        const canDelete = boards.length > 1 && (isAdmin || board.owner === currentUser);
+        const canDelete = boards.length > 1 && (isAdmin || board.ownerId === currentUserId);
 
         return (
           <div
@@ -48,15 +48,11 @@ export const BoardList: React.FC<BoardListProps> = ({
             <span className="mt-0.5 rounded-xl bg-gradient-to-br from-indigo-500 to-purple-500 p-2 text-white shadow-lg">
               <FolderKanban size={18} />
             </span>
-            <button
-              type="button"
-              onClick={() => onSelectBoard(board.id)}
-              className="min-w-0 flex-1 text-left"
-            >
+            <button type="button" onClick={() => onSelectBoard(board.id)} className="min-w-0 flex-1 text-left">
               <span className="block truncate text-sm font-bold text-gray-900">{board.name}</span>
               <span className="mt-1 line-clamp-2 block text-xs text-gray-500">{board.description || 'Без описания'}</span>
               <span className="mt-2 block text-[11px] font-semibold text-gray-400">
-                {board.members.length} участников
+                Колонок: {board.columns.length} · Карточек: {board.cards.length}
               </span>
             </button>
             {canDelete && (

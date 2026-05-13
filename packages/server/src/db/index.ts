@@ -69,7 +69,77 @@ sqlite.exec(`
     updated_at INTEGER NOT NULL,
     FOREIGN KEY (owner_id) REFERENCES users(id)
   );
+
+  CREATE TABLE IF NOT EXISTS boards (
+    id TEXT PRIMARY KEY,
+    name TEXT NOT NULL,
+    description TEXT,
+    owner_id TEXT NOT NULL,
+    created_at INTEGER NOT NULL,
+    updated_at INTEGER NOT NULL,
+    FOREIGN KEY (owner_id) REFERENCES users(id)
+  );
+
+  CREATE TABLE IF NOT EXISTS task_columns (
+    id TEXT PRIMARY KEY,
+    board_id TEXT NOT NULL,
+    name TEXT NOT NULL,
+    deadline TEXT,
+    "order" INTEGER NOT NULL DEFAULT 0,
+    owner_id TEXT NOT NULL,
+    created_at INTEGER NOT NULL,
+    updated_at INTEGER NOT NULL,
+    FOREIGN KEY (board_id) REFERENCES boards(id),
+    FOREIGN KEY (owner_id) REFERENCES users(id)
+  );
+
+  CREATE TABLE IF NOT EXISTS tasks (
+    id TEXT PRIMARY KEY,
+    title TEXT NOT NULL,
+    description TEXT,
+    board_id TEXT NOT NULL,
+    column_id TEXT,
+    assignee_ids TEXT NOT NULL DEFAULT '[]',
+    labels TEXT NOT NULL DEFAULT '[]',
+    priority TEXT NOT NULL DEFAULT 'medium',
+    due_date TEXT,
+    is_completed INTEGER NOT NULL DEFAULT 0,
+    "order" INTEGER NOT NULL DEFAULT 0,
+    owner_id TEXT NOT NULL,
+    created_at INTEGER NOT NULL,
+    updated_at INTEGER NOT NULL,
+    FOREIGN KEY (board_id) REFERENCES boards(id),
+    FOREIGN KEY (column_id) REFERENCES task_columns(id),
+    FOREIGN KEY (owner_id) REFERENCES users(id)
+  );
+
+  CREATE TABLE IF NOT EXISTS task_comments (
+    id TEXT PRIMARY KEY,
+    task_id TEXT NOT NULL,
+    author_id TEXT NOT NULL,
+    body TEXT NOT NULL,
+    created_at INTEGER NOT NULL,
+    updated_at INTEGER NOT NULL,
+    FOREIGN KEY (task_id) REFERENCES tasks(id),
+    FOREIGN KEY (author_id) REFERENCES users(id)
+  );
 `);
+
+const addColumnIfMissing = (tableName: string, columnName: string, definition: string) => {
+  const columns = sqlite.query(`PRAGMA table_info(${tableName})`).all() as Array<{ name: string }>;
+
+  if (!columns.some(column => column.name === columnName)) {
+    sqlite.exec(`ALTER TABLE ${tableName} ADD COLUMN ${definition}`);
+  }
+};
+
+addColumnIfMissing('tasks', 'column_id', 'column_id TEXT');
+addColumnIfMissing('tasks', 'assignee_ids', "assignee_ids TEXT NOT NULL DEFAULT '[]'");
+addColumnIfMissing('tasks', 'labels', "labels TEXT NOT NULL DEFAULT '[]'");
+addColumnIfMissing('tasks', 'priority', "priority TEXT NOT NULL DEFAULT 'medium'");
+addColumnIfMissing('tasks', 'due_date', 'due_date TEXT');
+addColumnIfMissing('tasks', 'is_completed', 'is_completed INTEGER NOT NULL DEFAULT 0');
+addColumnIfMissing('tasks', 'order', '"order" INTEGER NOT NULL DEFAULT 0');
 
 // Инициализация базы данных с начальными пользователями
 async function initDatabase() {

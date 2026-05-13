@@ -1,102 +1,206 @@
-import React, { useMemo, useState } from 'react';
+import React, { useEffect, useMemo, useState } from 'react';
 import { Filter, Search, Users } from 'lucide-react';
 import { useAuthStore } from '../../../store';
-import { TaskCard, TaskDraft, TaskStatus } from '../models/tasksModel';
-import { useTasksStore } from '../viewmodels/tasksViewModel';
+import {
+  useAddTaskComment,
+  useCreateTaskBoard,
+  useCreateTaskCard,
+  useCreateTaskColumn,
+  useDeleteTaskBoard,
+  useDeleteTaskCard,
+  useDeleteTaskColumn,
+  useMoveTaskCard,
+  useTaskBoards,
+  useUpdateTaskCard,
+  useUpdateTaskColumn,
+} from '../api/tasksApi';
+import { ColumnDraft, TaskCard, TaskColumn, TaskDraft } from '../models/tasksModel';
+import { matchesCard, useTasksStore } from '../viewmodels/tasksViewModel';
 import { BoardList } from './BoardList';
 import { KanbanBoard } from './KanbanBoard';
 
 const emptyTaskDraft: TaskDraft = {
   title: '',
   description: '',
-  assignee: '',
+  assigneeIds: [],
   priority: 'medium',
   labels: '',
   dueDate: '',
 };
 
+const emptyColumnDraft: ColumnDraft = {
+  name: '',
+  deadline: '',
+};
+
+const getCurrentUserId = () => {
+  const userText = localStorage.getItem('user');
+
+  if (!userText) {
+    return '';
+  }
+
+  try {
+    const user = JSON.parse(userText) as { id?: string; username?: string };
+    return user.id || user.username || '';
+  } catch {
+    return '';
+  }
+};
+
 export const TasksView: React.FC = () => {
-  const {
-    boards,
-    cards: allCards,
-    activeBoardId,
-    searchQuery,
-    assigneeFilter,
-    setActiveBoard,
-    setSearchQuery,
-    setAssigneeFilter,
-    createBoard,
-    deleteBoard,
-    createCard,
-    updateCard,
-    deleteCard,
-    moveCard,
-    getBoardCards,
-  } = useTasksStore();
+  const { activeBoardId, searchQuery, assigneeFilter, setActiveBoard, setSearchQuery, setAssigneeFilter } = useTasksStore();
   const { currentUser, isAdmin } = useAuthStore();
-  const userName = currentUser ?? 'user';
+  const currentUserId = getCurrentUserId();
+  const userName = currentUser ?? 'Пользователь';
+
+  const { data: boards = [], isLoading, isError } = useTaskBoards();
+  const createBoardMutation = useCreateTaskBoard();
+  const deleteBoardMutation = useDeleteTaskBoard();
+  const createColumnMutation = useCreateTaskColumn();
+  const updateColumnMutation = useUpdateTaskColumn();
+  const deleteColumnMutation = useDeleteTaskColumn();
+  const createCardMutation = useCreateTaskCard();
+  const updateCardMutation = useUpdateTaskCard();
+  const moveCardMutation = useMoveTaskCard();
+  const deleteCardMutation = useDeleteTaskCard();
+  const addCommentMutation = useAddTaskComment();
+
   const activeBoard = boards.find(board => board.id === activeBoardId) ?? boards[0];
-  const visibleCards = activeBoard ? getBoardCards(activeBoard.id) : [];
+  const visibleCards = activeBoard
+    ? activeBoard.cards
+        .filter(card => matchesCard(card, searchQuery, assigneeFilter))
+        .sort((left, right) => left.order - right.order)
+    : [];
+
   const [boardDraft, setBoardDraft] = useState({ name: '', description: '' });
+  const [columnDraft, setColumnDraft] = useState<ColumnDraft>(emptyColumnDraft);
   const [taskDraft, setTaskDraft] = useState<TaskDraft>(emptyTaskDraft);
-  const [activeComposerStatus, setActiveComposerStatus] = useState<TaskStatus | null>(null);
+  const [activeComposerColumnId, setActiveComposerColumnId] = useState<string | null>(null);
+
+  useEffect(() => {
+    if (!activeBoardId && boards[0]) {
+      setActiveBoard(boards[0].id);
+    }
+  }, [activeBoardId, boards, setActiveBoard]);
 
   const assignees = useMemo(
     () =>
-      Array.from(
-        new Set(
-          allCards
-            .filter(card => !activeBoard || card.boardId === activeBoard.id)
-            .map(card => card.assignee)
-            .filter(Boolean)
-        )
-      ),
-    [activeBoard?.id, allCards]
+      activeBoard
+        ? Array.from(new Set(activeBoard.cards.flatMap(card => card.assigneeIds).filter(Boolean)))
+        : [],
+    [activeBoard]
   );
 
-  const handleCreateBoard = () => {
+  const isMutating =
+    createBoardMutation.isPending ||
+    deleteBoardMutation.isPending ||
+    createColumnMutation.isPending ||
+    updateColumnMutation.isPending ||
+    deleteColumnMutation.isPending ||
+    createCardMutation.isPending ||
+    updateCardMutation.isPending ||
+    moveCardMutation.isPending ||
+    deleteCardMutation.isPending ||
+    addCommentMutation.isPending;
+
+  const handleCreateBoard = async () => {
     if (!boardDraft.name.trim()) {
       return;
     }
 
-    createBoard(boardDraft, userName);
+    const board = await createBoardMutation.mutateAsync(boardDraft);
+    setActiveBoard(board.id);
     setBoardDraft({ name: '', description: '' });
   };
 
-  const handleDeleteBoard = (boardId: string) => {
+  const handleDeleteBoard = async (boardId: string) => {
     const board = boards.find(item => item.id === boardId);
 
-    if (!board || !window.confirm(`Удалить доску «${board.name}» вместе с карточками?`)) {
+    if (!board || !window.confirm(`Удалить доску «${board.name}» вместе с колонками и карточками?`)) {
       return;
     }
 
-    deleteBoard(boardId);
+    await deleteBoardMutation.mutateAsync(boardId);
+    const nextBoard = boards.find(item => item.id !== boardId);
+    setActiveBoard(nextBoard?.id ?? '');
   };
 
-  const handleOpenComposer = (status: TaskStatus) => {
-    setTaskDraft({ ...emptyTaskDraft, assignee: userName });
-    setActiveComposerStatus(status);
-  };
-
-  const handleCreateCard = (status: TaskStatus) => {
-    if (!activeBoard || !taskDraft.title.trim()) {
+  const handleCreateColumn = async () => {
+    if (!activeBoard || !columnDraft.name.trim()) {
       return;
     }
 
-    createCard(activeBoard.id, status, taskDraft, userName);
+    await createColumnMutation.mutateAsync({ boardId: activeBoard.id, draft: columnDraft });
+    setColumnDraft(emptyColumnDraft);
+  };
+
+  const handleUpdateColumn = (column: TaskColumn, draft: ColumnDraft) => {
+    if (!draft.name.trim() || (draft.name === column.name && draft.deadline === column.deadline)) {
+      return;
+    }
+
+    updateColumnMutation.mutate({ columnId: column.id, draft });
+  };
+
+  const handleDeleteColumn = async (columnId: string) => {
+    if (window.confirm('Удалить колонку вместе с карточками?')) {
+      await deleteColumnMutation.mutateAsync(columnId);
+    }
+  };
+
+  const handleOpenComposer = (columnId: string) => {
+    setTaskDraft({ ...emptyTaskDraft, assigneeIds: currentUser ? [currentUser] : [] });
+    setActiveComposerColumnId(columnId);
+  };
+
+  const handleCreateCard = async (columnId: string) => {
+    if (!taskDraft.title.trim()) {
+      return;
+    }
+
+    await createCardMutation.mutateAsync({ columnId, draft: taskDraft });
     setTaskDraft(emptyTaskDraft);
-    setActiveComposerStatus(null);
+    setActiveComposerColumnId(null);
   };
 
   const handleEditCard = (card: TaskCard, draft: TaskDraft) => {
-    updateCard(card.id, draft);
+    updateCardMutation.mutate({ cardId: card.id, draft });
   };
 
   const handleDeleteCard = (cardId: string) => {
     if (window.confirm('Удалить эту карточку?')) {
-      deleteCard(cardId);
+      deleteCardMutation.mutate(cardId);
     }
   };
+
+  const handleMoveCard = (cardId: string, columnId: string) => {
+    moveCardMutation.mutate({ cardId, columnId });
+  };
+
+  const handleToggleCompleted = (card: TaskCard) => {
+    updateCardMutation.mutate({ cardId: card.id, draft: { isCompleted: !card.isCompleted } });
+  };
+
+  const handleAddComment = (cardId: string, body: string) => {
+    addCommentMutation.mutate({ cardId, body });
+  };
+
+  if (isLoading) {
+    return (
+      <div className="p-8">
+        <div className="glass-card rounded-3xl p-8 text-center text-gray-600">Загрузка задач...</div>
+      </div>
+    );
+  }
+
+  if (isError) {
+    return (
+      <div className="p-8">
+        <div className="glass-card rounded-3xl p-8 text-center text-red-600">Не удалось загрузить задачи с сервера.</div>
+      </div>
+    );
+  }
 
   if (!activeBoard) {
     return (
@@ -111,10 +215,17 @@ export const TasksView: React.FC = () => {
               placeholder="Название доски"
               className="glass-input w-full rounded-xl px-4 py-3"
             />
+            <textarea
+              value={boardDraft.description}
+              onChange={event => setBoardDraft({ ...boardDraft, description: event.target.value })}
+              placeholder="Описание"
+              className="glass-input w-full resize-none rounded-xl px-4 py-3"
+              rows={3}
+            />
             <button
               type="button"
               onClick={handleCreateBoard}
-              disabled={!boardDraft.name.trim()}
+              disabled={!boardDraft.name.trim() || isMutating}
               className="btn-glass w-full rounded-xl px-4 py-3 font-semibold disabled:cursor-not-allowed disabled:opacity-50"
             >
               Создать доску
@@ -129,10 +240,10 @@ export const TasksView: React.FC = () => {
     <div className="min-h-full p-6 lg:p-8">
       <div className="mb-6 flex flex-col gap-4 xl:flex-row xl:items-end xl:justify-between">
         <div>
-          <p className="text-sm font-bold uppercase tracking-[0.35em] text-indigo-500">SuperApp Tasks</p>
+          <p className="text-sm font-bold uppercase tracking-[0.35em] text-indigo-500">Задачи</p>
           <h1 className="mt-2 text-4xl font-black text-gray-900">Задачи</h1>
           <p className="mt-2 max-w-3xl text-sm text-gray-500">
-            Kanban-доски с карточками, исполнителями, приоритетами, поиском и drag & drop между колонками.
+            Серверные доски с произвольными колонками, дедлайнами, ответственными, комментариями и перемещением карточек.
           </p>
         </div>
 
@@ -153,7 +264,7 @@ export const TasksView: React.FC = () => {
               onChange={event => setAssigneeFilter(event.target.value)}
               className="glass-input w-56 rounded-xl py-2 pl-9 pr-3 text-sm"
             >
-              <option value="">Все исполнители</option>
+              <option value="">Все ответственные</option>
               {assignees.map(assignee => (
                 <option key={assignee} value={assignee}>
                   {assignee}
@@ -169,7 +280,7 @@ export const TasksView: React.FC = () => {
           boards={boards}
           activeBoardId={activeBoard.id}
           boardDraft={boardDraft}
-          currentUser={userName}
+          currentUserId={currentUserId}
           isAdmin={isAdmin}
           onBoardDraftChange={setBoardDraft}
           onCreateBoard={handleCreateBoard}
@@ -185,15 +296,14 @@ export const TasksView: React.FC = () => {
                 <p className="mt-1 text-sm text-gray-500">{activeBoard.description || 'Описание доски не задано.'}</p>
               </div>
               <div className="flex flex-wrap gap-2">
-                {activeBoard.members.map(member => (
-                  <span
-                    key={member}
-                    className="inline-flex items-center gap-1.5 rounded-full bg-white/75 px-3 py-1.5 text-xs font-bold text-gray-600"
-                  >
-                    <Users size={13} />
-                    {member}
-                  </span>
-                ))}
+                <span className="inline-flex items-center gap-1.5 rounded-full bg-white/75 px-3 py-1.5 text-xs font-bold text-gray-600">
+                  <Users size={13} />
+                  Владелец: {activeBoard.ownerId === currentUserId ? userName : activeBoard.ownerId}
+                </span>
+                <span className="inline-flex items-center gap-1.5 rounded-full bg-white/75 px-3 py-1.5 text-xs font-bold text-gray-600">
+                  Участников: {activeBoard.members.length}
+                </span>
+                {isMutating && <span className="rounded-full bg-indigo-50 px-3 py-1.5 text-xs font-bold text-indigo-600">Синхронизация...</span>}
               </div>
             </div>
           </div>
@@ -202,16 +312,24 @@ export const TasksView: React.FC = () => {
             board={activeBoard}
             cards={visibleCards}
             taskDraft={taskDraft}
-            activeComposerStatus={activeComposerStatus}
-            currentUser={userName}
+            columnDraft={columnDraft}
+            activeComposerColumnId={activeComposerColumnId}
+            currentUserId={currentUserId}
+            currentUserName={userName}
             isAdmin={isAdmin}
             onTaskDraftChange={setTaskDraft}
+            onColumnDraftChange={setColumnDraft}
             onOpenComposer={handleOpenComposer}
-            onCloseComposer={() => setActiveComposerStatus(null)}
+            onCloseComposer={() => setActiveComposerColumnId(null)}
             onCreateCard={handleCreateCard}
             onEditCard={handleEditCard}
             onDeleteCard={handleDeleteCard}
-            onMoveCard={moveCard}
+            onMoveCard={handleMoveCard}
+            onToggleCompleted={handleToggleCompleted}
+            onAddComment={handleAddComment}
+            onCreateColumn={handleCreateColumn}
+            onUpdateColumn={handleUpdateColumn}
+            onDeleteColumn={handleDeleteColumn}
           />
         </section>
       </div>
