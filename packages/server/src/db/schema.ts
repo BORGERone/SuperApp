@@ -51,6 +51,20 @@ export const emails = sqliteTable('emails', {
   updatedAt: integer('updated_at', { mode: 'timestamp' }).notNull(),
 });
 
+// Таблица вложений писем
+export const emailAttachments = sqliteTable('email_attachments', {
+  id: text('id').primaryKey(),
+  emailId: text('email_id').notNull().references(() => emails.id),
+  filename: text('filename').notNull(),
+  size: integer('size').notNull(),
+  mimeType: text('mime_type').notNull(),
+  storageType: text('storage_type').notNull().$type<'local' | 'drive'>(), // local - загружен с компьютера, drive - с сетевого диска
+  filePath: text('file_path').notNull(), // путь к файлу на сервере (для local: uploads/{id}-{filename}, для drive: uploads/{fileId}-{filename})
+  driveFileId: text('drive_file_id'), // ссылка на файл в таблице files (если storageType = drive)
+  ownerId: text('owner_id').notNull().references(() => users.id),
+  createdAt: integer('created_at', { mode: 'timestamp' }).notNull(),
+});
+
 // Таблица колонок задач (создаются пользователями)
 export const taskColumns = sqliteTable('task_columns', {
   id: text('id').primaryKey(),
@@ -104,6 +118,7 @@ export type User = typeof users.$inferSelect;
 export type File = typeof files.$inferSelect;
 export type FilePermission = typeof filePermissions.$inferSelect;
 export type Email = typeof emails.$inferSelect;
+export type EmailAttachment = typeof emailAttachments.$inferSelect;
 export type TaskColumn = typeof taskColumns.$inferSelect;
 export type TaskCard = typeof taskCards.$inferSelect;
 export type TaskComment = typeof taskComments.$inferSelect;

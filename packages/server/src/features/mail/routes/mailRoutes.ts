@@ -1,8 +1,8 @@
 import { Hono } from 'hono';
 import { z } from 'zod';
 import { db } from '../../../db';
-import { emails, users } from '../../../db/schema';
-import { eq, and, desc, like, or } from 'drizzle-orm';
+import { emails, users, emailAttachments } from '../../../db/schema';
+import { eq, and, desc, like, inArray } from 'drizzle-orm';
 import { authMiddleware } from '../../../shared/middleware/authMiddleware';
 
 const mail = new Hono();
@@ -14,6 +14,7 @@ const sendEmailSchema = z.object({
   bcc: z.array(z.string().min(1)).optional(),
   subject: z.string().min(1),
   body: z.string().min(1),
+  attachmentIds: z.array(z.string()).optional(), // ID загруженных вложений
 });
 
 const updateEmailSchema = z.object({
@@ -74,6 +75,36 @@ mail.get('/', authMiddleware, async (c) => {
       .limit(50)
       .execute();
 
+    // Получаем вложения для каждого письма
+    const emailIds = emailList.map(e => e.id);
+    const attachments = await db
+      .select()
+      .from(emailAttachments)
+      .where(inArray(emailAttachments.emailId, emailIds))
+      .execute();
+
+    // Группируем вложения по emailId
+    const attachmentsByEmail = attachments.reduce((acc, att) => {
+      if (!acc[att.emailId]) {
+        acc[att.emailId] = [];
+      }
+      acc[att.emailId].push({
+        id: att.id,
+        filename: att.filename,
+        size: att.size,
+        mimeType: att.mimeType,
+        storageType: att.storageType,
+        driveFileId: att.driveFileId,
+      });
+      return acc;
+    }, {} as Record<string, any[]>);
+
+    // Добавляем вложения к письмам
+    const emailsWithAttachments = emailList.map(email => ({
+      ...email,
+      attachments: attachmentsByEmail[email.id] || [],
+    }));
+
     const resultLog = {
       timestamp: new Date().toISOString(),
       action: 'GET_EMAILS_SUCCESS',
@@ -93,8 +124,8 @@ mail.get('/', authMiddleware, async (c) => {
       search: search,
       isUnreadOnly: isUnreadOnly,
       isStarredOnly: isStarredOnly,
-      totalEmails: emailList.length,
-      emails: emailList.map(e => ({
+      totalEmails: emailsWithAttachments.length,
+      emails: emailsWithAttachments.map(e => ({
         id: e.id,
         folder: e.folder,
         subject: e.subject,
@@ -103,7 +134,7 @@ mail.get('/', authMiddleware, async (c) => {
       }))
     });
 
-    return c.json({ emails: emailList });
+    return c.json({ emails: emailsWithAttachments });
   } catch (error) {
     const errorLog = {
       timestamp: new Date().toISOString(),
@@ -136,6 +167,23 @@ mail.get('/:id', authMiddleware, async (c) => {
       return c.json({ error: 'Email not found' }, 404);
     }
 
+    // Получаем вложения для письма
+    const attachments = await db
+      .select()
+      .from(emailAttachments)
+      .where(eq(emailAttachments.emailId, emailId))
+      .execute();
+
+    // Формируем массив вложений
+    const attachmentsArray = attachments.map(att => ({
+      id: att.id,
+      filename: att.filename,
+      size: att.size,
+      mimeType: att.mimeType,
+      storageType: att.storageType,
+      driveFileId: att.driveFileId,
+    }));
+
     // Отмечаем как прочитанное
     await db
       .update(emails)
@@ -143,7 +191,7 @@ mail.get('/:id', authMiddleware, async (c) => {
       .where(eq(emails.id, emailId))
       .execute();
 
-    return c.json({ email: email[0] });
+    return c.json({ email: { ...email[0], attachments: attachmentsArray } });
   } catch (error) {
     console.error('Error fetching email:', error);
     return c.json({ error: 'Failed to fetch email' }, 500);
@@ -169,8 +217,9 @@ mail.post('/send', authMiddleware, async (c) => {
 
     // Создаем письмо в отправленных
     console.log('Creating sent email for user:', user.email);
+    const sentEmailId = crypto.randomUUID();
     const sentEmail = {
-      id: crypto.randomUUID(),
+      id: sentEmailId,
       from: user.email,
       to: validatedData.to.join(', '),
       cc: validatedData.cc?.join(', ') || null,
@@ -190,19 +239,31 @@ mail.post('/send', authMiddleware, async (c) => {
     await db.insert(emails).values(sentEmail).execute();
     console.log('Sent email inserted successfully');
 
+    // Связываем вложения с письмом отправителя
+    if (validatedData.attachmentIds && validatedData.attachmentIds.length > 0) {
+      console.log('Linking attachments to sent email:', validatedData.attachmentIds);
+      for (const attachmentId of validatedData.attachmentIds) {
+        await db
+          .update(emailAttachments)
+          .set({ emailId: sentEmailId })
+          .where(eq(emailAttachments.id, attachmentId))
+          .execute();
+      }
+    }
+
     console.log('Starting email delivery to recipients:', recipients);
 
     for (const recipientEmail of recipients) {
       try {
         console.log('Processing recipient:', recipientEmail);
-        
+
         // Ищем пользователя-получателя
         const recipientUser = await db
           .select()
           .from(users)
           .where(eq(users.email, recipientEmail))
           .execute();
-        
+
         console.log('Found recipient user:', recipientUser.length > 0 ? 'yes' : 'no');
 
         if (recipientUser.length === 0) {
@@ -211,8 +272,9 @@ mail.post('/send', authMiddleware, async (c) => {
         }
 
         // Создаем письмо для получателя
+        const inboxEmailId = crypto.randomUUID();
         const inboxEmail = {
-          id: crypto.randomUUID(),
+          id: inboxEmailId,
           from: user.email,
           to: recipientEmail,
           subject: validatedData.subject,
@@ -228,6 +290,34 @@ mail.post('/send', authMiddleware, async (c) => {
 
         await db.insert(emails).values(inboxEmail).execute();
         console.log(`Email delivered to ${recipientEmail}:`, inboxEmail);
+
+        // Копируем вложения для получателя
+        if (validatedData.attachmentIds && validatedData.attachmentIds.length > 0) {
+          console.log('Copying attachments for recipient:', validatedData.attachmentIds);
+          for (const attachmentId of validatedData.attachmentIds) {
+            const originalAttachment = await db
+              .select()
+              .from(emailAttachments)
+              .where(eq(emailAttachments.id, attachmentId))
+              .limit(1);
+
+            if (originalAttachment.length > 0) {
+              const newAttachmentId = crypto.randomUUID();
+              await db.insert(emailAttachments).values({
+                id: newAttachmentId,
+                emailId: inboxEmailId,
+                filename: originalAttachment[0].filename,
+                size: originalAttachment[0].size,
+                mimeType: originalAttachment[0].mimeType,
+                storageType: originalAttachment[0].storageType,
+                filePath: originalAttachment[0].filePath,
+                driveFileId: originalAttachment[0].driveFileId,
+                ownerId: recipientUser[0].id,
+                createdAt: new Date(),
+              });
+            }
+          }
+        }
       } catch (error) {
         console.error(`Error delivering email to ${recipientEmail}:`, error);
       }
@@ -241,7 +331,7 @@ mail.post('/send', authMiddleware, async (c) => {
     if (sentEmail) {
       response.email = sentEmail;
     }
-    
+
     return c.json(response);
   } catch (error) {
     if (error instanceof z.ZodError) {
@@ -435,6 +525,142 @@ mail.put('/:id/move', authMiddleware, async (c) => {
     }
     console.error('Error moving email:', error);
     return c.json({ error: 'Failed to move email' }, 500);
+  }
+});
+
+// Загрузка вложения
+mail.post('/attachments/upload', authMiddleware, async (c) => {
+  try {
+    const user = c.get('user');
+    const formData = await c.req.formData();
+    const file = formData.get('file') as File;
+    const storageType = formData.get('storageType') as string; // 'local' или 'drive'
+    const driveFileId = formData.get('driveFileId') as string | null;
+
+    console.log('Upload attachment request:', { fileName: file?.name, fileSize: file?.size, storageType, driveFileId });
+
+    if (!file) {
+      return c.json({ error: 'No file provided' }, 400);
+    }
+
+    const attachmentId = crypto.randomUUID();
+    const now = new Date();
+    let filePath: string;
+
+    if (storageType === 'drive' && driveFileId) {
+      // Файл с сетевого диска - уже есть на сервере, используем существующий путь
+      filePath = `./uploads/${driveFileId}-${file.name}`;
+    } else {
+      // Файл с локального компьютера - сохраняем с уникальным именем
+      const uploadsDir = './uploads';
+      const fs = require('fs');
+      if (!fs.existsSync(uploadsDir)) {
+        fs.mkdirSync(uploadsDir, { recursive: true });
+      }
+      filePath = `${uploadsDir}/${attachmentId}-${file.name}`;
+      const buffer = await file.arrayBuffer();
+      fs.writeFileSync(filePath, Buffer.from(buffer));
+    }
+
+    // Создаем запись в таблице email_attachments
+    await db.insert(emailAttachments).values({
+      id: attachmentId,
+      emailId: '', // Будет заполнено при отправке письма
+      filename: file.name,
+      size: file.size,
+      mimeType: file.type || 'application/octet-stream',
+      storageType: storageType as 'local' | 'drive',
+      filePath: filePath,
+      driveFileId: driveFileId || null,
+      ownerId: user.id,
+      createdAt: now,
+    });
+
+    console.log('Attachment uploaded successfully:', { attachmentId, fileName: file.name });
+    return c.json({ message: 'Attachment uploaded successfully', id: attachmentId });
+  } catch (error) {
+    console.error('Upload attachment error:', error);
+    return c.json({ error: 'Failed to upload attachment' }, 500);
+  }
+});
+
+// Скачивание вложения
+mail.get('/attachments/:id/download', authMiddleware, async (c) => {
+  try {
+    const user = c.get('user');
+    const attachmentId = c.req.param('id');
+
+    // Получаем информацию о вложении
+    const attachment = await db
+      .select()
+      .from(emailAttachments)
+      .where(eq(emailAttachments.id, attachmentId))
+      .limit(1);
+
+    if (!attachment.length) {
+      return c.json({ error: 'Attachment not found' }, 404);
+    }
+
+    // Проверяем права доступа
+    if (attachment[0].ownerId !== user.id) {
+      // Также проверяем, есть ли у пользователя доступ к письму с этим вложением
+      const email = await db
+        .select()
+        .from(emails)
+        .where(eq(emails.id, attachment[0].emailId))
+        .limit(1);
+
+      if (!email.length || email[0].ownerId !== user.id) {
+        return c.json({ error: 'Permission denied' }, 403);
+      }
+    }
+
+    // Читаем файл из файловой системы
+    const fs = require('fs');
+    if (!fs.existsSync(attachment[0].filePath)) {
+      return c.json({ error: 'File not found on disk' }, 404);
+    }
+
+    // Используем потоковую передачу для больших файлов
+    const fileStream = fs.createReadStream(attachment[0].filePath);
+
+    return c.body(fileStream, 200, {
+      'Content-Type': attachment[0].mimeType,
+      'Content-Disposition': `attachment; filename="${encodeURIComponent(attachment[0].filename)}"`,
+    });
+  } catch (error) {
+    console.error('Download attachment error:', error);
+    return c.json({ error: 'Failed to download attachment' }, 500);
+  }
+});
+
+// Получение вложений письма
+mail.get('/:id/attachments', authMiddleware, async (c) => {
+  try {
+    const user = c.get('user');
+    const emailId = c.req.param('id');
+
+    // Проверяем, что письмо принадлежит пользователю
+    const email = await db
+      .select()
+      .from(emails)
+      .where(and(eq(emails.id, emailId), eq(emails.ownerId, user.id)))
+      .limit(1);
+
+    if (!email.length) {
+      return c.json({ error: 'Email not found' }, 404);
+    }
+
+    // Получаем вложения письма
+    const attachments = await db
+      .select()
+      .from(emailAttachments)
+      .where(eq(emailAttachments.emailId, emailId));
+
+    return c.json({ attachments });
+  } catch (error) {
+    console.error('Get attachments error:', error);
+    return c.json({ error: 'Failed to get attachments' }, 500);
   }
 });
 

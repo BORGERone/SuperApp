@@ -1,9 +1,10 @@
 import React, { useState, useEffect } from 'react';
-import { X, Send, Paperclip } from 'lucide-react';
-import { Email, ComposeEmail } from '../models/mailModel';
+import { X, Send, Paperclip, HardDrive } from 'lucide-react';
+import { Email, ComposeEmail, PendingAttachment } from '../models/mailModel';
 import { useMailStore } from '../viewmodels/mailViewModel';
 import { useSendEmail } from '../api/mailApi';
 import { UserAutocomplete } from '../../auth/components/UserAutocomplete';
+import { DriveFileSelectorModal } from './DriveFileSelectorModal';
 
 interface ComposeModalProps {
   onClose: () => void;
@@ -13,15 +14,19 @@ interface ComposeModalProps {
 export const ComposeModal: React.FC<ComposeModalProps> = ({ onClose, replyTo }) => {
   const sendEmailMutation = useSendEmail();
   const { closeCompose } = useMailStore();
-  
+
   const [email, setEmail] = useState<ComposeEmail>({
     to: replyTo ? [replyTo.from] : [],
     cc: [],
     bcc: [],
     subject: replyTo ? `Re: ${replyTo.subject}` : '',
     body: replyTo ? `\n\n---\n${replyTo.from} написал:\n${replyTo.body}` : '',
-    attachments: [],
+    attachmentIds: [],
   });
+
+  const [pendingAttachments, setPendingAttachments] = useState<PendingAttachment[]>([]);
+  const [isUploading, setIsUploading] = useState(false);
+  const [showDriveSelector, setShowDriveSelector] = useState(false);
 
   const [showCc, setShowCc] = useState(false);
   const [showBcc, setShowBcc] = useState(false);
@@ -47,23 +52,120 @@ export const ComposeModal: React.FC<ComposeModalProps> = ({ onClose, replyTo }) 
   const handleRemoveRecipient = (type: 'to' | 'cc' | 'bcc', recipient: string) => {
     setEmail(prev => ({
       ...prev,
-      [type]: prev[type].filter(r => r !== recipient)
+      [type]: prev[type]?.filter(r => r !== recipient) || []
     }));
   };
 
-  const handleFileAttach = (e: React.ChangeEvent<HTMLInputElement>) => {
+  const handleFileAttach = async (e: React.ChangeEvent<HTMLInputElement>) => {
     const files = Array.from(e.target.files || []);
+    if (files.length === 0) return;
+
+    setIsUploading(true);
+
+    try {
+      // В Electron используем абсолютный URL, в браузере - относительный (через proxy)
+      const isElectron = typeof window !== 'undefined' && (window as any).electronAPI !== undefined;
+      const apiUrl = isElectron ? 'http://localhost:3002' : '';
+
+      const newAttachments: PendingAttachment[] = [];
+
+      for (const file of files) {
+        const formData = new FormData();
+        formData.append('file', file);
+        formData.append('storageType', 'local');
+
+        const response = await fetch(`${apiUrl}/api/mail/attachments/upload`, {
+          method: 'POST',
+          headers: {
+            'Authorization': `Bearer ${localStorage.getItem('accessToken')}`,
+          },
+          body: formData,
+        });
+
+        if (!response.ok) {
+          throw new Error(`Failed to upload file: ${file.name}`);
+        }
+
+        const data = await response.json();
+        newAttachments.push({
+          id: data.id,
+          file: file,
+          storageType: 'local',
+        });
+      }
+
+      setPendingAttachments(prev => [...prev, ...newAttachments]);
+      setEmail(prev => ({
+        ...prev,
+        attachmentIds: [...(prev.attachmentIds || []), ...newAttachments.map(a => a.id)],
+      }));
+    } catch (error) {
+      console.error('Failed to upload files:', error);
+      alert('Не удалось загрузить файлы');
+    } finally {
+      setIsUploading(false);
+    }
+  };
+
+  const handleRemoveAttachment = (attachmentId: string) => {
+    setPendingAttachments(prev => prev.filter(a => a.id !== attachmentId));
     setEmail(prev => ({
       ...prev,
-      attachments: [...prev.attachments, ...files]
+      attachmentIds: prev.attachmentIds?.filter(id => id !== attachmentId) || [],
     }));
   };
 
-  const handleRemoveAttachment = (index: number) => {
-    setEmail(prev => ({
-      ...prev,
-      attachments: prev.attachments.filter((_, i) => i !== index)
-    }));
+  const handleDriveFilesSelected = async (files: Array<{ id: string; name: string; size: number; type: string }>) => {
+    setIsUploading(true);
+
+    try {
+      // В Electron используем абсолютный URL, в браузере - относительный (через proxy)
+      const isElectron = typeof window !== 'undefined' && (window as any).electronAPI !== undefined;
+      const apiUrl = isElectron ? 'http://localhost:3002' : '';
+
+      const newAttachments: PendingAttachment[] = [];
+
+      for (const file of files) {
+        // Создаем объект File из данных файла с диска
+        const fileObj = new File([], file.name, { type: 'application/octet-stream' });
+
+        const formData = new FormData();
+        formData.append('file', fileObj);
+        formData.append('storageType', 'drive');
+        formData.append('driveFileId', file.id);
+
+        const response = await fetch(`${apiUrl}/api/mail/attachments/upload`, {
+          method: 'POST',
+          headers: {
+            'Authorization': `Bearer ${localStorage.getItem('accessToken')}`,
+          },
+          body: formData,
+        });
+
+        if (!response.ok) {
+          throw new Error(`Failed to attach file from drive: ${file.name}`);
+        }
+
+        const data = await response.json();
+        newAttachments.push({
+          id: data.id,
+          file: fileObj,
+          storageType: 'drive',
+          driveFileId: file.id,
+        });
+      }
+
+      setPendingAttachments(prev => [...prev, ...newAttachments]);
+      setEmail(prev => ({
+        ...prev,
+        attachmentIds: [...(prev.attachmentIds || []), ...newAttachments.map(a => a.id)],
+      }));
+    } catch (error) {
+      console.error('Failed to attach files from drive:', error);
+      alert('Не удалось прикрепить файлы с диска');
+    } finally {
+      setIsUploading(false);
+    }
   };
 
   // Сбрасываем состояния полей только при реальном открытии модального окна (не при ответе на письмо)
@@ -359,24 +461,29 @@ export const ComposeModal: React.FC<ComposeModalProps> = ({ onClose, replyTo }) 
         </div>
 
         {/* Attachments */}
-        {email.attachments.length > 0 && (
+        {pendingAttachments.length > 0 && (
           <div className="px-6 pb-4 flex-shrink-0">
             <div className="text-sm font-medium text-gray-700 mb-2">Вложения:</div>
             <div className="space-y-2">
-              {email.attachments.map((attachment) => (
+              {pendingAttachments.map((attachment) => (
                 <div
-                  key={`attachment-${attachment.name}`}
+                  key={`attachment-${attachment.id}`}
                   className="flex items-center justify-between p-3 bg-gray-50/60 rounded-lg"
                 >
                   <div className="flex items-center gap-3">
                     <Paperclip size={16} className="text-gray-400" />
-                    <span className="text-sm text-gray-700">{attachment.name}</span>
+                    <span className="text-sm text-gray-700">{attachment.file.name}</span>
                     <span className="text-xs text-gray-500">
-                      {(attachment.size / 1024).toFixed(1)} KB
+                      {(attachment.file.size / 1024).toFixed(1)} KB
                     </span>
+                    {attachment.storageType === 'drive' && (
+                      <span className="text-xs text-blue-600 bg-blue-100/60 px-2 py-1 rounded-full">
+                        Диск
+                      </span>
+                    )}
                   </div>
                   <button
-                    onClick={() => handleRemoveAttachment(index)}
+                    onClick={() => handleRemoveAttachment(attachment.id)}
                     className="text-red-600 hover:text-red-800"
                   >
                     ×
@@ -395,11 +502,20 @@ export const ComposeModal: React.FC<ComposeModalProps> = ({ onClose, replyTo }) 
                 type="file"
                 multiple
                 onChange={handleFileAttach}
+                disabled={isUploading}
                 className="hidden"
               />
               <Paperclip size={18} />
-              Прикрепить файлы
+              {isUploading ? 'Загрузка...' : 'Прикрепить файлы'}
             </label>
+            <button
+              onClick={() => setShowDriveSelector(true)}
+              disabled={isUploading}
+              className="flex items-center gap-2 text-sm text-gray-600 hover:text-gray-800 disabled:text-gray-400 disabled:cursor-not-allowed"
+            >
+              <HardDrive size={18} />
+              С диска
+            </button>
           </div>
 
           <div className="flex items-center gap-3">
@@ -420,6 +536,13 @@ export const ComposeModal: React.FC<ComposeModalProps> = ({ onClose, replyTo }) 
           </div>
         </div>
       </div>
+
+      {showDriveSelector && (
+        <DriveFileSelectorModal
+          onClose={() => setShowDriveSelector(false)}
+          onFilesSelected={handleDriveFilesSelected}
+        />
+      )}
     </div>
   );
 };

@@ -33,6 +33,37 @@ export const MailItem: React.FC<MailItemProps> = ({
     });
   };
 
+  const handleDownloadAttachment = async (attachment: any) => {
+    try {
+      // В Electron используем абсолютный URL, в браузере - относительный (через proxy)
+      const isElectron = typeof window !== 'undefined' && (window as any).electronAPI !== undefined;
+      const apiUrl = isElectron ? 'http://localhost:3002' : '';
+
+      const response = await fetch(`${apiUrl}/api/mail/attachments/${attachment.id}/download`, {
+        headers: {
+          'Authorization': `Bearer ${localStorage.getItem('accessToken')}`,
+        },
+      });
+
+      if (!response.ok) {
+        throw new Error('Failed to download attachment');
+      }
+
+      const blob = await response.blob();
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement('a');
+      a.href = url;
+      a.download = attachment.filename;
+      document.body.appendChild(a);
+      a.click();
+      document.body.removeChild(a);
+      URL.revokeObjectURL(url);
+    } catch (error) {
+      console.error('Failed to download attachment:', error);
+      alert('Не удалось скачать файл');
+    }
+  };
+
   return (
     <div className="h-full flex flex-col">
       {/* Header */}
@@ -132,10 +163,7 @@ export const MailItem: React.FC<MailItemProps> = ({
               <div
                 key={attachment.id}
                 className="flex items-center justify-between p-3 bg-gray-50/60 rounded-lg hover:bg-gray-100/80 transition-colors cursor-pointer"
-                onClick={() => {
-                  // TODO: Implement download attachment
-                  console.log('Download attachment:', attachment);
-                }}
+                onClick={() => handleDownloadAttachment(attachment)}
               >
                 <div className="flex items-center gap-3">
                   <div className="w-10 h-10 bg-blue-100/60 rounded-lg flex items-center justify-center">

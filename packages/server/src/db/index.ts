@@ -119,6 +119,21 @@ sqlite.exec(`
     updated_at INTEGER NOT NULL,
     FOREIGN KEY (card_id) REFERENCES task_cards(id)
   );
+
+  CREATE TABLE IF NOT EXISTS email_attachments (
+    id TEXT PRIMARY KEY,
+    email_id TEXT NOT NULL,
+    filename TEXT NOT NULL,
+    size INTEGER NOT NULL,
+    mime_type TEXT NOT NULL,
+    storage_type TEXT NOT NULL,
+    file_path TEXT NOT NULL,
+    drive_file_id TEXT,
+    owner_id TEXT NOT NULL,
+    created_at INTEGER NOT NULL,
+    FOREIGN KEY (email_id) REFERENCES emails(id),
+    FOREIGN KEY (owner_id) REFERENCES users(id)
+  );
 `);
 
 // Мини-миграции для существующих БД, созданных до добавления колонок архивирования
