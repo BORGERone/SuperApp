@@ -1,7 +1,7 @@
 import { Hono } from 'hono';
 import { z } from 'zod';
 import { db } from '../../../db';
-import { taskColumns, taskCards, taskComments, users } from '../../../db/schema';
+import { taskColumns, taskCards, taskComments, taskCardSubtasks, users } from '../../../db/schema';
 import { eq, asc, inArray, sql } from 'drizzle-orm';
 import { authMiddleware } from '../../../shared/middleware/authMiddleware';
 
@@ -49,6 +49,16 @@ const createCommentSchema = z.object({
   body: z.string().min(1).max(4000),
 });
 
+const createSubtaskSchema = z.object({
+  title: z.string().min(1).max(255),
+});
+
+const updateSubtaskSchema = z.object({
+  title: z.string().min(1).max(255).optional(),
+  completed: z.boolean().optional(),
+  position: z.number().int().optional(),
+});
+
 const reorderCardsSchema = z.object({
   updates: z
     .array(
@@ -81,10 +91,23 @@ interface LastCommentPreview {
   createdAt: string;
 }
 
+function serializeSubtask(subtask: typeof taskCardSubtasks.$inferSelect) {
+  return {
+    id: subtask.id,
+    cardId: subtask.cardId,
+    title: subtask.title,
+    completed: !!subtask.completed,
+    position: subtask.position,
+    createdAt: subtask.createdAt.toISOString(),
+    updatedAt: subtask.updatedAt.toISOString(),
+  };
+}
+
 function serializeCard(
   card: typeof taskCards.$inferSelect,
   commentsCount = 0,
   lastComment: LastCommentPreview | null = null,
+  subtasks: Array<typeof taskCardSubtasks.$inferSelect> = [],
 ) {
   return {
     id: card.id,
@@ -100,6 +123,7 @@ function serializeCard(
     updatedAt: card.updatedAt.toISOString(),
     commentsCount,
     lastComment,
+    subtasks: subtasks.map(serializeSubtask),
   };
 }
 
@@ -270,6 +294,7 @@ tasks.delete('/columns/:id', async (c) => {
     if (cards.length > 0) {
       const cardIds = cards.map((card) => card.id);
       await db.delete(taskComments).where(inArray(taskComments.cardId, cardIds)).execute();
+      await db.delete(taskCardSubtasks).where(inArray(taskCardSubtasks.cardId, cardIds)).execute();
       await db.delete(taskCards).where(eq(taskCards.columnId, columnId)).execute();
     }
 
@@ -307,6 +332,7 @@ tasks.get('/cards', async (c) => {
     // чтобы счётчик обновлялся динамически при инвалидации запроса карточек.
     let countByCard = new Map<string, number>();
     let lastByCard = new Map<string, LastCommentPreview>();
+    let subtasksByCard = new Map<string, Array<typeof taskCardSubtasks.$inferSelect>>();
     if (filtered.length > 0) {
       const cardIds = filtered.map((card) => card.id);
       const counts = await db
@@ -341,11 +367,28 @@ tasks.get('/cards', async (c) => {
           createdAt: row.createdAt.toISOString(),
         });
       }
+
+      const subtasksRows = await db
+        .select()
+        .from(taskCardSubtasks)
+        .where(inArray(taskCardSubtasks.cardId, cardIds))
+        .orderBy(asc(taskCardSubtasks.position), asc(taskCardSubtasks.createdAt))
+        .execute();
+      for (const subtask of subtasksRows) {
+        const list = subtasksByCard.get(subtask.cardId) ?? [];
+        list.push(subtask);
+        subtasksByCard.set(subtask.cardId, list);
+      }
     }
 
     return c.json({
       cards: filtered.map((card) =>
-        serializeCard(card, countByCard.get(card.id) ?? 0, lastByCard.get(card.id) ?? null),
+        serializeCard(
+          card,
+          countByCard.get(card.id) ?? 0,
+          lastByCard.get(card.id) ?? null,
+          subtasksByCard.get(card.id) ?? [],
+        ),
       ),
     });
   } catch (error) {
@@ -401,7 +444,7 @@ tasks.post('/cards', async (c) => {
 
     await db.insert(taskCards).values(newCard).execute();
 
-    return c.json({ card: serializeCard(newCard as typeof taskCards.$inferSelect, 0) });
+    return c.json({ card: serializeCard(newCard as typeof taskCards.$inferSelect, 0, null, []) });
   } catch (error) {
     if (error instanceof z.ZodError) {
       return c.json({ error: 'Ошибка валидации', details: error.errors }, 400);
@@ -461,7 +504,14 @@ tasks.put('/cards/:id', async (c) => {
       .execute();
     const commentsCount = Number(commentCountRows[0]?.count ?? 0) || 0;
 
-    return c.json({ card: serializeCard(updated[0], commentsCount) });
+    const subtasksRows = await db
+      .select()
+      .from(taskCardSubtasks)
+      .where(eq(taskCardSubtasks.cardId, cardId))
+      .orderBy(asc(taskCardSubtasks.position), asc(taskCardSubtasks.createdAt))
+      .execute();
+
+    return c.json({ card: serializeCard(updated[0], commentsCount, null, subtasksRows) });
   } catch (error) {
     if (error instanceof z.ZodError) {
       return c.json({ error: 'Ошибка валидации', details: error.errors }, 400);
@@ -517,6 +567,7 @@ tasks.delete('/cards/:id', async (c) => {
     }
 
     await db.delete(taskComments).where(eq(taskComments.cardId, cardId)).execute();
+    await db.delete(taskCardSubtasks).where(eq(taskCardSubtasks.cardId, cardId)).execute();
     await db.delete(taskCards).where(eq(taskCards.id, cardId)).execute();
 
     return c.json({ success: true });
@@ -630,6 +681,186 @@ tasks.delete('/comments/:id', async (c) => {
   } catch (error) {
     console.error('Error deleting comment:', error);
     return c.json({ error: 'Не удалось удалить комментарий' }, 500);
+  }
+});
+
+// ===== Подпункты (чек-лист) =====
+
+// Получение подпунктов карточки
+tasks.get('/cards/:id/subtasks', async (c) => {
+  try {
+    const cardId = c.req.param('id');
+    const subtasks = await db
+      .select()
+      .from(taskCardSubtasks)
+      .where(eq(taskCardSubtasks.cardId, cardId))
+      .orderBy(asc(taskCardSubtasks.position), asc(taskCardSubtasks.createdAt))
+      .execute();
+    return c.json({ subtasks: subtasks.map(serializeSubtask) });
+  } catch (error) {
+    console.error('Error fetching subtasks:', error);
+    return c.json({ error: 'Не удалось получить подпункты' }, 500);
+  }
+});
+
+// Создание подпункта
+tasks.post('/cards/:id/subtasks', async (c) => {
+  try {
+    const cardId = c.req.param('id');
+    const body = await c.req.json();
+    const data = createSubtaskSchema.parse(body);
+
+    const card = await db
+      .select()
+      .from(taskCards)
+      .where(eq(taskCards.id, cardId))
+      .execute();
+    if (!card.length) {
+      return c.json({ error: 'Карточка не найдена' }, 404);
+    }
+
+    const existing = await db
+      .select()
+      .from(taskCardSubtasks)
+      .where(eq(taskCardSubtasks.cardId, cardId))
+      .execute();
+
+    const now = new Date();
+    const newSubtask = {
+      id: crypto.randomUUID(),
+      cardId,
+      title: data.title,
+      completed: false,
+      position: existing.length,
+      createdAt: now,
+      updatedAt: now,
+    };
+
+    await db.insert(taskCardSubtasks).values(newSubtask).execute();
+
+    // Если на карточке уже стоит «выполнено», а появляется новый невыполненный подпункт —
+    // карточка должна перестать быть «выполнена», т.к. чек-лист более не полон.
+    if (card[0].completed) {
+      await db
+        .update(taskCards)
+        .set({ completed: false, updatedAt: now })
+        .where(eq(taskCards.id, cardId))
+        .execute();
+    }
+
+    return c.json({ subtask: serializeSubtask(newSubtask as typeof taskCardSubtasks.$inferSelect) });
+  } catch (error) {
+    if (error instanceof z.ZodError) {
+      return c.json({ error: 'Ошибка валидации', details: error.errors }, 400);
+    }
+    console.error('Error creating subtask:', error);
+    return c.json({ error: 'Не удалось добавить подпункт' }, 500);
+  }
+});
+
+// Обновление подпункта (заголовок/выполнение/позиция). Каскад на родительскую карточку:
+// если все подпункты выполнены — карточка completed=true; если есть невыполненные — completed=false.
+tasks.put('/subtasks/:id', async (c) => {
+  try {
+    const subtaskId = c.req.param('id');
+    const body = await c.req.json();
+    const data = updateSubtaskSchema.parse(body);
+
+    const existing = await db
+      .select()
+      .from(taskCardSubtasks)
+      .where(eq(taskCardSubtasks.id, subtaskId))
+      .execute();
+    if (!existing.length) {
+      return c.json({ error: 'Подпункт не найден' }, 404);
+    }
+
+    const now = new Date();
+    const updateData: Partial<typeof taskCardSubtasks.$inferInsert> = { updatedAt: now };
+    if (data.title !== undefined) updateData.title = data.title;
+    if (data.completed !== undefined) updateData.completed = data.completed;
+    if (data.position !== undefined) updateData.position = data.position;
+
+    await db
+      .update(taskCardSubtasks)
+      .set(updateData)
+      .where(eq(taskCardSubtasks.id, subtaskId))
+      .execute();
+
+    const cardId = existing[0].cardId;
+
+    // Каскадно пересчитываем completed у родительской карточки, если изменился флаг выполнения.
+    let parentCompleted: boolean | null = null;
+    if (data.completed !== undefined) {
+      const siblings = await db
+        .select()
+        .from(taskCardSubtasks)
+        .where(eq(taskCardSubtasks.cardId, cardId))
+        .execute();
+      if (siblings.length > 0) {
+        const allDone = siblings.every((s) => !!s.completed);
+        parentCompleted = allDone;
+        await db
+          .update(taskCards)
+          .set({ completed: allDone, updatedAt: now })
+          .where(eq(taskCards.id, cardId))
+          .execute();
+      }
+    }
+
+    const updated = await db
+      .select()
+      .from(taskCardSubtasks)
+      .where(eq(taskCardSubtasks.id, subtaskId))
+      .execute();
+
+    return c.json({
+      subtask: serializeSubtask(updated[0]),
+      parentCardCompleted: parentCompleted,
+    });
+  } catch (error) {
+    if (error instanceof z.ZodError) {
+      return c.json({ error: 'Ошибка валидации', details: error.errors }, 400);
+    }
+    console.error('Error updating subtask:', error);
+    return c.json({ error: 'Не удалось обновить подпункт' }, 500);
+  }
+});
+
+// Удаление подпункта
+tasks.delete('/subtasks/:id', async (c) => {
+  try {
+    const subtaskId = c.req.param('id');
+    const existing = await db
+      .select()
+      .from(taskCardSubtasks)
+      .where(eq(taskCardSubtasks.id, subtaskId))
+      .execute();
+    if (!existing.length) {
+      return c.json({ error: 'Подпункт не найден' }, 404);
+    }
+    const cardId = existing[0].cardId;
+    await db.delete(taskCardSubtasks).where(eq(taskCardSubtasks.id, subtaskId)).execute();
+
+    // После удаления тоже пересчитываем completed карточки.
+    const siblings = await db
+      .select()
+      .from(taskCardSubtasks)
+      .where(eq(taskCardSubtasks.cardId, cardId))
+      .execute();
+    if (siblings.length > 0) {
+      const allDone = siblings.every((s) => !!s.completed);
+      await db
+        .update(taskCards)
+        .set({ completed: allDone, updatedAt: new Date() })
+        .where(eq(taskCards.id, cardId))
+        .execute();
+    }
+
+    return c.json({ success: true });
+  } catch (error) {
+    console.error('Error deleting subtask:', error);
+    return c.json({ error: 'Не удалось удалить подпункт' }, 500);
   }
 });
 

@@ -4,6 +4,7 @@ import {
   CheckCircle2,
   Circle,
   GripVertical,
+  ListChecks,
   MessageSquare,
   Pencil,
   Trash2,
@@ -260,6 +261,15 @@ export const CardItem: React.FC<CardItemProps> = ({
               </span>
             )}
           </div>
+        )}
+        {(card.subtasks?.length ?? 0) > 0 && (
+          <span
+            className="inline-flex items-center gap-1 rounded-full bg-white/70 px-2 py-[2px] font-semibold text-slate-500 ring-1 ring-slate-200/60"
+            title="Подпункты"
+          >
+            <ListChecks size={11} />
+            {card.subtasks.filter((s) => s.completed).length}/{card.subtasks.length}
+          </span>
         )}
         {commentsCount > 0 && (
           <span className="ml-auto inline-flex items-center gap-1 rounded-full bg-white/70 px-2 py-[2px] font-semibold text-slate-500 ring-1 ring-slate-200/60">

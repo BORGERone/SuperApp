@@ -108,6 +108,17 @@ sqlite.exec(`
     FOREIGN KEY (card_id) REFERENCES task_cards(id),
     FOREIGN KEY (author_id) REFERENCES users(id)
   );
+
+  CREATE TABLE IF NOT EXISTS task_card_subtasks (
+    id TEXT PRIMARY KEY,
+    card_id TEXT NOT NULL,
+    title TEXT NOT NULL,
+    completed INTEGER NOT NULL DEFAULT 0,
+    position INTEGER NOT NULL DEFAULT 0,
+    created_at INTEGER NOT NULL,
+    updated_at INTEGER NOT NULL,
+    FOREIGN KEY (card_id) REFERENCES task_cards(id)
+  );
 `);
 
 // Мини-миграции для существующих БД, созданных до добавления колонок архивирования

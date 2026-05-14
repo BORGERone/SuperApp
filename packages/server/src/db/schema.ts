@@ -88,6 +88,17 @@ export const taskComments = sqliteTable('task_comments', {
   createdAt: integer('created_at', { mode: 'timestamp' }).notNull(),
 });
 
+// Таблица подпунктов (чек-листа) карточки
+export const taskCardSubtasks = sqliteTable('task_card_subtasks', {
+  id: text('id').primaryKey(),
+  cardId: text('card_id').notNull().references(() => taskCards.id),
+  title: text('title').notNull(),
+  completed: integer('completed', { mode: 'boolean' }).notNull().default(false),
+  position: integer('position').notNull().default(0),
+  createdAt: integer('created_at', { mode: 'timestamp' }).notNull(),
+  updatedAt: integer('updated_at', { mode: 'timestamp' }).notNull(),
+});
+
 // Типы для TypeScript
 export type User = typeof users.$inferSelect;
 export type File = typeof files.$inferSelect;
@@ -96,3 +107,4 @@ export type Email = typeof emails.$inferSelect;
 export type TaskColumn = typeof taskColumns.$inferSelect;
 export type TaskCard = typeof taskCards.$inferSelect;
 export type TaskComment = typeof taskComments.$inferSelect;
+export type TaskCardSubtask = typeof taskCardSubtasks.$inferSelect;

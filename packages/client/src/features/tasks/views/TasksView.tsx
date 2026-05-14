@@ -1,5 +1,5 @@
 import React, { useEffect, useMemo, useState } from 'react';
-import { Archive, Filter, RefreshCw, Search, Users } from 'lucide-react';
+import { Archive, RefreshCw, Search, Users } from 'lucide-react';
 import { useIsMutating, useQueryClient } from '@tanstack/react-query';
 import {
   cardsCacheKey,
@@ -12,6 +12,7 @@ import { TaskCard, TaskColumn } from '../models/tasksModel';
 import { TaskColumnView } from '../components/TaskColumnView';
 import { AddColumnForm } from '../components/AddColumnForm';
 import { ArchivePanel } from '../components/ArchivePanel';
+import { AssigneeFilter } from '../components/AssigneeFilter';
 import { CardModal } from '../components/CardModal';
 import { CardDragProvider } from '../dnd/CardDragContext';
 import { useUsers } from '../../auth/api/usersApi';
@@ -33,14 +34,19 @@ function readCurrentUserId(): string | null {
 function matchesCardSearch(
   card: TaskCard,
   searchQuery: string,
-  assigneeFilter: string,
+  assigneeFilters: string[],
 ): boolean {
   const trimmedSearch = searchQuery.trim().toLowerCase();
   if (trimmedSearch) {
     const haystack = `${card.title}\n${card.description}`.toLowerCase();
     if (!haystack.includes(trimmedSearch)) return false;
   }
-  if (assigneeFilter && !card.assignees.includes(assigneeFilter)) return false;
+  // При пустом массиве фильтров показываем всё; иначе карточка проходит, если в assignees
+  // присутствует хотя бы один из выбранных пользователей (Мои задачи добавляет currentUserId в фильтр).
+  if (assigneeFilters.length > 0) {
+    const hit = card.assignees.some((id) => assigneeFilters.includes(id));
+    if (!hit) return false;
+  }
   return true;
 }
 
@@ -53,7 +59,7 @@ export const TasksView: React.FC = () => {
   const [selectedCardId, setSelectedCardId] = useState<string | null>(null);
   const [currentUserId, setCurrentUserId] = useState<string | null>(() => readCurrentUserId());
   const [searchQuery, setSearchQuery] = useState('');
-  const [assigneeFilter, setAssigneeFilter] = useState('');
+  const [assigneeFilters, setAssigneeFilters] = useState<string[]>([]);
   const [isArchiveOpen, setIsArchiveOpen] = useState(false);
 
   const mutatingCount = useIsMutating();
@@ -63,18 +69,12 @@ export const TasksView: React.FC = () => {
     setCurrentUserId(readCurrentUserId());
   }, []);
 
-  const userMap = useMemo(() => {
-    const map = new Map<string, { username: string; email: string }>();
-    (users as Array<{ id: string; username: string; email: string }>).forEach((user) =>
-      map.set(user.id, user),
-    );
-    return map;
-  }, [users]);
-
   const visibleCards = useMemo(
-    () => cards.filter((card) => matchesCardSearch(card, searchQuery, assigneeFilter)),
-    [cards, searchQuery, assigneeFilter],
+    () => cards.filter((card) => matchesCardSearch(card, searchQuery, assigneeFilters)),
+    [cards, searchQuery, assigneeFilters],
   );
+
+  const isFilterActive = searchQuery.trim().length > 0 || assigneeFilters.length > 0;
 
   const cardsByColumn = useMemo(() => {
     const grouped = new Map<string, TaskCard[]>();
@@ -102,11 +102,7 @@ export const TasksView: React.FC = () => {
     return result;
   }, [cards]);
 
-  const assigneeOptions = useMemo(() => {
-    const set = new Set<string>();
-    cards.forEach((card) => card.assignees.forEach((assignee) => set.add(assignee)));
-    return Array.from(set);
-  }, [cards]);
+
 
   const selectedCard = useMemo(() => {
     if (!selectedCardId) return null;
@@ -207,17 +203,19 @@ export const TasksView: React.FC = () => {
     [columns],
   );
 
+  // При активном фильтре скрываем колонки, в которых нет подходящих карточек.
+  const visibleColumns = useMemo(() => {
+    if (!isFilterActive) return sortedColumns;
+    return sortedColumns.filter((column) => (cardsByColumn.get(column.id)?.length ?? 0) > 0);
+  }, [sortedColumns, cardsByColumn, isFilterActive]);
+
   return (
     <CardDragProvider>
     <div className="flex flex-col h-full min-h-0">
       <div className="px-6 lg:px-8 pt-6 pb-4">
         <div className="flex flex-col gap-4 xl:flex-row xl:items-end xl:justify-between">
           <div>
-            <p className="text-sm font-bold uppercase tracking-[0.35em] text-indigo-500">Задачи</p>
-            <h1 className="mt-2 text-4xl font-black text-gray-900">Задачи</h1>
-            <p className="mt-2 max-w-3xl text-sm text-gray-500">
-              Серверные доски с произвольными колонками, дедлайнами, ответственными и комментариями. Все изменения мгновенно синхронизируются с сервером.
-            </p>
+            <h1 className="text-4xl font-black text-gray-900">Задачи</h1>
           </div>
 
           <div className="glass-card flex flex-wrap items-center gap-3 rounded-2xl p-3">
@@ -233,28 +231,12 @@ export const TasksView: React.FC = () => {
                 className="glass-input w-64 rounded-xl py-2 pl-9 pr-3 text-sm"
               />
             </div>
-            <div className="relative">
-              <Filter
-                className="pointer-events-none absolute left-3 top-1/2 -translate-y-1/2 text-gray-400"
-                size={16}
-              />
-              <select
-                value={assigneeFilter}
-                onChange={(event) => setAssigneeFilter(event.target.value)}
-                className="glass-input w-56 rounded-xl py-2 pl-9 pr-3 text-sm"
-              >
-                <option value="">Все ответственные</option>
-                {assigneeOptions.map((assigneeId) => {
-                  const user = userMap.get(assigneeId);
-                  const label = user?.username || user?.email || assigneeId;
-                  return (
-                    <option key={assigneeId} value={assigneeId}>
-                      {label}
-                    </option>
-                  );
-                })}
-              </select>
-            </div>
+            <AssigneeFilter
+              users={users as Array<{ id: string; username: string; email: string }>}
+              selected={assigneeFilters}
+              onChange={setAssigneeFilters}
+              currentUserId={currentUserId}
+            />
             <button
               onClick={handleRefresh}
               className="inline-flex items-center gap-1.5 rounded-xl bg-white/80 border border-gray-200 px-3 py-2 text-sm font-semibold text-gray-700 hover:bg-white"
@@ -311,18 +293,25 @@ export const TasksView: React.FC = () => {
               Загрузка задач...
             </div>
           ) : (
-            sortedColumns.map((column: TaskColumn) => (
-              <TaskColumnView
-                key={column.id}
-                column={column}
-                cards={cardsByColumn.get(column.id) ?? []}
-                commentsCountByCard={commentsCountByCard}
-                onOpenCard={(card) => setSelectedCardId(card.id)}
-                onDropCard={handleDropCard}
-              />
-            ))
+            <>
+              {visibleColumns.map((column: TaskColumn) => (
+                <TaskColumnView
+                  key={column.id}
+                  column={column}
+                  cards={cardsByColumn.get(column.id) ?? []}
+                  commentsCountByCard={commentsCountByCard}
+                  onOpenCard={(card) => setSelectedCardId(card.id)}
+                  onDropCard={handleDropCard}
+                />
+              ))}
+              {isFilterActive && visibleColumns.length === 0 && sortedColumns.length > 0 && (
+                <div className="glass-card flex w-[340px] flex-shrink-0 items-center justify-center rounded-3xl p-8 text-center text-sm text-slate-500">
+                  Ни одна колонка не содержит карточек, подходящих под фильтр.
+                </div>
+              )}
+            </>
           )}
-          <AddColumnForm />
+          {!isFilterActive && <AddColumnForm />}
         </div>
       </div>
 

@@ -5,7 +5,9 @@ import {
   Circle,
   Columns,
   FileText,
+  ListChecks,
   MessageSquare,
+  Plus,
   Send,
   Trash2,
   User as UserIcon,
@@ -15,10 +17,13 @@ import {
 import { TaskCard, TaskColumn, computeDeadlineState } from '../models/tasksModel';
 import {
   useCreateComment,
+  useCreateSubtask,
   useDeleteCard,
   useDeleteComment,
+  useDeleteSubtask,
   useTaskComments,
   useUpdateCard,
+  useUpdateSubtask,
 } from '../api/tasksApi';
 import { useUsers } from '../../auth/api/usersApi';
 import { AssigneePicker } from './AssigneePicker';
@@ -73,6 +78,9 @@ export const CardModal: React.FC<CardModalProps> = ({ card, columns, currentUser
   const deleteCard = useDeleteCard();
   const createComment = useCreateComment();
   const deleteComment = useDeleteComment();
+  const createSubtask = useCreateSubtask();
+  const updateSubtask = useUpdateSubtask();
+  const deleteSubtask = useDeleteSubtask();
   const { data: comments = [], isLoading: commentsLoading } = useTaskComments(card.id);
 
   const [title, setTitle] = useState(card.title);
@@ -82,6 +90,7 @@ export const CardModal: React.FC<CardModalProps> = ({ card, columns, currentUser
   const [columnId, setColumnId] = useState(card.columnId);
   const [assignees, setAssignees] = useState<string[]>(card.assignees);
   const [commentText, setCommentText] = useState('');
+  const [newSubtaskTitle, setNewSubtaskTitle] = useState('');
   const [savingState, setSavingState] = useState<'idle' | 'saving' | 'saved' | 'error'>('idle');
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
 
@@ -172,6 +181,40 @@ export const CardModal: React.FC<CardModalProps> = ({ card, columns, currentUser
       setErrorMessage(error instanceof Error ? error.message : 'Не удалось удалить комментарий');
     }
   };
+
+  const handleAddSubtask = async () => {
+    const title = newSubtaskTitle.trim();
+    if (!title) return;
+    try {
+      await createSubtask.mutateAsync({ cardId: card.id, title });
+      setNewSubtaskTitle('');
+    } catch (error) {
+      setErrorMessage(error instanceof Error ? error.message : 'Не удалось добавить подпункт');
+    }
+  };
+
+  const handleToggleSubtask = async (subtaskId: string, nextCompleted: boolean) => {
+    try {
+      await updateSubtask.mutateAsync({
+        subtaskId,
+        input: { completed: nextCompleted },
+      });
+    } catch (error) {
+      setErrorMessage(error instanceof Error ? error.message : 'Не удалось обновить подпункт');
+    }
+  };
+
+  const handleDeleteSubtask = async (subtaskId: string) => {
+    try {
+      await deleteSubtask.mutateAsync(subtaskId);
+    } catch (error) {
+      setErrorMessage(error instanceof Error ? error.message : 'Не удалось удалить подпункт');
+    }
+  };
+
+  const subtasks = card.subtasks ?? [];
+  const totalSubtasks = subtasks.length;
+  const completedSubtasks = subtasks.filter((s) => s.completed).length;
 
   const deadlineState = computeDeadlineState(localInputToIso(deadlineInput), completed);
   const deadlineHint =
@@ -293,6 +336,104 @@ export const CardModal: React.FC<CardModalProps> = ({ card, columns, currentUser
               <Users size={12} /> Ответственные
             </div>
             <AssigneePicker selected={assignees} onChange={setAssignees} />
+          </div>
+
+          <div className={sectionClass}>
+            <div className="mb-3 flex items-center gap-2">
+              <span className={`${labelClass} !mb-0`}>
+                <ListChecks size={12} /> Подпункты
+              </span>
+              {totalSubtasks > 0 && (
+                <span className="rounded-full bg-white/70 px-2 py-[1px] text-[11px] font-semibold text-slate-500 ring-1 ring-slate-200/60">
+                  {completedSubtasks}/{totalSubtasks}
+                </span>
+              )}
+            </div>
+
+            {totalSubtasks > 0 && (
+              <div className="mb-3 h-1.5 w-full overflow-hidden rounded-full bg-slate-100/80">
+                <div
+                  className="h-full rounded-full bg-gradient-to-r from-indigo-400 to-violet-500 transition-[width] duration-300"
+                  style={{ width: `${(completedSubtasks / totalSubtasks) * 100}%` }}
+                />
+              </div>
+            )}
+
+            <div className="tasks-scroll max-h-60 space-y-1.5 overflow-y-auto pr-1">
+              {totalSubtasks === 0 ? (
+                <div className="rounded-xl border border-dashed border-slate-200/70 bg-white/40 px-3 py-3 text-center text-[12.5px] text-slate-500">
+                  Подпунктов пока нет — разбейте задачу на шаги.
+                </div>
+              ) : (
+                subtasks.map((subtask) => (
+                  <div
+                    key={subtask.id}
+                    className="flex items-center gap-2 rounded-xl border border-white/60 bg-white/70 px-2.5 py-1.5 backdrop-blur-sm"
+                  >
+                    <button
+                      type="button"
+                      onClick={() => handleToggleSubtask(subtask.id, !subtask.completed)}
+                      className={`flex-shrink-0 rounded-full p-0.5 transition-colors ${
+                        subtask.completed
+                          ? 'text-emerald-600'
+                          : 'text-slate-400 hover:text-emerald-600'
+                      }`}
+                      aria-label={
+                        subtask.completed
+                          ? 'Снять отметку выполнения'
+                          : 'Отметить выполненным'
+                      }
+                    >
+                      {subtask.completed ? (
+                        <CheckCircle2 size={18} />
+                      ) : (
+                        <Circle size={18} />
+                      )}
+                    </button>
+                    <span
+                      className={`min-w-0 flex-1 text-[13px] leading-snug text-slate-700 break-words ${
+                        subtask.completed ? 'text-slate-400 line-through' : ''
+                      }`}
+                    >
+                      {subtask.title}
+                    </span>
+                    <button
+                      type="button"
+                      onClick={() => handleDeleteSubtask(subtask.id)}
+                      className="flex-shrink-0 rounded-md p-1 text-slate-400 transition-colors hover:bg-rose-100/60 hover:text-rose-600"
+                      aria-label="Удалить подпункт"
+                    >
+                      <Trash2 size={13} />
+                    </button>
+                  </div>
+                ))
+              )}
+            </div>
+
+            <div className="mt-3 flex items-center gap-2">
+              <input
+                type="text"
+                value={newSubtaskTitle}
+                onChange={(event) => setNewSubtaskTitle(event.target.value)}
+                onKeyDown={(event) => {
+                  if (event.key === 'Enter') {
+                    event.preventDefault();
+                    handleAddSubtask();
+                  }
+                }}
+                placeholder="Новый подпункт... (Enter — добавить)"
+                className={`${fieldClass} flex-1`}
+              />
+              <button
+                type="button"
+                onClick={handleAddSubtask}
+                disabled={createSubtask.isPending || !newSubtaskTitle.trim()}
+                className="btn-glass inline-flex items-center gap-1.5 rounded-xl px-3 py-2 text-sm font-semibold disabled:cursor-not-allowed disabled:opacity-50"
+              >
+                <Plus size={14} />
+                Добавить
+              </button>
+            </div>
           </div>
 
           <div className={sectionClass}>

@@ -3,6 +3,7 @@ import {
   CreateCardInput,
   CreateColumnInput,
   TaskCard,
+  TaskCardSubtask,
   TaskColumn,
   TaskComment,
   UpdateCardInput,
@@ -157,6 +158,38 @@ export const tasksApi = {
     });
     await handleResponse<{ success: true }>(response);
   },
+
+  async createSubtask(cardId: string, title: string): Promise<TaskCardSubtask> {
+    const response = await fetch(`${API_BASE}/cards/${cardId}/subtasks`, {
+      method: 'POST',
+      headers: buildHeaders(),
+      body: JSON.stringify({ title }),
+    });
+    const data = await handleResponse<{ subtask: TaskCardSubtask }>(response);
+    return data.subtask;
+  },
+
+  async updateSubtask(
+    subtaskId: string,
+    input: { title?: string; completed?: boolean; position?: number },
+  ): Promise<{ subtask: TaskCardSubtask; parentCardCompleted: boolean | null }> {
+    const response = await fetch(`${API_BASE}/subtasks/${subtaskId}`, {
+      method: 'PUT',
+      headers: buildHeaders(),
+      body: JSON.stringify(input),
+    });
+    return handleResponse<{ subtask: TaskCardSubtask; parentCardCompleted: boolean | null }>(
+      response,
+    );
+  },
+
+  async deleteSubtask(subtaskId: string): Promise<void> {
+    const response = await fetch(`${API_BASE}/subtasks/${subtaskId}`, {
+      method: 'DELETE',
+      headers: buildHeaders(),
+    });
+    await handleResponse<{ success: true }>(response);
+  },
 };
 
 // ===== React Query хуки =====
@@ -293,6 +326,45 @@ export const useDeleteComment = () => {
       tasksApi.deleteComment(commentId),
     onSuccess: (_, variables) => {
       queryClient.invalidateQueries({ queryKey: commentsKey(variables.cardId) });
+      queryClient.invalidateQueries({ queryKey: CARDS_KEY });
+    },
+  });
+};
+
+export const useCreateSubtask = () => {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: ({ cardId, title }: { cardId: string; title: string }) =>
+      tasksApi.createSubtask(cardId, title),
+    onSuccess: () => {
+      // Подпункты выводятся в составе карточек, поэтому инвалидируем весь список карточек.
+      queryClient.invalidateQueries({ queryKey: CARDS_KEY });
+    },
+  });
+};
+
+export const useUpdateSubtask = () => {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: ({
+      subtaskId,
+      input,
+    }: {
+      subtaskId: string;
+      input: { title?: string; completed?: boolean; position?: number };
+    }) => tasksApi.updateSubtask(subtaskId, input),
+    onSuccess: () => {
+      // Обновление completed у подпункта может каскадно влиять на completed карточки.
+      queryClient.invalidateQueries({ queryKey: CARDS_KEY });
+    },
+  });
+};
+
+export const useDeleteSubtask = () => {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: (subtaskId: string) => tasksApi.deleteSubtask(subtaskId),
+    onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: CARDS_KEY });
     },
   });

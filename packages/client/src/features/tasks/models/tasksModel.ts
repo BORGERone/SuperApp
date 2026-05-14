@@ -19,6 +19,16 @@ export interface TaskCardLastComment {
   createdAt: string;
 }
 
+export interface TaskCardSubtask {
+  id: string;
+  cardId: string;
+  title: string;
+  completed: boolean;
+  position: number;
+  createdAt: string;
+  updatedAt: string;
+}
+
 export interface TaskCard {
   id: string;
   columnId: string;
@@ -33,6 +43,7 @@ export interface TaskCard {
   updatedAt: string;
   commentsCount: number;
   lastComment: TaskCardLastComment | null;
+  subtasks: TaskCardSubtask[];
 }
 
 export interface TaskComment {
