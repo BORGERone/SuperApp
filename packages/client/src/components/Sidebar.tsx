@@ -14,6 +14,22 @@ import {
   Edit
 } from 'lucide-react';
 import { useMailStore } from '../features/mail/viewmodels/mailViewModel';
+import { useTaskCards } from '../features/tasks/api/tasksApi';
+import { computeDeadlineState } from '../features/tasks/models/tasksModel';
+
+function readCurrentUserId(): string | null {
+  try {
+    const raw = localStorage.getItem('user');
+    if (!raw) return null;
+    const parsed = JSON.parse(raw);
+    if (parsed && typeof parsed === 'object' && typeof parsed.id === 'string') {
+      return parsed.id;
+    }
+    return null;
+  } catch {
+    return null;
+  }
+}
 
 interface SidebarItem {
   id: string;
@@ -30,6 +46,34 @@ export const Sidebar: React.FC = () => {
   const location = useLocation();
   const { openCompose, getUnreadCount, addEmail, emails } = useMailStore();
   const [unreadCount, setUnreadCount] = useState(0);
+  const { data: taskCards = [] } = useTaskCards();
+  const currentUserId = readCurrentUserId();
+
+  // Счётчик задач: только карточки, где я в ответственных и которые ещё не выполнены.
+  // Цвет: красный если есть просрочка, жёлтый если есть срок сегодня, иначе нейтральный.
+  const taskBadge = React.useMemo(() => {
+    if (!currentUserId) return { count: 0, tone: 'neutral' as const };
+    let count = 0;
+    let hasOverdue = false;
+    let hasToday = false;
+    for (const card of taskCards) {
+      if (card.completed) continue;
+      if (!card.assignees.includes(currentUserId)) continue;
+      count += 1;
+      const state = computeDeadlineState(card.deadline, card.completed);
+      if (state === 'overdue') hasOverdue = true;
+      else if (state === 'today') hasToday = true;
+    }
+    const tone = hasOverdue ? 'overdue' : hasToday ? 'today' : 'neutral';
+    return { count, tone };
+  }, [taskCards, currentUserId]);
+
+  const taskBadgeClasses =
+    taskBadge.tone === 'overdue'
+      ? 'bg-red-500/95 text-white border-red-200/40 shadow-[0_0_10px_rgba(239,68,68,0.45)]'
+      : taskBadge.tone === 'today'
+        ? 'bg-amber-400/95 text-white border-amber-200/40 shadow-[0_0_10px_rgba(245,158,11,0.45)]'
+        : 'bg-gray-700/90 text-white border-white/20 shadow-lg';
   const [animateSubItems, setAnimateSubItems] = useState(false);
   const [isHiding, setIsHiding] = useState(false);
   const [showContainer, setShowContainer] = useState(false);
@@ -208,6 +252,12 @@ export const Sidebar: React.FC = () => {
                         {unreadCount > 99 ? '99+' : unreadCount}
                       </span>
                     )}
+                    {/* Счётчик моих активных задач с цветом по самой срочной из них */}
+                    {item.id === 'tasks' && taskBadge.count > 0 && (
+                      <span className={`ml-auto ${taskBadgeClasses} backdrop-blur-md text-xs font-bold rounded-full h-5 min-w-[20px] px-1 flex items-center justify-center border`}>
+                        {taskBadge.count > 99 ? '99+' : taskBadge.count}
+                      </span>
+                    )}
                   </button>
                   
                   {item.subItems && (
@@ -328,17 +378,24 @@ export const Sidebar: React.FC = () => {
                   </>
                 )}
                 {item.id !== 'mail' && (
-                  <button
-                    onClick={() => handleItemClick(item.path)}
-                    className={`w-full p-3 rounded-lg flex items-center justify-center transition-all duration-200 ${
-                      isActive(item.path)
-                        ? 'bg-blue-200/90 text-blue-700'
-                        : 'bg-white/60 hover:bg-white/70 text-gray-700'
-                    }`}
-                    title={item.label}
-                  >
-                    {item.icon}
-                  </button>
+                  <div className="relative">
+                    <button
+                      onClick={() => handleItemClick(item.path)}
+                      className={`w-full p-3 rounded-lg flex items-center justify-center transition-all duration-200 ${
+                        isActive(item.path)
+                          ? 'bg-blue-200/90 text-blue-700'
+                          : 'bg-white/60 hover:bg-white/70 text-gray-700'
+                      }`}
+                      title={item.label}
+                    >
+                      {item.icon}
+                    </button>
+                    {item.id === 'tasks' && taskBadge.count > 0 && (
+                      <span className={`absolute -top-1 -right-1 ${taskBadgeClasses} backdrop-blur-md text-xs font-bold rounded-full h-5 min-w-[20px] px-1 flex items-center justify-center border`}>
+                        {taskBadge.count > 99 ? '9+' : taskBadge.count}
+                      </span>
+                    )}
+                  </div>
                 )}
               </>
             )}

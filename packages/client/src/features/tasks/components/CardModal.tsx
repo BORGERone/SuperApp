@@ -190,14 +190,6 @@ export const CardModal: React.FC<CardModalProps> = ({ card, columns, currentUser
         : deadlineState === 'future'
           ? 'text-indigo-600'
           : 'text-slate-500';
-  const accentBarClasses = completed
-    ? 'bg-emerald-400/80'
-    : deadlineState === 'overdue'
-      ? 'bg-red-400/80'
-      : deadlineState === 'today'
-        ? 'bg-amber-400/80'
-        : 'bg-slate-300/60';
-
   const sectionClass =
     'rounded-2xl border border-white/60 bg-white/55 p-4 backdrop-blur-md shadow-[0_1px_2px_rgba(15,23,42,0.04),0_4px_18px_-12px_rgba(15,23,42,0.18)]';
   const labelClass =
@@ -214,9 +206,7 @@ export const CardModal: React.FC<CardModalProps> = ({ card, columns, currentUser
         className="glass-card relative flex max-h-[95vh] w-full max-w-3xl flex-col overflow-hidden rounded-3xl"
         onClick={(event) => event.stopPropagation()}
       >
-        <span aria-hidden className={`absolute left-0 top-6 bottom-6 w-1 rounded-r-full ${accentBarClasses}`} />
-
-        <div className="flex items-start gap-3 border-b border-white/40 px-6 py-5 pl-7">
+        <div className="flex items-start gap-3 border-b border-white/40 px-6 py-5">
           <button
             onClick={handleToggleCompleted}
             className={`mt-1 rounded-full p-1 transition-colors ${
@@ -247,7 +237,7 @@ export const CardModal: React.FC<CardModalProps> = ({ card, columns, currentUser
           </button>
         </div>
 
-        <div className="tasks-scroll flex-1 space-y-4 overflow-y-auto px-6 py-5 pl-7">
+        <div className="tasks-scroll flex-1 space-y-4 overflow-y-auto px-6 py-5">
           {errorMessage && (
             <div className="rounded-2xl border border-red-200/70 bg-red-50/80 px-4 py-2.5 text-sm text-red-700 backdrop-blur-sm">
               {errorMessage}
@@ -384,7 +374,7 @@ export const CardModal: React.FC<CardModalProps> = ({ card, columns, currentUser
           </div>
         </div>
 
-        <div className="flex flex-wrap items-center justify-between gap-3 border-t border-white/40 px-6 py-4 pl-7">
+        <div className="flex flex-wrap items-center justify-between gap-3 border-t border-white/40 px-6 py-4">
           <button
             onClick={handleDeleteCard}
             className="btn-glass-danger inline-flex items-center gap-2 rounded-xl px-4 py-2 text-sm font-semibold"

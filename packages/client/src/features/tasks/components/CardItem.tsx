@@ -106,14 +106,6 @@ export const CardItem: React.FC<CardItemProps> = ({
 
   const deadlineState = computeDeadlineState(card.deadline, card.completed);
 
-  const accentBarClasses = card.completed
-    ? 'bg-emerald-400/80'
-    : deadlineState === 'overdue'
-      ? 'bg-red-400/80'
-      : deadlineState === 'today'
-        ? 'bg-amber-400/80'
-        : 'bg-slate-300/60';
-
   const cardSurfaceClasses = card.completed
     ? 'border-emerald-200/70 bg-emerald-50/65 hover:bg-emerald-50/80'
     : deadlineState === 'overdue'
@@ -167,11 +159,10 @@ export const CardItem: React.FC<CardItemProps> = ({
       onDragEnter={handleDragEnter}
       onDragOver={handleDragOver}
       onClick={() => onOpen(card)}
-      className={`group relative cursor-pointer rounded-2xl border p-4 pl-5 shadow-[0_1px_2px_rgba(15,23,42,0.04),0_4px_18px_-12px_rgba(15,23,42,0.18)] backdrop-blur-md transition-[background-color,border-color,box-shadow] duration-200 hover:border-indigo-300/70 hover:shadow-[0_2px_4px_rgba(15,23,42,0.05),0_10px_28px_-12px_rgba(79,70,229,0.35)] ${cardSurfaceClasses} ${
+      className={`group relative cursor-pointer rounded-2xl border p-4 shadow-[0_1px_2px_rgba(15,23,42,0.04),0_4px_18px_-12px_rgba(15,23,42,0.18)] backdrop-blur-md transition-[background-color,border-color,box-shadow] duration-200 hover:border-indigo-300/70 hover:shadow-[0_2px_4px_rgba(15,23,42,0.05),0_10px_28px_-12px_rgba(79,70,229,0.35)] ${cardSurfaceClasses} ${
         isDragging ? 'pointer-events-none scale-[0.98] opacity-40' : ''
       }`}
     >
-      <span aria-hidden className={`pointer-events-none absolute left-0 top-2 bottom-2 w-[3px] rounded-full ${accentBarClasses}`} />
       {isHoverTopHere && (
         <div className="pointer-events-none absolute -top-1.5 left-2 right-2 h-1 rounded-full bg-indigo-500 shadow-[0_0_10px_rgba(99,102,241,0.55)]" />
       )}
@@ -232,7 +223,7 @@ export const CardItem: React.FC<CardItemProps> = ({
         </div>
       </div>
 
-      <div className="ml-6 mt-2 flex flex-wrap items-center gap-1 text-[10.5px] text-slate-500">
+      <div className="mt-2.5 flex flex-wrap items-center gap-1 text-[10.5px] text-slate-500">
         {deadlineLabel && (
           <span
             className={`inline-flex items-center gap-1 rounded-full px-2 py-[2px] font-semibold ${deadlineBadgeClasses}`}
@@ -279,7 +270,7 @@ export const CardItem: React.FC<CardItemProps> = ({
       </div>
 
       {card.lastComment && (
-        <div className="ml-6 mt-2 rounded-xl border border-white/60 bg-white/55 px-2.5 py-1.5 text-[11px] backdrop-blur-sm">
+        <div className="mt-2 rounded-xl border border-white/60 bg-white/55 px-2.5 py-1.5 text-[11px] backdrop-blur-sm">
           <div className="flex items-center gap-1 text-[10px] font-semibold uppercase tracking-wide text-slate-400">
             <MessageSquare size={10} />
             <span className="truncate">
