@@ -1,13 +1,59 @@
-@import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap');
+@import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap');
 
 @tailwind base;
 @tailwind components;
 @tailwind utilities;
 
+/* ====================================================================
+   Design tokens. Most colours are overridden by ThemeProvider at runtime
+   so this just provides reasonable fallbacks (Indigo scheme).
+   ==================================================================== */
+:root {
+  --accent: #6366f1;
+  --accent-rgb: 99, 102, 241;
+  --accent-soft: rgba(99, 102, 241, 0.18);
+  --accent-strong: #4f46e5;
+  --accent-foreground: #ffffff;
+  --accent-gradient-from: #6366f1;
+  --accent-gradient-via: #8b5cf6;
+  --accent-gradient-to: #a855f7;
+
+  --surface-base: rgba(255, 255, 255, 0.55);
+  --surface-subtle: rgba(255, 255, 255, 0.35);
+  --surface-border: rgba(255, 255, 255, 0.55);
+  --surface-ring: rgba(99, 102, 241, 0.45);
+
+  --text-strong: #1e1b4b;
+  --text-muted: #4f4f6e;
+
+  --bg-layer-1: #d8e0ff;
+  --bg-layer-2: #e8f0ff;
+  --bg-layer-3: #eef1ff;
+  --bg-layer-4: #dde6ff;
+  --bg-layer-5: #f5f6ff;
+
+  --bg-blur: 18px;
+  --bg-opacity: 0.6;
+  --bg-image: none;
+
+  --glass-radius-lg: 18px;
+  --glass-radius-md: 14px;
+  --glass-radius-sm: 10px;
+
+  --motion-fast: 160ms;
+  --motion-base: 280ms;
+  --motion-slow: 500ms;
+  --motion-ease: cubic-bezier(0.22, 1, 0.36, 1);
+}
+
 * {
   margin: 0;
   padding: 0;
   box-sizing: border-box;
+}
+
+html, body, #root {
+  height: 100%;
 }
 
 body {
@@ -16,7 +62,7 @@ body {
   background: #ffffff;
   background-attachment: fixed;
   min-height: 100vh;
-  color: #1a1a2e;
+  color: var(--text-strong);
   line-height: 1.6;
   position: relative;
   overflow-x: hidden;
@@ -24,193 +70,492 @@ body {
   -moz-osx-font-smoothing: grayscale;
 }
 
+/* Animated multi-radial gradient backdrop used for the gradient mode */
 body::before {
   content: '';
   position: fixed;
-  top: 0;
-  left: 0;
-  right: 0;
-  bottom: 0;
+  inset: 0;
   background:
-    radial-gradient(at 0% 0%, #d3e0fb 0%, transparent 50%),
-    radial-gradient(at 100% 0%, #e8f0ff 0%, transparent 50%),
-    radial-gradient(at 0% 100%, #f0f4ff 0%, transparent 50%),
-    radial-gradient(at 100% 100%, #e0e8ff 0%, transparent 50%),
-    radial-gradient(at 50% 50%, #f5f8ff 0%, transparent 60%),
-    radial-gradient(at 25% 25%, #dce8ff 0%, transparent 45%),
-    radial-gradient(at 75% 25%, #e4ecff 0%, transparent 45%),
-    radial-gradient(at 25% 75%, #e8f2ff 0%, transparent 45%),
-    radial-gradient(at 75% 75%, #dfe8ff 0%, transparent 45%);
-  animation: gradientPulse 8s ease-in-out infinite;
+    radial-gradient(at 0% 0%, var(--bg-layer-1) 0%, transparent 50%),
+    radial-gradient(at 100% 0%, var(--bg-layer-2) 0%, transparent 50%),
+    radial-gradient(at 0% 100%, var(--bg-layer-3) 0%, transparent 50%),
+    radial-gradient(at 100% 100%, var(--bg-layer-4) 0%, transparent 50%),
+    radial-gradient(at 50% 50%, var(--bg-layer-5) 0%, transparent 60%);
+  animation: gradientPulse 18s ease-in-out infinite;
+  z-index: -2;
+  opacity: var(--bg-opacity, 1);
+  transition: opacity var(--motion-base) var(--motion-ease);
+}
+
+/* Optional custom user background image layered above the gradient */
+body::after {
+  content: '';
+  position: fixed;
+  inset: 0;
+  background-image: var(--bg-image);
+  background-size: cover;
+  background-position: center;
+  background-repeat: no-repeat;
+  filter: blur(0px) saturate(105%);
+  opacity: 0;
   z-index: -1;
+  pointer-events: none;
+  transition: opacity var(--motion-slow) var(--motion-ease);
+}
+
+html[data-bg-mode='image'] body::after {
+  opacity: 1;
+}
+
+html[data-bg-mode='image'] body::before {
+  opacity: calc(var(--bg-opacity) * 0.35);
+}
+
+html[data-bg-mode='solid'] body::before {
+  opacity: 0;
+}
+
+html[data-bg-mode='solid'] body {
+  background: linear-gradient(180deg, var(--bg-layer-5) 0%, var(--bg-layer-2) 100%);
 }
 
 @keyframes gradientPulse {
-  0%, 100% {
-    opacity: 0.6;
-    transform: scale(1);
-  }
-  50% {
-    opacity: 0.9;
-    transform: scale(1.05);
-  }
+  0%, 100% { opacity: calc(var(--bg-opacity) * 0.9); transform: scale(1); }
+  50% { opacity: var(--bg-opacity); transform: scale(1.05); }
 }
 
-/* Glassmorphism utility classes */
+@keyframes fadeInUp {
+  from { opacity: 0; transform: translateY(8px); }
+  to { opacity: 1; transform: translateY(0); }
+}
+
+@keyframes pop {
+  0% { transform: scale(0.6); opacity: 0; }
+  60% { transform: scale(1.1); opacity: 1; }
+  100% { transform: scale(1); opacity: 1; }
+}
+
+@keyframes pulseRing {
+  0% { box-shadow: 0 0 0 0 rgba(var(--accent-rgb), 0.35); }
+  70% { box-shadow: 0 0 0 10px rgba(var(--accent-rgb), 0); }
+  100% { box-shadow: 0 0 0 0 rgba(var(--accent-rgb), 0); }
+}
+
+/* ====================================================================
+   Glassmorphism core
+   ==================================================================== */
 .glass {
-  background: linear-gradient(110deg, rgba(255,255,255,0.4) 0%, rgba(255,255,255,0.1) 100%), linear-gradient(180deg, rgba(255, 255, 255, 0.8) 0%, rgba(255, 255, 255, 0.4) 100%);
-  backdrop-filter: blur(12px);
-  -webkit-backdrop-filter: blur(12px);
-  border: 1px solid rgba(255, 255, 255, 0.5);
-  outline: 1px solid rgba(255, 255, 255, 0.2);
+  background:
+    linear-gradient(135deg, rgba(255, 255, 255, 0.45) 0%, rgba(255, 255, 255, 0.12) 100%),
+    linear-gradient(180deg, rgba(255, 255, 255, 0.85) 0%, rgba(255, 255, 255, 0.45) 100%);
+  backdrop-filter: blur(var(--bg-blur));
+  -webkit-backdrop-filter: blur(var(--bg-blur));
+  border: 1px solid var(--surface-border);
   box-shadow:
-    0 1px 0px rgba(255, 255, 255, 0.8) inset,
-    0 8px 16px -4px rgba(0, 0, 0, 0.1),
-    0 0px 1px 1px rgba(0, 0, 0, 0.05);
+    inset 0 1px 0 rgba(255, 255, 255, 0.85),
+    0 10px 28px -10px rgba(15, 23, 42, 0.18),
+    0 1px 0 rgba(15, 23, 42, 0.04);
+  transition: background var(--motion-base) var(--motion-ease),
+    box-shadow var(--motion-base) var(--motion-ease),
+    border-color var(--motion-base) var(--motion-ease),
+    transform var(--motion-base) var(--motion-ease);
 }
 
 .glass-card {
-  background: linear-gradient(110deg, rgba(255,255,255,0.4) 0%, rgba(255,255,255,0.1) 100%), linear-gradient(180deg, rgba(255, 255, 255, 0.6) 0%, rgba(255, 255, 255, 0.3) 100%);
-  backdrop-filter: blur(12px);
-  -webkit-backdrop-filter: blur(12px);
-  border: 1px solid rgba(255, 255, 255, 0.5);
-  outline: 1px solid rgba(255, 255, 255, 0.15);
+  background:
+    linear-gradient(135deg, rgba(255, 255, 255, 0.5) 0%, rgba(255, 255, 255, 0.16) 100%),
+    linear-gradient(180deg, rgba(255, 255, 255, 0.7) 0%, rgba(255, 255, 255, 0.35) 100%);
+  backdrop-filter: blur(var(--bg-blur));
+  -webkit-backdrop-filter: blur(var(--bg-blur));
+  border: 1px solid var(--surface-border);
   box-shadow:
-    0 1px 0px rgba(255, 255, 255, 0.8) inset,
-    0 4px 8px -2px rgba(0, 0, 0, 0.08),
-    0 0px 1px 1px rgba(0, 0, 0, 0.04);
+    inset 0 1px 0 rgba(255, 255, 255, 0.7),
+    0 6px 18px -8px rgba(15, 23, 42, 0.14),
+    0 1px 0 rgba(15, 23, 42, 0.04);
+  transition: background var(--motion-base) var(--motion-ease),
+    box-shadow var(--motion-base) var(--motion-ease),
+    border-color var(--motion-base) var(--motion-ease),
+    transform var(--motion-base) var(--motion-ease);
 }
 
+.glass-panel {
+  background:
+    linear-gradient(135deg, rgba(255, 255, 255, 0.42) 0%, rgba(255, 255, 255, 0.1) 100%),
+    linear-gradient(180deg, rgba(255, 255, 255, 0.62) 0%, rgba(255, 255, 255, 0.3) 100%);
+  backdrop-filter: blur(calc(var(--bg-blur) * 0.85));
+  -webkit-backdrop-filter: blur(calc(var(--bg-blur) * 0.85));
+  border: 1px solid var(--surface-border);
+  box-shadow:
+    inset 0 1px 0 rgba(255, 255, 255, 0.7),
+    0 4px 14px -8px rgba(15, 23, 42, 0.1);
+}
+
+.glass-inset {
+  background: rgba(255, 255, 255, 0.35);
+  border: 1px solid rgba(255, 255, 255, 0.4);
+  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.6);
+}
+
+/* Reduce transparency mode (accessibility option) */
+html[data-reduce-transparency] .glass,
+html[data-reduce-transparency] .glass-card,
+html[data-reduce-transparency] .glass-panel {
+  background: #ffffff;
+  backdrop-filter: none;
+  -webkit-backdrop-filter: none;
+}
+
+html[data-reduce-transparency] body::before,
+html[data-reduce-transparency] body::after {
+  opacity: 0.2;
+}
+
+/* ====================================================================
+   Inputs
+   ==================================================================== */
 .glass-input {
-  background: rgba(255, 255, 255, 0.6);
-  border: 1px solid rgba(102, 126, 234, 0.2);
-  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.04);
-  transition: all 0.3s ease;
+  background: rgba(255, 255, 255, 0.7);
+  border: 1px solid rgba(var(--accent-rgb), 0.22);
+  box-shadow: 0 2px 8px rgba(15, 23, 42, 0.04);
+  transition: border-color var(--motion-fast) var(--motion-ease),
+    background var(--motion-fast) var(--motion-ease),
+    box-shadow var(--motion-fast) var(--motion-ease);
+  color: var(--text-strong);
+}
+
+.glass-input::placeholder {
+  color: rgba(15, 23, 42, 0.4);
+}
+
+.glass-input:hover {
+  background: rgba(255, 255, 255, 0.82);
+  border-color: rgba(var(--accent-rgb), 0.32);
 }
 
 .glass-input:focus {
   outline: none;
-  border-color: rgba(102, 126, 234, 0.5);
-  background: rgba(255, 255, 255, 0.9);
-  box-shadow: 0 0 0 4px rgba(102, 126, 234, 0.15), 0 4px 12px rgba(102, 126, 234, 0.1);
+  border-color: rgba(var(--accent-rgb), 0.55);
+  background: rgba(255, 255, 255, 0.95);
+  box-shadow:
+    0 0 0 4px rgba(var(--accent-rgb), 0.18),
+    0 6px 18px -6px rgba(var(--accent-rgb), 0.18);
 }
 
+/* ====================================================================
+   Buttons
+   ==================================================================== */
 .btn-glass {
-  background: linear-gradient(135deg, #6366f1 0%, #a855f7 100%);
-  color: white;
-  border-top: 1px solid rgba(255, 255, 255, 0.4);
-  box-shadow: 0 4px 15px rgba(99, 102, 241, 0.3);
-  transition: all 0.3s ease;
+  background: linear-gradient(135deg,
+    var(--accent-gradient-from) 0%,
+    var(--accent-gradient-via) 55%,
+    var(--accent-gradient-to) 100%);
+  color: var(--accent-foreground);
+  border-top: 1px solid rgba(255, 255, 255, 0.45);
+  border-bottom: 1px solid rgba(0, 0, 0, 0.08);
+  box-shadow:
+    0 6px 18px -6px rgba(var(--accent-rgb), 0.45),
+    inset 0 1px 0 rgba(255, 255, 255, 0.35);
+  transition: transform var(--motion-fast) var(--motion-ease),
+    box-shadow var(--motion-fast) var(--motion-ease),
+    filter var(--motion-fast) var(--motion-ease);
+  font-weight: 500;
 }
 
 .btn-glass:hover {
-  transform: translateY(-2px);
-  box-shadow: 0 6px 20px rgba(99, 102, 241, 0.4);
+  transform: translateY(-1px);
+  box-shadow:
+    0 10px 24px -6px rgba(var(--accent-rgb), 0.5),
+    inset 0 1px 0 rgba(255, 255, 255, 0.5);
+  filter: brightness(1.04);
+}
+
+.btn-glass:active {
+  transform: translateY(0);
+  filter: brightness(0.96);
 }
 
 .btn-glass-secondary {
-  background: rgba(255, 255, 255, 0.95);
-  color: #1a1a2e;
-  border-top: 1px solid rgba(255, 255, 255, 0.9);
-  border-bottom: 2px solid rgba(0, 0, 0, 0.1);
-  border-left: 1px solid rgba(200, 200, 200, 0.5);
-  border-right: 1px solid rgba(200, 200, 200, 0.5);
-  backdrop-filter: blur(10px);
+  background: rgba(255, 255, 255, 0.85);
+  color: var(--text-strong);
+  border: 1px solid rgba(255, 255, 255, 0.9);
   box-shadow:
-    0 4px 6px rgba(0, 0, 0, 0.05),
-    0 1px 3px rgba(0, 0, 0, 0.1);
-  transition: all 0.3s ease;
+    inset 0 1px 0 rgba(255, 255, 255, 0.9),
+    0 4px 12px -6px rgba(15, 23, 42, 0.12);
+  backdrop-filter: blur(10px);
+  -webkit-backdrop-filter: blur(10px);
+  transition: transform var(--motion-fast) var(--motion-ease),
+    background var(--motion-fast) var(--motion-ease),
+    box-shadow var(--motion-fast) var(--motion-ease);
+  font-weight: 500;
 }
 
 .btn-glass-secondary:hover {
-  background: rgba(255, 255, 255, 1);
-  border-top: 1px solid rgba(255, 255, 255, 1);
-  border-bottom: 2px solid rgba(0, 0, 0, 0.15);
-  box-shadow:
-    0 6px 10px rgba(0, 0, 0, 0.08),
-    0 2px 4px rgba(0, 0, 0, 0.12);
+  background: rgba(255, 255, 255, 0.96);
   transform: translateY(-1px);
+  box-shadow:
+    inset 0 1px 0 rgba(255, 255, 255, 1),
+    0 8px 18px -8px rgba(15, 23, 42, 0.18);
+}
+
+.btn-glass-secondary:active {
+  transform: translateY(0);
 }
 
 .btn-glass-danger {
   background: linear-gradient(135deg, #ff6b6b 0%, #ee5a5a 100%);
   color: white;
+  border-top: 1px solid rgba(255, 255, 255, 0.4);
   box-shadow:
-    0 4px 15px rgba(238, 90, 90, 0.3),
-    0 0 20px rgba(238, 90, 90, 0.15);
-  transition: all 0.3s ease;
+    0 6px 18px -6px rgba(238, 90, 90, 0.45),
+    inset 0 1px 0 rgba(255, 255, 255, 0.35);
+  transition: transform var(--motion-fast) var(--motion-ease),
+    box-shadow var(--motion-fast) var(--motion-ease);
 }
 
 .btn-glass-danger:hover {
-  transform: translateY(-2px);
+  transform: translateY(-1px);
   box-shadow:
-    0 6px 20px rgba(238, 90, 90, 0.4),
-    0 0 30px rgba(238, 90, 90, 0.25);
+    0 10px 24px -6px rgba(238, 90, 90, 0.55),
+    inset 0 1px 0 rgba(255, 255, 255, 0.5);
 }
 
+.btn-icon-glass {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 38px;
+  height: 38px;
+  border-radius: 12px;
+  background: rgba(255, 255, 255, 0.55);
+  border: 1px solid rgba(255, 255, 255, 0.7);
+  color: var(--text-strong);
+  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.8);
+  transition: background var(--motion-fast) var(--motion-ease),
+    transform var(--motion-fast) var(--motion-ease),
+    box-shadow var(--motion-fast) var(--motion-ease),
+    color var(--motion-fast) var(--motion-ease);
+}
+
+.btn-icon-glass:hover {
+  background: rgba(255, 255, 255, 0.85);
+  transform: translateY(-1px);
+}
+
+.btn-icon-glass.is-active {
+  background: var(--accent-soft);
+  color: var(--accent-strong);
+  border-color: rgba(var(--accent-rgb), 0.4);
+  box-shadow: 0 0 0 3px rgba(var(--accent-rgb), 0.18);
+}
+
+/* ====================================================================
+   Text helpers
+   ==================================================================== */
 .text-gradient {
-  background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+  background: linear-gradient(135deg,
+    var(--accent-gradient-from) 0%,
+    var(--accent-gradient-via) 50%,
+    var(--accent-gradient-to) 100%);
   -webkit-background-clip: text;
   -webkit-text-fill-color: transparent;
   background-clip: text;
 }
 
-/* ===== Стилизованные скроллбары ===== */
+/* ====================================================================
+   Custom GlassCheckbox + selection states
+   ==================================================================== */
+.glass-checkbox {
+  position: relative;
+  display: inline-flex;
+  width: 22px;
+  height: 22px;
+  border-radius: 7px;
+  background: rgba(255, 255, 255, 0.65);
+  border: 1.5px solid rgba(var(--accent-rgb), 0.32);
+  box-shadow:
+    inset 0 1px 0 rgba(255, 255, 255, 0.85),
+    0 2px 6px -2px rgba(15, 23, 42, 0.12);
+  cursor: pointer;
+  transition: background var(--motion-fast) var(--motion-ease),
+    border-color var(--motion-fast) var(--motion-ease),
+    transform var(--motion-fast) var(--motion-ease),
+    box-shadow var(--motion-fast) var(--motion-ease);
+  flex-shrink: 0;
+}
 
-/* Глобальный скроллбар для основных WebKit-браузеров (Chromium, Safari) */
+.glass-checkbox::before {
+  content: '';
+  position: absolute;
+  inset: 0;
+  border-radius: 7px;
+  background: linear-gradient(135deg,
+    var(--accent-gradient-from) 0%,
+    var(--accent-gradient-via) 50%,
+    var(--accent-gradient-to) 100%);
+  opacity: 0;
+  transform: scale(0.6);
+  transition: opacity var(--motion-base) var(--motion-ease),
+    transform var(--motion-base) var(--motion-ease);
+}
+
+.glass-checkbox::after {
+  content: '';
+  position: absolute;
+  left: 7px;
+  top: 3px;
+  width: 6px;
+  height: 11px;
+  border-right: 2px solid #ffffff;
+  border-bottom: 2px solid #ffffff;
+  transform: rotate(45deg) scale(0);
+  transform-origin: center;
+  opacity: 0;
+  transition: transform var(--motion-base) var(--motion-ease) 60ms,
+    opacity var(--motion-fast) var(--motion-ease);
+}
+
+.glass-checkbox:hover {
+  border-color: rgba(var(--accent-rgb), 0.55);
+  transform: scale(1.05);
+}
+
+.glass-checkbox.is-checked {
+  border-color: rgba(var(--accent-rgb), 0.85);
+  box-shadow:
+    inset 0 1px 0 rgba(255, 255, 255, 0.4),
+    0 0 0 3px rgba(var(--accent-rgb), 0.18),
+    0 4px 10px -2px rgba(var(--accent-rgb), 0.45);
+}
+
+.glass-checkbox.is-checked::before {
+  opacity: 1;
+  transform: scale(1);
+}
+
+.glass-checkbox.is-checked::after {
+  opacity: 1;
+  transform: rotate(45deg) scale(1);
+}
+
+.glass-checkbox.size-sm {
+  width: 18px;
+  height: 18px;
+  border-radius: 6px;
+}
+
+.glass-checkbox.size-sm::after {
+  left: 5px;
+  top: 2px;
+  width: 5px;
+  height: 9px;
+}
+
+.glass-checkbox.size-lg {
+  width: 26px;
+  height: 26px;
+  border-radius: 8px;
+}
+
+.glass-checkbox.size-lg::after {
+  left: 8px;
+  top: 4px;
+  width: 7px;
+  height: 13px;
+}
+
+/* ====================================================================
+   Selectable card / row utilities
+   ==================================================================== */
+.selectable-card {
+  position: relative;
+  isolation: isolate;
+  transition: transform var(--motion-base) var(--motion-ease),
+    background var(--motion-fast) var(--motion-ease),
+    box-shadow var(--motion-fast) var(--motion-ease),
+    border-color var(--motion-fast) var(--motion-ease);
+}
+
+.selectable-card::before {
+  content: '';
+  position: absolute;
+  inset: 0;
+  border-radius: inherit;
+  padding: 1.5px;
+  background: linear-gradient(135deg,
+    rgba(var(--accent-rgb), 0.9) 0%,
+    rgba(var(--accent-rgb), 0.55) 100%);
+  -webkit-mask:
+    linear-gradient(#fff 0 0) content-box,
+    linear-gradient(#fff 0 0);
+  -webkit-mask-composite: xor;
+  mask-composite: exclude;
+  opacity: 0;
+  transition: opacity var(--motion-base) var(--motion-ease);
+  pointer-events: none;
+}
+
+.selectable-card.is-selected {
+  background:
+    linear-gradient(135deg, rgba(var(--accent-rgb), 0.18) 0%, rgba(var(--accent-rgb), 0.07) 100%),
+    rgba(255, 255, 255, 0.85);
+  box-shadow:
+    inset 0 1px 0 rgba(255, 255, 255, 0.75),
+    0 12px 28px -10px rgba(var(--accent-rgb), 0.35);
+}
+
+.selectable-card.is-selected::before {
+  opacity: 1;
+}
+
+.selectable-card:hover:not(.is-selected) {
+  background:
+    linear-gradient(135deg, rgba(255, 255, 255, 0.55) 0%, rgba(255, 255, 255, 0.25) 100%),
+    rgba(255, 255, 255, 0.55);
+}
+
+/* ====================================================================
+   Native checkbox accent fallback
+   ==================================================================== */
+input[type='checkbox'] {
+  accent-color: var(--accent);
+}
+
+/* ====================================================================
+   Scrollbars
+   ==================================================================== */
 *::-webkit-scrollbar {
-  width: 8px;
-  height: 8px;
+  width: 10px;
+  height: 10px;
 }
 
 *::-webkit-scrollbar-track {
-  background: rgba(255, 255, 255, 0.3);
-  border-radius: 2px;
+  background: transparent;
 }
 
 *::-webkit-scrollbar-thumb {
-  background: rgba(148, 163, 184, 0.5);
-  border-radius: 2px;
-  border: 1px solid rgba(255, 255, 255, 0.3);
-  transition: background 0.2s ease;
+  background: rgba(15, 23, 42, 0.18);
+  border-radius: 999px;
+  border: 2px solid transparent;
+  background-clip: padding-box;
 }
 
 *::-webkit-scrollbar-thumb:hover {
-  background: rgba(148, 163, 184, 0.7);
+  background: rgba(var(--accent-rgb), 0.45);
+  border: 2px solid transparent;
+  background-clip: padding-box;
 }
 
-*::-webkit-scrollbar-corner {
-  background: rgba(255, 255, 255, 0.3);
+/* ====================================================================
+   Animation utility classes
+   ==================================================================== */
+.animate-fade-up {
+  animation: fadeInUp var(--motion-base) var(--motion-ease) both;
 }
 
-/* Firefox */
-* {
-  scrollbar-width: thin;
-  scrollbar-color: rgba(148, 163, 184, 0.5) rgba(255, 255, 255, 0.3);
+.animate-pop {
+  animation: pop 360ms var(--motion-ease) both;
 }
 
-/* Компактный вариант для досок задач и подобных областей */
-.tasks-scroll::-webkit-scrollbar {
-  width: 6px;
-  height: 6px;
-}
-
-.tasks-scroll::-webkit-scrollbar-track {
-  background: rgba(255, 255, 255, 0.2);
-  border-radius: 2px;
-}
-
-.tasks-scroll::-webkit-scrollbar-thumb {
-  background: rgba(148, 163, 184, 0.4);
-  border-radius: 2px;
-  border: 1px solid rgba(255, 255, 255, 0.2);
-}
-
-.tasks-scroll::-webkit-scrollbar-thumb:hover {
-  background: rgba(148, 163, 184, 0.6);
-}
-
-.tasks-scroll {
-  scrollbar-width: thin;
-  scrollbar-color: rgba(148, 163, 184, 0.4) rgba(255, 255, 255, 0.2);
+.animate-pulse-ring {
+  animation: pulseRing 1.4s var(--motion-ease) infinite;
 }

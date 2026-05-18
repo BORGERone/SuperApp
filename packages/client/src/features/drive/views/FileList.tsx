@@ -1,6 +1,7 @@
 import React from 'react';
 import { useDriveStore } from '../viewmodels/driveViewModel';
 import { FileItem } from '../models/driveModel';
+import { GlassCheckbox } from '../../../components/GlassCheckbox';
 
 interface FileListProps {
   files: FileItem[];
@@ -10,8 +11,8 @@ interface FileListProps {
   setDownloadFileName: (name: string) => void;
 }
 
-export const FileList: React.FC<FileListProps> = ({ 
-  files, 
+export const FileList: React.FC<FileListProps> = ({
+  files,
   currentPath,
   setDownloading,
   setDownloadProgress,
@@ -53,7 +54,6 @@ export const FileList: React.FC<FileListProps> = ({
     if (file.type === 'directory') {
       navigateToDirectory(file.name);
     } else {
-      // Скачиваем файл при клике с токеном авторизации
       const filePath = currentPath === '/' ? `/${file.name}` : `${currentPath}/${file.name}`;
 
       setDownloading(true);
@@ -61,10 +61,9 @@ export const FileList: React.FC<FileListProps> = ({
       setDownloadProgress(0);
 
       try {
-        // В Electron используем абсолютный URL, в браузере - относительный (через proxy)
         const isElectron = typeof window !== 'undefined' && (window as any).electronAPI !== undefined;
         const apiUrl = isElectron ? 'http://localhost:3002' : '';
-        
+
         const response = await fetch(`${apiUrl}/api/drive/download?path=${encodeURIComponent(filePath)}`, {
           headers: {
             'Authorization': `Bearer ${localStorage.getItem('accessToken')}`,
@@ -75,12 +74,10 @@ export const FileList: React.FC<FileListProps> = ({
           throw new Error('Failed to download file');
         }
 
-        // Получаем размер файла из заголовка Content-Length
         const contentLength = response.headers.get('Content-Length');
         const totalSize = contentLength ? parseInt(contentLength, 10) : 0;
         let downloadedSize = 0;
 
-        // Читаем поток данных
         const reader = response.body?.getReader();
         const chunks: Uint8Array[] = [];
 
@@ -99,7 +96,6 @@ export const FileList: React.FC<FileListProps> = ({
           }
         }
 
-        // Создаем blob из чанков
         const blob = new Blob(chunks as BlobPart[]);
         const url = URL.createObjectURL(blob);
         const a = document.createElement('a');
@@ -132,16 +128,16 @@ export const FileList: React.FC<FileListProps> = ({
 
   if (files.length === 0) {
     return (
-      <div className="flex flex-col items-center justify-center py-20 text-gray-500">
+      <div className="flex flex-col items-center justify-center py-20 text-[color:var(--text-muted)]">
         <div className="text-6xl mb-4 opacity-50">📁</div>
         <div>Папка пуста</div>
       </div>
     );
   }
 
-  const gridClassName = viewMode === 'list' ? 'space-y-2' : 'grid grid-cols-4 gap-4';
+  const gridClassName =
+    viewMode === 'list' ? 'space-y-2' : 'grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 xl:grid-cols-5 gap-4';
 
-  // Сортируем файлы: сначала папки, потом файлы
   const sortedFiles = [...files].sort((a, b) => {
     if (a.type === 'directory' && b.type !== 'directory') return -1;
     if (a.type !== 'directory' && b.type === 'directory') return 1;
@@ -150,56 +146,69 @@ export const FileList: React.FC<FileListProps> = ({
 
   return (
     <div className={gridClassName}>
-      {sortedFiles.map((file) => (
-        <div
-          key={file.id}
-          className={`glass-card p-4 rounded-lg cursor-pointer transition-all duration-200 hover:bg-white/60 relative group ${
-            viewMode === 'list' 
-              ? (file.isSelected ? 'translate-x-1' : 'hover:translate-x-1')
-              : (file.isSelected ? 'scale-105' : 'hover:scale-105')
-          } ${
-            file.isSelected ? '!bg-blue-200/90' : ''
-          }`}
-          onClick={() => handleFileClick(file)}
-        >
-          {viewMode === 'list' && (
-            <div
-              className={`absolute left-0 top-0 bottom-0 w-12 flex items-center justify-center cursor-pointer z-10 transition-opacity ${
-                file.isSelected ? 'opacity-100' : 'opacity-0 group-hover:opacity-100'
-              }`}
-              onClick={(e) => handleCheckboxClick(e, file.name)}
-            >
-              <input
-                type="checkbox"
-                checked={file.isSelected}
-                readOnly
-                className="w-6 h-6 rounded accent-indigo-500"
-              />
-            </div>
-          )}
-          {viewMode !== 'list' && (
-            <div
-              className={`absolute left-0 top-0 cursor-pointer z-10 transition-opacity ${
-                file.isSelected ? 'opacity-100' : 'opacity-0 group-hover:opacity-100'
-              }`}
-              onClick={(e) => handleCheckboxClick(e, file.name)}
-            >
-              <input
-                type="checkbox"
-                checked={file.isSelected}
-                readOnly
-                className="w-4 h-4 rounded accent-indigo-500"
-              />
-            </div>
-          )}
-          <div className={`flex items-center gap-1 ${viewMode === 'list' ? 'pl-4' : ''}`}>
-            <span className="text-2xl filter drop-shadow-sm">{file.type === 'directory' ? '📁' : getFileIcon(file.name)}</span>
-            <span className="text-sm font-medium text-gray-700 truncate flex-1">
-              {file.name.replace(/\/$/, '')}
-            </span>
+      {sortedFiles.map((file, index) => {
+        const isList = viewMode === 'list';
+        const cardClasses = [
+          'glass-card selectable-card rounded-xl cursor-pointer group',
+          isList ? 'p-3' : 'p-4 flex flex-col items-center text-center',
+          file.isSelected ? 'is-selected' : '',
+        ].join(' ');
+
+        return (
+          <div
+            key={file.id}
+            className={cardClasses}
+            onClick={() => handleFileClick(file)}
+            style={{ animation: `fadeInUp ${300 + index * 18}ms var(--motion-ease) both` }}
+          >
+            {isList ? (
+              <div className="flex items-center gap-3">
+                <div
+                  className={`transition-all duration-200 ${
+                    file.isSelected ? 'opacity-100' : 'opacity-0 group-hover:opacity-100'
+                  }`}
+                  onClick={(e) => handleCheckboxClick(e, file.name)}
+                >
+                  <GlassCheckbox
+                    checked={file.isSelected}
+                    size="md"
+                    aria-label={`Выбрать ${file.name}`}
+                  />
+                </div>
+                <span className="text-2xl drop-shadow-sm flex-shrink-0">
+                  {file.type === 'directory' ? '📁' : getFileIcon(file.name)}
+                </span>
+                <span className="text-sm font-medium text-[color:var(--text-strong)] truncate flex-1">
+                  {file.name.replace(/\/$/, '')}
+                </span>
+              </div>
+            ) : (
+              <>
+                <div
+                  className={`absolute top-2 left-2 z-10 transition-all duration-200 ${
+                    file.isSelected
+                      ? 'opacity-100 translate-y-0'
+                      : 'opacity-0 -translate-y-1 group-hover:opacity-100 group-hover:translate-y-0'
+                  }`}
+                  onClick={(e) => handleCheckboxClick(e, file.name)}
+                >
+                  <GlassCheckbox
+                    checked={file.isSelected}
+                    size="sm"
+                    aria-label={`Выбрать ${file.name}`}
+                  />
+                </div>
+                <div className="text-5xl mb-2 drop-shadow-sm transition-transform duration-300 group-hover:-translate-y-0.5">
+                  {file.type === 'directory' ? '📁' : getFileIcon(file.name)}
+                </div>
+                <div className="text-sm font-medium text-[color:var(--text-strong)] truncate w-full">
+                  {file.name.replace(/\/$/, '')}
+                </div>
+              </>
+            )}
           </div>
-        </div>
-      ))}
+        );
+      })}
     </div>
   );
 };

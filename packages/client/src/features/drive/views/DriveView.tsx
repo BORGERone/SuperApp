@@ -8,6 +8,7 @@ import { FolderOpen, RefreshCw, Upload, Plus, Grid, List, LogOut, X } from 'luci
 import { FileItem } from '../models/driveModel';
 import { api } from '../../../lib/apiClient';
 import { useQueryClient } from '@tanstack/react-query';
+import { GlassCheckbox } from '../../../components/GlassCheckbox';
 
 export const DriveView: React.FC = () => {
   const navigate = useNavigate();
@@ -289,14 +290,14 @@ export const DriveView: React.FC = () => {
   return (
     <div className="min-h-screen">
       {/* Header */}
-      <div className="glass px-10 py-6">
-        <div className="flex items-center justify-between">
+      <div className="glass-card px-6 md:px-10 py-5 m-4 rounded-2xl animate-fade-up">
+        <div className="flex items-center justify-between flex-wrap gap-3">
           <h1 className="text-2xl font-bold text-gradient">☁️ Сетевой диск</h1>
-          <div className="flex items-center gap-4">
-            <span className="text-sm font-medium text-gray-700">{currentUser}</span>
+          <div className="flex items-center gap-3">
+            <span className="text-sm font-medium text-[color:var(--text-strong)]">{currentUser}</span>
             <button
               onClick={handleLogout}
-              className="flex items-center gap-2 px-4 py-2 btn-glass-secondary rounded-lg"
+              className="flex items-center gap-2 px-4 py-2 btn-glass-secondary rounded-xl"
             >
               <LogOut size={16} />
               <span>Выйти</span>
@@ -306,9 +307,9 @@ export const DriveView: React.FC = () => {
       </div>
 
       {/* Toolbar */}
-      <div className="bg-white/50 backdrop-blur-sm border-b border-white/60 px-10 py-4">
-        <div className="flex items-center gap-3">
-          <label className="flex items-center gap-2 px-4 py-2 btn-glass rounded-lg cursor-pointer">
+      <div className="px-4 md:px-10 pb-2">
+        <div className="glass-panel rounded-2xl px-4 py-3 flex items-center gap-2 flex-wrap animate-fade-up">
+          <label className="flex items-center gap-2 px-4 py-2 btn-glass rounded-xl cursor-pointer">
             <Upload size={16} />
             <span>{isUploading ? 'Загрузка...' : 'Загрузить файл'}</span>
             <input
@@ -321,18 +322,19 @@ export const DriveView: React.FC = () => {
           </label>
           <button
             onClick={() => setShowCreateFolderModal(true)}
-            className="flex items-center gap-2 px-4 py-2 btn-glass-secondary rounded-lg"
+            className="flex items-center gap-2 px-4 py-2 btn-glass-secondary rounded-xl"
           >
             <Plus size={16} />
             <span>Создать папку</span>
           </button>
-          <button onClick={() => refetch()} className="flex items-center gap-2 px-4 py-2 btn-glass-secondary rounded-lg">
+          <button onClick={() => refetch()} className="flex items-center gap-2 px-4 py-2 btn-glass-secondary rounded-xl">
             <RefreshCw size={16} />
             <span>Обновить</span>
           </button>
           <button
             onClick={handleViewModeToggle}
-            className="flex items-center gap-2 px-4 py-2 btn-glass-secondary rounded-lg"
+            className="flex items-center gap-2 px-3 py-2 btn-glass-secondary rounded-xl ml-auto"
+            title={viewMode === 'list' ? 'Сетка' : 'Список'}
           >
             {viewMode === 'list' ? <Grid size={16} /> : <List size={16} />}
           </button>
@@ -340,8 +342,8 @@ export const DriveView: React.FC = () => {
       </div>
 
       {/* Breadcrumb */}
-      <div className="bg-white/40 backdrop-blur-sm border-b border-white/60 px-10 py-3">
-        <div className="flex items-center gap-3">
+      <div className="px-4 md:px-10 pb-2">
+        <div className="glass-panel rounded-2xl px-4 py-2.5 flex items-center gap-3 flex-wrap">
           <button
             onClick={navigateBack}
             disabled={!canNavigateBack}
@@ -350,12 +352,12 @@ export const DriveView: React.FC = () => {
             <FolderOpen size={16} />
             <span>Назад</span>
           </button>
-          <span className="text-sm font-medium text-gray-700">{currentPath}</span>
+          <span className="text-sm font-medium text-[color:var(--text-muted)] truncate">{currentPath}</span>
         </div>
       </div>
 
       {/* File List */}
-      <div className="p-6">
+      <div className="px-4 md:px-10 pb-10">
         <FileList 
           files={files} 
           currentPath={currentPath}
@@ -367,50 +369,62 @@ export const DriveView: React.FC = () => {
 
       {/* Action Island */}
       {selectedFiles.size > 0 && (
-        <div className="fixed bottom-6 right-6 glass rounded-xl px-6 py-4 min-w-56">
-          <div className="flex flex-col gap-2">
-            <div className="text-sm font-medium text-gray-700 text-center">
+        <div className="fixed bottom-6 left-1/2 -translate-x-1/2 glass-card rounded-2xl px-5 py-3 animate-fade-up shadow-xl">
+          <div className="flex items-center gap-3 flex-wrap">
+            <div
+              className="text-xs font-semibold px-2.5 py-1 rounded-full tabular-nums"
+              style={{ background: 'var(--accent-soft)', color: 'var(--accent-strong)' }}
+            >
               Выбрано: {selectedFiles.size}
             </div>
-            <div className="flex items-center gap-2">
+            <button
+              onClick={handleDownloadSelected}
+              className="px-3 py-1.5 btn-glass-secondary rounded-lg text-sm"
+            >
+              Скачать
+            </button>
+            <button
+              onClick={handleDeleteSelected}
+              className="px-3 py-1.5 btn-glass-danger rounded-lg text-sm"
+            >
+              Удалить
+            </button>
+            {isAdmin && (
               <button
-                onClick={handleDownloadSelected}
-                className="px-4 py-2 btn-glass-secondary rounded-lg"
+                onClick={handlePermissions}
+                className="px-3 py-1.5 btn-glass-secondary rounded-lg text-sm"
               >
-                Скачать
+                Права доступа
               </button>
-              <button
-                onClick={handleDeleteSelected}
-                className="px-4 py-2 btn-glass-danger rounded-lg"
-              >
-                Удалить
-              </button>
-              {isAdmin && (
-                <button
-                  onClick={handlePermissions}
-                  className="px-4 py-2 btn-glass-secondary rounded-lg"
-                >
-                  Права доступа
-                </button>
-              )}
-            </div>
+            )}
+            <button
+              onClick={() => useDriveStore.getState().clearSelection()}
+              className="btn-icon-glass !w-8 !h-8"
+              title="Снять выделение"
+            >
+              <X size={14} />
+            </button>
           </div>
         </div>
       )}
 
       {/* Upload Progress */}
       {isUploading && (
-        <div className="fixed bottom-6 right-6 glass rounded-xl px-6 py-4 min-w-80">
-          <div className="text-sm font-medium text-gray-700 mb-2">
+        <div className="fixed bottom-6 right-6 glass-card rounded-2xl px-5 py-4 min-w-80 animate-fade-up shadow-xl">
+          <div className="text-sm font-medium text-[color:var(--text-strong)] mb-2 truncate">
             Загрузка: {uploadFileName}
           </div>
-          <div className="w-full bg-gray-200 rounded-full h-2 mb-2">
+          <div className="w-full rounded-full h-2 mb-2" style={{ background: 'rgba(15,23,42,0.08)' }}>
             <div
-              className="bg-gradient-to-r from-indigo-500 to-purple-500 h-2 rounded-full transition-all duration-300"
-              style={{ width: `${uploadProgress}%` }}
+              className="h-2 rounded-full transition-all duration-300"
+              style={{
+                width: `${uploadProgress}%`,
+                background:
+                  'linear-gradient(90deg, var(--accent-gradient-from), var(--accent-gradient-via), var(--accent-gradient-to))',
+              }}
             />
           </div>
-          <div className="text-xs text-gray-500 text-right">
+          <div className="text-xs text-[color:var(--text-muted)] text-right tabular-nums">
             {Math.round(uploadProgress)}%
           </div>
         </div>
@@ -418,17 +432,21 @@ export const DriveView: React.FC = () => {
 
       {/* Download Progress */}
       {isDownloading && (
-        <div className="fixed bottom-6 right-6 glass rounded-xl px-6 py-4 min-w-80">
-          <div className="text-sm font-medium text-gray-700 mb-2">
+        <div className="fixed bottom-6 right-6 glass-card rounded-2xl px-5 py-4 min-w-80 animate-fade-up shadow-xl">
+          <div className="text-sm font-medium text-[color:var(--text-strong)] mb-2 truncate">
             Скачивание: {downloadFileName}
           </div>
-          <div className="w-full bg-gray-200 rounded-full h-2 mb-2">
+          <div className="w-full rounded-full h-2 mb-2" style={{ background: 'rgba(15,23,42,0.08)' }}>
             <div
-              className="bg-gradient-to-r from-indigo-500 to-purple-500 h-2 rounded-full transition-all duration-300"
-              style={{ width: `${downloadProgress}%` }}
+              className="h-2 rounded-full transition-all duration-300"
+              style={{
+                width: `${downloadProgress}%`,
+                background:
+                  'linear-gradient(90deg, var(--accent-gradient-from), var(--accent-gradient-via), var(--accent-gradient-to))',
+              }}
             />
           </div>
-          <div className="text-xs text-gray-500 text-right">
+          <div className="text-xs text-[color:var(--text-muted)] text-right tabular-nums">
             {Math.round(downloadProgress)}%
           </div>
         </div>
@@ -436,49 +454,48 @@ export const DriveView: React.FC = () => {
 
       {/* Permissions Modal */}
       {showPermissionsModal && (
-        <div className="fixed inset-0 bg-black/30 backdrop-blur-sm flex items-center justify-center z-50">
-          <div className="glass rounded-xl p-6 w-full max-w-md">
+        <div className="fixed inset-0 bg-black/40 backdrop-blur-sm flex items-center justify-center z-50 animate-fade-up">
+          <div className="glass-card rounded-2xl p-6 w-full max-w-md shadow-2xl">
             <div className="flex items-center justify-between mb-4">
               <h3 className="text-lg font-semibold text-gradient">Права доступа</h3>
-              <button
-                onClick={() => setShowPermissionsModal(false)}
-                className="text-gray-500 hover:text-gray-700"
-              >
-                <X size={20} />
+              <button onClick={() => setShowPermissionsModal(false)} className="btn-icon-glass">
+                <X size={18} />
               </button>
             </div>
-            <div className="space-y-3">
-              {allUsers.map((user) => (
-                <div key={user.id} className="glass-card flex items-center justify-between p-3">
-                  <span className="text-sm font-medium text-gray-700">{user.username} ({user.role})</span>
-                  <input
-                    type="checkbox"
-                    checked={allowedUsers.has(user.id)}
-                    onChange={(e) => {
-                      const newAllowedUsers = new Set(allowedUsers);
-                      if (e.target.checked) {
-                        newAllowedUsers.add(user.id);
-                      } else {
-                        newAllowedUsers.delete(user.id);
-                      }
-                      setAllowedUsers(newAllowedUsers);
+            <div className="space-y-2 max-h-[50vh] overflow-y-auto pr-1">
+              {allUsers.map((user) => {
+                const checked = allowedUsers.has(user.id);
+                return (
+                  <button
+                    key={user.id}
+                    type="button"
+                    onClick={() => {
+                      const next = new Set(allowedUsers);
+                      if (checked) next.delete(user.id);
+                      else next.add(user.id);
+                      setAllowedUsers(next);
                     }}
-                    className="w-4 h-4 rounded accent-indigo-500"
-                  />
-                </div>
-              ))}
+                    className={`selectable-card glass-panel flex items-center justify-between p-3 rounded-xl w-full text-left ${
+                      checked ? 'is-selected' : ''
+                    }`}
+                  >
+                    <span className="text-sm font-medium text-[color:var(--text-strong)]">
+                      {user.username}{' '}
+                      <span className="text-[color:var(--text-muted)] text-xs">({user.role})</span>
+                    </span>
+                    <GlassCheckbox checked={checked} size="sm" aria-label={user.username} />
+                  </button>
+                );
+              })}
             </div>
             <div className="flex justify-end gap-2 mt-6">
               <button
                 onClick={() => setShowPermissionsModal(false)}
-                className="px-4 py-2 btn-glass-secondary rounded-lg"
+                className="px-4 py-2 btn-glass-secondary rounded-xl"
               >
                 Отмена
               </button>
-              <button
-                onClick={handleSavePermissions}
-                className="px-4 py-2 btn-glass rounded-lg"
-              >
+              <button onClick={handleSavePermissions} className="px-4 py-2 btn-glass rounded-xl">
                 Сохранить
               </button>
             </div>
@@ -488,15 +505,12 @@ export const DriveView: React.FC = () => {
 
       {/* Create Folder Modal */}
       {showCreateFolderModal && (
-        <div className="fixed inset-0 bg-black/30 backdrop-blur-sm flex items-center justify-center z-50">
-          <div className="glass rounded-xl p-6 w-full max-w-md">
+        <div className="fixed inset-0 bg-black/40 backdrop-blur-sm flex items-center justify-center z-50 animate-fade-up">
+          <div className="glass-card rounded-2xl p-6 w-full max-w-md shadow-2xl">
             <div className="flex items-center justify-between mb-4">
               <h3 className="text-lg font-semibold text-gradient">Создать папку</h3>
-              <button
-                onClick={() => setShowCreateFolderModal(false)}
-                className="text-gray-500 hover:text-gray-700"
-              >
-                <X size={20} />
+              <button onClick={() => setShowCreateFolderModal(false)} className="btn-icon-glass">
+                <X size={18} />
               </button>
             </div>
             <input
@@ -504,20 +518,21 @@ export const DriveView: React.FC = () => {
               value={folderName}
               onChange={(e) => setFolderName(e.target.value)}
               placeholder="Название папки"
-              className="w-full px-4 py-2 glass-input rounded-lg mb-4"
+              className="w-full px-4 py-2.5 glass-input rounded-xl mb-4"
               onKeyPress={(e) => e.key === 'Enter' && handleCreateFolder()}
+              autoFocus
             />
             <div className="flex gap-3">
               <button
                 onClick={() => setShowCreateFolderModal(false)}
-                className="flex-1 px-4 py-2 btn-glass-secondary rounded-lg"
+                className="flex-1 px-4 py-2 btn-glass-secondary rounded-xl"
               >
                 Отмена
               </button>
               <button
                 onClick={handleCreateFolder}
                 disabled={isCreating || !folderName.trim()}
-                className="flex-1 px-4 py-2 btn-glass rounded-lg disabled:opacity-50 disabled:cursor-not-allowed"
+                className="flex-1 px-4 py-2 btn-glass rounded-xl disabled:opacity-50 disabled:cursor-not-allowed"
               >
                 {isCreating ? 'Создание...' : 'Создать'}
               </button>

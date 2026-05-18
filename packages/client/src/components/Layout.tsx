@@ -63,7 +63,7 @@ export const Layout: React.FC = () => {
   }, [emails, setEmails]);
 
   return (
-    <div className="flex h-screen bg-gradient-to-br from-blue-50 via-white to-purple-50">
+    <div className="flex h-screen">
       <Sidebar />
       <main className="flex-1 overflow-hidden">
         <Outlet />

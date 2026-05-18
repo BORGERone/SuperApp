@@ -425,21 +425,22 @@ export const ComposeModal: React.FC<ComposeModalProps> = ({ onClose, replyTo }) 
   }, [onClose]);
 
   return (
-    <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50">
+    <div className="fixed inset-0 bg-black/40 backdrop-blur-sm flex items-center justify-center z-50 animate-fade-up">
       <div
-        className="glass-card rounded-xl w-full max-w-4xl max-h-[95vh] m-4 flex flex-col"
+        className="glass-card rounded-2xl w-full max-w-4xl max-h-[95vh] m-4 flex flex-col"
         onKeyDown={handleKeyDown}
       >
         {/* Header */}
-        <div className="flex items-center justify-between p-6 border-b border-gray-200/50">
-          <h2 className="text-xl font-semibold text-gray-800">
+        <div className="flex items-center justify-between p-6 border-b border-white/40">
+          <h2 className="text-xl font-semibold text-gradient">
             {replyTo ? 'Ответ на письмо' : 'Новое письмо'}
           </h2>
           <button
             onClick={onClose}
-            className="p-2 rounded-lg hover:bg-white/60 transition-colors"
+            className="btn-icon-glass"
+            title="Закрыть"
           >
-            <X size={20} className="text-gray-600" />
+            <X size={20} />
           </button>
         </div>
 
@@ -447,18 +448,20 @@ export const ComposeModal: React.FC<ComposeModalProps> = ({ onClose, replyTo }) 
         <div className="p-6 space-y-3 flex-shrink-0">
           {/* To */}
           <div>
-            <label className="block text-sm font-medium text-gray-700 mb-2">Кому:</label>
+            <label className="block text-sm font-medium text-[color:var(--text-strong)] mb-2">Кому:</label>
             <div className="space-y-2">
               <div className="flex flex-wrap gap-2">
-                {email.to.map((recipient, index) => (
+                {email.to.map((recipient) => (
                   <div
                     key={recipient}
-                    className="inline-flex items-center gap-2 px-3 py-1 bg-blue-100/60 text-blue-700 rounded-full text-sm"
+                    className="inline-flex items-center gap-2 px-3 py-1 rounded-full text-sm"
+                    style={{ background: 'var(--accent-soft)', color: 'var(--accent-strong)', border: '1px solid var(--accent-border)' }}
                   >
                     <span>{recipient}</span>
                     <button
                       onClick={() => handleRemoveRecipient('to', recipient)}
-                      className="ml-1 text-blue-600 hover:text-blue-800"
+                      className="ml-1 hover:opacity-80"
+                      style={{ color: 'var(--accent-strong)' }}
                     >
                       ×
                     </button>
@@ -492,12 +495,14 @@ export const ComposeModal: React.FC<ComposeModalProps> = ({ onClose, replyTo }) 
                 {email.cc?.map((recipient) => (
                   <div
                     key={`cc-${recipient}`}
-                    className="inline-flex items-center gap-2 px-3 py-1 bg-blue-100/60 text-blue-700 rounded-full text-sm"
+                    className="inline-flex items-center gap-2 px-3 py-1 rounded-full text-sm"
+                    style={{ background: 'var(--accent-soft)', color: 'var(--accent-strong)', border: '1px solid var(--accent-border)' }}
                   >
                     <span>{recipient}</span>
                     <button
                       onClick={() => handleRemoveRecipient('cc', recipient)}
-                      className="ml-1 text-blue-600 hover:text-blue-800"
+                      className="ml-1 hover:opacity-80"
+                      style={{ color: 'var(--accent-strong)' }}
                     >
                       ×
                     </button>
@@ -530,12 +535,14 @@ export const ComposeModal: React.FC<ComposeModalProps> = ({ onClose, replyTo }) 
                 {email.bcc?.map((recipient) => (
                   <div
                     key={`bcc-${recipient}`}
-                    className="inline-flex items-center gap-2 px-3 py-1 bg-blue-100/60 text-blue-700 rounded-full text-sm"
+                    className="inline-flex items-center gap-2 px-3 py-1 rounded-full text-sm"
+                    style={{ background: 'var(--accent-soft)', color: 'var(--accent-strong)', border: '1px solid var(--accent-border)' }}
                   >
                     <span>{recipient}</span>
                     <button
                       onClick={() => handleRemoveRecipient('bcc', recipient)}
-                      className="ml-1 text-blue-600 hover:text-blue-800"
+                      className="ml-1 hover:opacity-80"
+                      style={{ color: 'var(--accent-strong)' }}
                     >
                       ×
                     </button>
@@ -564,54 +571,63 @@ export const ComposeModal: React.FC<ComposeModalProps> = ({ onClose, replyTo }) 
 
         {/* Subject */}
         <div className="px-6 flex-shrink-0">
-          <label className="block text-sm font-medium text-gray-700 mb-2">Тема:</label>
+          <label className="block text-sm font-medium text-[color:var(--text-strong)] mb-2">Тема:</label>
           <input
             type="text"
             value={email.subject}
             onChange={(e) => setEmail(prev => ({ ...prev, subject: e.target.value }))}
             placeholder="Введите тему письма..."
-            className="w-full px-3 py-2 border border-gray-200/50 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-400 bg-white/80"
+            className="w-full px-3 py-2 rounded-xl glass-input text-sm"
           />
         </div>
 
         {/* Body */}
         <div className="flex-1 p-6 pt-0 flex flex-col min-h-0">
-          <label className="block text-sm font-medium text-gray-700 mb-2">Текст письма:</label>
+          <label className="block text-sm font-medium text-[color:var(--text-strong)] mb-2 mt-3">Текст письма:</label>
           <textarea
             value={email.body}
             onChange={(e) => setEmail(prev => ({ ...prev, body: e.target.value }))}
             placeholder="Введите текст письма..."
-            className="flex-1 w-full min-h-[150px] px-3 py-2 border border-gray-200/50 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-400 bg-white/80 resize-none"
+            className="flex-1 w-full min-h-[150px] px-3 py-2 rounded-xl glass-input resize-none text-sm"
           />
         </div>
 
         {/* Attachments */}
         {pendingAttachments.length > 0 && (
           <div className="px-6 pb-4 flex-shrink-0">
-            <div className="text-sm font-medium text-gray-700 mb-2">Вложения:</div>
+            <div className="text-sm font-medium text-[color:var(--text-strong)] mb-2">Вложения:</div>
             <div className="space-y-2">
               {pendingAttachments.map((attachment) => (
                 <div
                   key={`attachment-${attachment.id}`}
-                  className="flex items-center justify-between p-3 bg-gray-50/60 rounded-lg"
+                  className="glass-panel flex items-center justify-between p-3 rounded-xl"
                 >
-                  <div className="flex items-center gap-3">
-                    <Paperclip size={16} className="text-gray-400" />
-                    <span className="text-sm text-gray-700">{attachment.file.name}</span>
-                    <span className="text-xs text-gray-500">
+                  <div className="flex items-center gap-3 min-w-0">
+                    <div
+                      className="w-8 h-8 rounded-lg flex items-center justify-center flex-shrink-0"
+                      style={{ background: 'var(--accent-soft)', color: 'var(--accent-strong)' }}
+                    >
+                      <Paperclip size={14} />
+                    </div>
+                    <span className="text-sm text-[color:var(--text-strong)] truncate">{attachment.file.name}</span>
+                    <span className="text-xs text-[color:var(--text-muted)] flex-shrink-0">
                       {(attachment.file.size / 1024).toFixed(1)} KB
                     </span>
                     {attachment.storageType === 'drive' && (
-                      <span className="text-xs text-blue-600 bg-blue-100/60 px-2 py-1 rounded-full">
+                      <span
+                        className="text-xs px-2 py-0.5 rounded-full flex-shrink-0"
+                        style={{ background: 'var(--accent-soft)', color: 'var(--accent-strong)', border: '1px solid var(--accent-border)' }}
+                      >
                         Диск
                       </span>
                     )}
                   </div>
                   <button
                     onClick={() => handleRemoveAttachment(attachment.id)}
-                    className="text-red-600 hover:text-red-800"
+                    className="btn-icon-glass hover:!bg-rose-100/70 hover:!text-rose-600 flex-shrink-0"
+                    title="Удалить вложение"
                   >
-                    ×
+                    <X size={16} />
                   </button>
                 </div>
               ))}
@@ -620,9 +636,9 @@ export const ComposeModal: React.FC<ComposeModalProps> = ({ onClose, replyTo }) 
         )}
 
         {/* Footer */}
-        <div className="flex items-center justify-between p-6 border-t border-gray-200/50 flex-shrink-0">
-          <div className="flex items-center gap-3">
-            <label className="flex items-center gap-2 cursor-pointer text-sm text-gray-600 hover:text-gray-800">
+        <div className="flex items-center justify-between p-6 border-t border-white/40 flex-shrink-0">
+          <div className="flex items-center gap-2 flex-wrap">
+            <label className="flex items-center gap-2 px-3 py-2 rounded-xl btn-glass-secondary cursor-pointer text-sm">
               <input
                 type="file"
                 multiple
@@ -630,15 +646,15 @@ export const ComposeModal: React.FC<ComposeModalProps> = ({ onClose, replyTo }) 
                 disabled={isUploading}
                 className="hidden"
               />
-              <Paperclip size={18} />
-              {isUploading ? 'Загрузка...' : 'Прикрепить файлы'}
+              <Paperclip size={16} />
+              {isUploading ? 'Загрузка...' : 'Прикрепить'}
             </label>
             <button
               onClick={() => setShowDriveSelector(true)}
               disabled={isUploading}
-              className="flex items-center gap-2 text-sm text-gray-600 hover:text-gray-800 disabled:text-gray-400 disabled:cursor-not-allowed"
+              className="flex items-center gap-2 px-3 py-2 rounded-xl btn-glass-secondary text-sm disabled:opacity-50 disabled:cursor-not-allowed"
             >
-              <HardDrive size={18} />
+              <HardDrive size={16} />
               С диска
             </button>
           </div>
@@ -646,14 +662,14 @@ export const ComposeModal: React.FC<ComposeModalProps> = ({ onClose, replyTo }) 
           <div className="flex items-center gap-3">
             <button
               onClick={onClose}
-              className="px-4 py-2 border border-gray-200/50 rounded-lg hover:bg-white/60 transition-colors"
+              className="px-4 py-2 rounded-xl btn-glass-secondary text-sm"
             >
               Отмена
             </button>
             <button
               onClick={handleSend}
               disabled={sendEmailMutation.isPending}
-              className="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors flex items-center gap-2 disabled:opacity-50 disabled:cursor-not-allowed"
+              className="px-4 py-2 rounded-xl btn-glass text-sm flex items-center gap-2 disabled:opacity-50 disabled:cursor-not-allowed"
             >
               <Send size={16} />
               {sendEmailMutation.isPending ? 'Отправка...' : 'Отправить'}
