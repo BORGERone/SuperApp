@@ -2,12 +2,22 @@ const { app, BrowserWindow, ipcMain, dialog } = require('electron');
 const path = require('path');
 const fs = require('fs');
 
+// Устанавливаем имя приложения для уведомлений
+app.setName('SuperApp');
+
+// Устанавливаем AppUserModelID для Windows
+// Используем простое имя вместо доменного формата для правильного отображения
+if (process.platform === 'win32') {
+  app.setAppUserModelId('SuperApp');
+}
+
 let mainWindow = null;
 
 function createWindow() {
   mainWindow = new BrowserWindow({
     width: 1200,
     height: 800,
+    title: 'SuperApp',
     webPreferences: {
       nodeIntegration: false,
       contextIsolation: true,
@@ -38,6 +48,22 @@ ipcMain.handle('dialog:saveFile', async (event, options) => {
   }
   
   return null;
+});
+
+// IPC handler для показа уведомлений через Electron (для правильного отображения имени)
+ipcMain.handle('show-notification', async (event, options) => {
+  const { Notification } = require('electron');
+  
+  const notification = new Notification({
+    title: options.title,
+    body: options.body,
+    icon: options.icon || undefined,
+    appName: 'SuperApp',
+  });
+  
+  notification.show();
+  
+  return { success: true };
 });
 
 app.on('ready', createWindow);

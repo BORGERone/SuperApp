@@ -5,6 +5,7 @@ import { useMailStore } from '../viewmodels/mailViewModel';
 import { useSendEmail } from '../api/mailApi';
 import { UserAutocomplete } from '../../auth/components/UserAutocomplete';
 import { DriveFileSelectorModal } from './DriveFileSelectorModal';
+import { GrantAccessModal } from './GrantAccessModal';
 
 interface ComposeModalProps {
   onClose: () => void;
@@ -27,6 +28,9 @@ export const ComposeModal: React.FC<ComposeModalProps> = ({ onClose, replyTo }) 
   const [pendingAttachments, setPendingAttachments] = useState<PendingAttachment[]>([]);
   const [isUploading, setIsUploading] = useState(false);
   const [showDriveSelector, setShowDriveSelector] = useState(false);
+  const [showGrantAccessModal, setShowGrantAccessModal] = useState(false);
+  const [filesWithoutAccess, setFilesWithoutAccess] = useState<string[]>([]);
+  const [fileIdsWithoutAccess, setFileIdsWithoutAccess] = useState<string[]>([]);
 
   const [showCc, setShowCc] = useState(false);
   const [showBcc, setShowBcc] = useState(false);
@@ -123,33 +127,43 @@ export const ComposeModal: React.FC<ComposeModalProps> = ({ onClose, replyTo }) 
       const isElectron = typeof window !== 'undefined' && (window as any).electronAPI !== undefined;
       const apiUrl = isElectron ? 'http://localhost:3002' : '';
 
+      console.log('Attaching files from drive:', files);
       const newAttachments: PendingAttachment[] = [];
 
       for (const file of files) {
-        // Создаем объект File из данных файла с диска
-        const fileObj = new File([], file.name, { type: 'application/octet-stream' });
-
-        const formData = new FormData();
-        formData.append('file', fileObj);
-        formData.append('storageType', 'drive');
-        formData.append('driveFileId', file.id);
+        console.log('Attaching file:', file);
+        // Просто создаем запись о вложении ссылающуюся на файл диска
+        const requestBody = {
+          filename: file.name,
+          size: file.size,
+          mimeType: file.type || 'application/octet-stream',
+          storageType: 'drive',
+          driveFileId: file.id,
+        };
+        console.log('Request body:', requestBody);
 
         const response = await fetch(`${apiUrl}/api/mail/attachments/upload`, {
           method: 'POST',
           headers: {
             'Authorization': `Bearer ${localStorage.getItem('accessToken')}`,
+            'Content-Type': 'application/json',
           },
-          body: formData,
+          body: JSON.stringify(requestBody),
         });
 
+        console.log('Response status:', response.status);
+
         if (!response.ok) {
-          throw new Error(`Failed to attach file from drive: ${file.name}`);
+          const errorText = await response.text();
+          console.error('Failed to attach file from drive. Status:', response.status, 'Error:', errorText);
+          throw new Error(`Failed to attach file from drive: ${file.name}. Status: ${response.status}`);
         }
 
         const data = await response.json();
+        console.log('Attachment created:', data);
         newAttachments.push({
           id: data.id,
-          file: fileObj,
+          file: new File([], file.name, { type: file.type || 'application/octet-stream' }),
           storageType: 'drive',
           driveFileId: file.id,
         });
@@ -194,11 +208,122 @@ export const ComposeModal: React.FC<ComposeModalProps> = ({ onClose, replyTo }) 
       return;
     }
 
+    // Проверяем права доступа к файлам с диска
+    const driveAttachments = pendingAttachments.filter(a => a.storageType === 'drive');
+    console.log('Drive attachments:', driveAttachments);
+    console.log('All pending attachments:', pendingAttachments);
+
+    if (driveAttachments.length > 0) {
+      try {
+        const isElectron = typeof window !== 'undefined' && (window as any).electronAPI !== undefined;
+        const apiUrl = isElectron ? 'http://localhost:3002' : '';
+
+        // Получаем список пользователей-получателей
+        const recipientEmails = [...email.to, ...(email.cc || []), ...(email.bcc || [])];
+        console.log('Recipient emails:', recipientEmails);
+
+        // Для каждого файла проверяем, есть ли доступ у получателей
+        const filesWithoutAccessList: string[] = [];
+        const fileIdsWithoutAccessList: string[] = [];
+
+        for (const attachment of driveAttachments) {
+          console.log('Checking attachment:', attachment);
+          if (!attachment.driveFileId) {
+            console.log('Attachment has no driveFileId:', attachment);
+            continue;
+          }
+
+          // Получаем права доступа к файлу
+          const response = await fetch(`${apiUrl}/api/drive/permissions-by-id?fileId=${attachment.driveFileId}`, {
+            headers: {
+              'Authorization': `Bearer ${localStorage.getItem('accessToken')}`,
+            },
+          });
+
+          console.log('Permissions response status:', response.status);
+
+          if (response.ok) {
+            const data = await response.json();
+            const allowedUsers = data.allowedUsers || [];
+            console.log('Allowed users for file:', attachment.file.name, allowedUsers);
+
+            // Проверяем, есть ли доступ у всех получателей
+            const hasAllAccess = recipientEmails.every(email =>
+              allowedUsers.includes(email)
+            );
+
+            console.log('Has all access:', hasAllAccess, 'for recipients:', recipientEmails);
+
+            if (!hasAllAccess) {
+              filesWithoutAccessList.push(attachment.file.name);
+              fileIdsWithoutAccessList.push(attachment.driveFileId);
+            }
+          } else {
+            console.error('Failed to get permissions:', response.status, response.statusText);
+          }
+        }
+
+        console.log('Files without access:', filesWithoutAccessList);
+
+        if (filesWithoutAccessList.length > 0) {
+          setFilesWithoutAccess(filesWithoutAccessList);
+          setFileIdsWithoutAccess(fileIdsWithoutAccessList);
+          setShowGrantAccessModal(true);
+          return; // Не отправляем письмо, пока пользователь не подтвердит
+        }
+      } catch (error) {
+        console.error('Failed to check file permissions:', error);
+        // Продолжаем отправку даже если не удалось проверить права
+      }
+    } else {
+      console.log('No drive attachments found');
+    }
+
     if (!email.subject.trim() && !email.body.trim()) {
       showValidationAlert('Пожалуйста, укажите тему или текст письма');
       return;
     }
 
+    await sendEmail();
+  };
+
+  const handleGrantAccessConfirm = async () => {
+    try {
+      const isElectron = typeof window !== 'undefined' && (window as any).electronAPI !== undefined;
+      const apiUrl = isElectron ? 'http://localhost:3002' : '';
+
+      // Получаем список пользователей-получателей
+      const recipientEmails = [...email.to, ...(email.cc || []), ...(email.bcc || [])];
+
+      // Выдаем права доступа к файлам для получателей
+      const response = await fetch(`${apiUrl}/api/drive/grant-access-batch`, {
+        method: 'POST',
+        headers: {
+          'Authorization': `Bearer ${localStorage.getItem('accessToken')}`,
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          fileIds: fileIdsWithoutAccess,
+          userIds: recipientEmails,
+        }),
+      });
+
+      if (response.ok) {
+        console.log('Access granted successfully');
+        setShowGrantAccessModal(false);
+        // Отправляем письмо после выдачи прав
+        await sendEmail();
+      } else {
+        console.error('Failed to grant access:', response.statusText);
+        alert('Не удалось выдать доступ к файлам');
+      }
+    } catch (error) {
+      console.error('Failed to grant access:', error);
+      alert('Не удалось выдать доступ к файлам');
+    }
+  };
+
+  const sendEmail = async () => {
     // Если тема пустая, но есть текст - используем первые слова текста как тему
     let finalSubject = email.subject.trim();
     if (!finalSubject && email.body.trim()) {
@@ -541,6 +666,15 @@ export const ComposeModal: React.FC<ComposeModalProps> = ({ onClose, replyTo }) 
         <DriveFileSelectorModal
           onClose={() => setShowDriveSelector(false)}
           onFilesSelected={handleDriveFilesSelected}
+        />
+      )}
+
+      {showGrantAccessModal && (
+        <GrantAccessModal
+          isOpen={showGrantAccessModal}
+          onClose={() => setShowGrantAccessModal(false)}
+          onConfirm={handleGrantAccessConfirm}
+          filesWithoutAccess={filesWithoutAccess}
         />
       )}
     </div>

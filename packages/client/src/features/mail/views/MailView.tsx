@@ -1,16 +1,19 @@
-import React, { useEffect, useState, useCallback } from 'react';
-import { Search, Plus, Trash2, Star, Reply, Forward, Archive, Filter } from 'lucide-react';
+import React, { useEffect, useState, useRef } from 'react';
+import { Search, Trash2, Star, Filter } from 'lucide-react';
 import { useMailStore } from '../viewmodels/mailViewModel';
 import { MailFolder, Email } from '../models/mailModel';
 import { MailList } from '../components/MailList';
 import { MailItem } from '../components/MailItem';
 import { ComposeModal } from '../components/ComposeModal';
-import { useEmails, useSendEmail, useUpdateEmail, useDeleteEmail, useMoveEmail } from '../api/mailApi';
+import { useEmails, useUpdateEmail, useDeleteEmail, useMoveEmail } from '../api/mailApi';
 import { useQueryClient } from '@tanstack/react-query';
 import { useLocation } from 'react-router-dom';
+import { showNotification, requestNotificationPermission } from '../../../utils/notifications';
 
 export const MailView: React.FC = () => {
   const location = useLocation();
+  const previousEmailsCount = useRef(0);
+  const hasRequestedPermission = useRef(false);
   
   // Определяем текущую папку из URL параметров
   const getFolderFromPath = (): MailFolder => {
@@ -22,6 +25,7 @@ export const MailView: React.FC = () => {
   const {
     emails,
     selectedEmails,
+    selectedEmail,
     currentFolder,
     filters,
     isComposeOpen,
@@ -37,31 +41,36 @@ export const MailView: React.FC = () => {
     markAsUnread,
     toggleStar,
     toggleEmailSelection,
+    setSelectedEmail,
+    clearSelectedEmail,
   } = useMailStore();
 
   const [searchQuery, setSearchQuery] = useState(filters.search);
-  const [selectedEmail, setSelectedEmail] = useState<Email | null>(null);
 
   // Обновляем currentFolder при изменении URL
   useEffect(() => {
     const folder = getFolderFromPath();
     if (folder !== currentFolder) {
       setCurrentFolder(folder);
+      clearSelectedEmail();
     }
-  }, [location.pathname]);
-
-  // Сбрасываем selectedEmail при изменении пути (когда переходим между папками)
-  useEffect(() => {
-    setSelectedEmail(null);
-  }, [location.pathname]);
+  }, [location.pathname, currentFolder]);
 
   // API вызовы
-  const { data: emailsData = [], isEmailsLoading, error } = useEmails({
+  const { data: emailsData = [] } = useEmails({
     folder: currentFolder,
     search: filters.search,
     isUnreadOnly: filters.isUnreadOnly,
     isStarredOnly: filters.isStarredOnly,
   });
+
+  // Запрос разрешения на уведомления при первом рендере
+  useEffect(() => {
+    if (!hasRequestedPermission.current) {
+      requestNotificationPermission();
+      hasRequestedPermission.current = true;
+    }
+  }, []);
 
   // Периодическое обновление для папки inbox
   const queryClient = useQueryClient();
@@ -73,10 +82,31 @@ export const MailView: React.FC = () => {
 
       return () => clearInterval(interval);
     }
+    return undefined;
   }, [currentFolder, filters.search, queryClient]);
 
+  // Отслеживание новых писем и показ уведомлений
+  useEffect(() => {
+    if (currentFolder === 'inbox' && emailsData.length > 0) {
+      const currentCount = emailsData.length;
+      
+      // Если количество писем увеличилось, показываем уведомление
+      if (currentCount > previousEmailsCount.current && previousEmailsCount.current > 0) {
+        const newEmailsCount = currentCount - previousEmailsCount.current;
+        const latestEmail = emailsData[0]; // Новые письма будут в начале массива
+        
+        showNotification(
+          `Новое письмо${newEmailsCount > 1 ? 'я' : ''}`,
+          `${latestEmail.from}: ${latestEmail.subject}`,
+          'email'
+        );
+      }
+      
+      previousEmailsCount.current = currentCount;
+    }
+  }, [emailsData, currentFolder]);
+
   
-  const sendEmailMutation = useSendEmail();
   const updateEmailMutation = useUpdateEmail();
   const deleteEmailMutation = useDeleteEmail();
   const moveEmailMutation = useMoveEmail();
@@ -115,17 +145,6 @@ export const MailView: React.FC = () => {
   const handleSearch = (query: string) => {
     setSearchQuery(query);
     setFilters({ search: query });
-  };
-
-  const handleFolderChange = (folder: MailFolder) => {
-    // Если кликаем на ту же папку, ничего не делаем
-    if (currentFolder === folder) {
-      return;
-    }
-    
-    setCurrentFolder(folder);
-    setSelectedEmail(null);
-    // Не очищаем выделение при смене папки - сохраняем выбор пользователя
   };
 
   const handleEmailSelect = (email: Email) => {
@@ -359,7 +378,7 @@ export const MailView: React.FC = () => {
       {isComposeOpen && (
         <ComposeModal
           onClose={closeCompose}
-          replyTo={replyEmail}
+          replyTo={replyEmail || undefined}
         />
       )}
     </div>

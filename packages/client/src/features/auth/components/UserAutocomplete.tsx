@@ -3,6 +3,19 @@ import { createPortal } from 'react-dom';
 import { useUsers } from '../api/usersApi';
 import { ChevronDown, User } from 'lucide-react';
 
+// Функция для отправки логов на сервер
+const logToServer = async (message: string) => {
+  try {
+    await fetch('/api/log', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ message }),
+    });
+  } catch (error) {
+    console.error('Failed to send log to server:', error);
+  }
+};
+
 // Проверяем, запущено ли в Electron
 const isElectron = typeof window !== 'undefined' && window.electronAPI !== undefined;
 
@@ -27,7 +40,8 @@ export const UserAutocomplete: React.FC<UserAutocompleteProps> = ({
   const dropdownRef = useRef<HTMLDivElement>(null);
 
   // Отладочные логи
-  console.log('UserAutocomplete - users:', users, 'isLoading:', isLoading, 'error:', error);
+  logToServer(`UserAutocomplete - users: ${JSON.stringify(users)}, isLoading: ${isLoading}, error: ${error}`);
+  logToServer(`UserAutocomplete - users with avatars: ${JSON.stringify(users.map(u => ({ id: u.id, username: u.username, avatarUrl: u.avatarUrl })))}`);
 
   // Фильтруем пользователей при вводе
   useEffect(() => {
@@ -160,8 +174,18 @@ export const UserAutocomplete: React.FC<UserAutocompleteProps> = ({
               onClick={(e) => handleUserSelect(user, e)}
               className="flex items-center gap-3 px-3 py-2 hover:bg-blue-50/60 cursor-pointer transition-colors"
             >
-              <div className="w-8 h-8 bg-blue-100 rounded-full flex items-center justify-center">
-                <User size={16} className="text-blue-600" />
+              <div className="w-8 h-8 bg-blue-100 rounded-full flex items-center justify-center overflow-hidden">
+                {user.avatarUrl ? (
+                  (() => {
+                    logToServer(`[UserAutocomplete] Rendering avatar for user: ${user.username}, avatarUrl: ${user.avatarUrl}`);
+                    return <img src={user.avatarUrl} alt={user.username} className="w-full h-full object-cover" />;
+                  })()
+                ) : (
+                  (() => {
+                    logToServer(`[UserAutocomplete] No avatar for user: ${user.username}`);
+                    return <User size={16} className="text-blue-600" />;
+                  })()
+                )}
               </div>
               <div className="flex-1">
                 <div className="text-sm font-medium text-gray-900">
@@ -201,8 +225,18 @@ export const UserAutocomplete: React.FC<UserAutocompleteProps> = ({
                 onMouseDown={(e) => e.stopPropagation()}
                 className="flex items-center gap-3 px-3 py-2 hover:bg-blue-50/60 cursor-pointer transition-colors"
               >
-                <div className="w-8 h-8 bg-blue-100 rounded-full flex items-center justify-center">
-                  <User size={16} className="text-blue-600" />
+                <div className="w-8 h-8 bg-blue-100 rounded-full flex items-center justify-center overflow-hidden">
+                  {user.avatarUrl ? (
+                    (() => {
+                      logToServer(`[UserAutocomplete Portal] Rendering avatar for user: ${user.username}, avatarUrl: ${user.avatarUrl}`);
+                      return <img src={user.avatarUrl} alt={user.username} className="w-full h-full object-cover" />;
+                    })()
+                  ) : (
+                    (() => {
+                      logToServer(`[UserAutocomplete Portal] No avatar for user: ${user.username}`);
+                      return <User size={16} className="text-blue-600" />;
+                    })()
+                  )}
                 </div>
                 <div className="flex-1">
                   <div className="text-sm font-medium text-gray-900">

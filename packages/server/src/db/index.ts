@@ -150,6 +150,7 @@ function ensureColumn(table: string, column: string, definition: string) {
 
 ensureColumn('task_columns', 'archived', 'INTEGER NOT NULL DEFAULT 0');
 ensureColumn('task_columns', 'archived_at', 'INTEGER');
+ensureColumn('users', 'avatar_url', 'TEXT');
 
 // Инициализация базы данных с начальными пользователями
 async function initDatabase() {

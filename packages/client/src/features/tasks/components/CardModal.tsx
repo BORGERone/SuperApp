@@ -1,4 +1,4 @@
-import React, { useEffect, useMemo, useState } from 'react';
+import React, { useEffect, useState } from 'react';
 import {
   Calendar,
   CheckCircle2,
@@ -6,32 +6,24 @@ import {
   Columns,
   FileText,
   ListChecks,
-  MessageSquare,
   Plus,
-  Send,
   Trash2,
-  User as UserIcon,
   Users,
   X,
 } from 'lucide-react';
 import { TaskCard, TaskColumn, computeDeadlineState } from '../models/tasksModel';
 import {
-  useCreateComment,
   useCreateSubtask,
   useDeleteCard,
-  useDeleteComment,
   useDeleteSubtask,
-  useTaskComments,
   useUpdateCard,
   useUpdateSubtask,
 } from '../api/tasksApi';
-import { useUsers } from '../../auth/api/usersApi';
 import { AssigneePicker } from './AssigneePicker';
 
 interface CardModalProps {
   card: TaskCard;
   columns: TaskColumn[];
-  currentUserId: string | null;
   onClose: () => void;
 }
 
@@ -51,37 +43,13 @@ function localInputToIso(value: string): string | null {
   return date.toISOString();
 }
 
-function formatDateTime(value: string | null): string {
-  if (!value) return 'Не задан';
-  const date = new Date(value);
-  if (Number.isNaN(date.getTime())) return 'Не задан';
-  return date.toLocaleString('ru-RU', {
-    day: '2-digit',
-    month: '2-digit',
-    year: 'numeric',
-    hour: '2-digit',
-    minute: '2-digit',
-  });
-}
-
-export const CardModal: React.FC<CardModalProps> = ({ card, columns, currentUserId, onClose }) => {
-  const { data: users = [] } = useUsers();
-  const userMap = useMemo(() => {
-    const map = new Map<string, { username: string; email: string }>();
-    (users as Array<{ id: string; username: string; email: string }>).forEach((user) =>
-      map.set(user.id, user)
-    );
-    return map;
-  }, [users]);
+export const CardModal: React.FC<CardModalProps> = ({ card, columns, onClose }) => {
 
   const updateCard = useUpdateCard();
   const deleteCard = useDeleteCard();
-  const createComment = useCreateComment();
-  const deleteComment = useDeleteComment();
   const createSubtask = useCreateSubtask();
   const updateSubtask = useUpdateSubtask();
   const deleteSubtask = useDeleteSubtask();
-  const { data: comments = [], isLoading: commentsLoading } = useTaskComments(card.id);
 
   const [title, setTitle] = useState(card.title);
   const [description, setDescription] = useState(card.description);
@@ -89,7 +57,6 @@ export const CardModal: React.FC<CardModalProps> = ({ card, columns, currentUser
   const [completed, setCompleted] = useState(card.completed);
   const [columnId, setColumnId] = useState(card.columnId);
   const [assignees, setAssignees] = useState<string[]>(card.assignees);
-  const [commentText, setCommentText] = useState('');
   const [newSubtaskTitle, setNewSubtaskTitle] = useState('');
   const [savingState, setSavingState] = useState<'idle' | 'saving' | 'saved' | 'error'>('idle');
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
@@ -160,25 +127,6 @@ export const CardModal: React.FC<CardModalProps> = ({ card, columns, currentUser
       onClose();
     } catch (error) {
       setErrorMessage(error instanceof Error ? error.message : 'Не удалось удалить карточку');
-    }
-  };
-
-  const handleAddComment = async () => {
-    const text = commentText.trim();
-    if (!text) return;
-    try {
-      await createComment.mutateAsync({ cardId: card.id, body: text });
-      setCommentText('');
-    } catch (error) {
-      setErrorMessage(error instanceof Error ? error.message : 'Не удалось добавить комментарий');
-    }
-  };
-
-  const handleDeleteComment = async (commentId: string) => {
-    try {
-      await deleteComment.mutateAsync({ commentId, cardId: card.id });
-    } catch (error) {
-      setErrorMessage(error instanceof Error ? error.message : 'Не удалось удалить комментарий');
     }
   };
 
@@ -432,84 +380,6 @@ export const CardModal: React.FC<CardModalProps> = ({ card, columns, currentUser
               >
                 <Plus size={14} />
                 Добавить
-              </button>
-            </div>
-          </div>
-
-          <div className={sectionClass}>
-            <div className="mb-3 flex items-center gap-2">
-              <span className={`${labelClass} !mb-0`}>
-                <MessageSquare size={12} /> Комментарии
-              </span>
-              <span className="rounded-full bg-white/70 px-2 py-[1px] text-[11px] font-semibold text-slate-500 ring-1 ring-slate-200/60">
-                {comments.length}
-              </span>
-            </div>
-
-            <div className="tasks-scroll max-h-60 space-y-2 overflow-y-auto pr-1">
-              {commentsLoading && <div className="text-sm text-slate-500">Загрузка комментариев...</div>}
-              {!commentsLoading && comments.length === 0 && (
-                <div className="rounded-xl border border-dashed border-slate-200/70 bg-white/40 px-3 py-4 text-center text-[12.5px] text-slate-500">
-                  Комментариев пока нет — добавьте первый.
-                </div>
-              )}
-              {comments.map((comment) => {
-                const author = userMap.get(comment.authorId);
-                const authorLabel =
-                  comment.authorName || author?.username || comment.authorEmail || 'Пользователь';
-                const canDelete = comment.authorId === currentUserId;
-                return (
-                  <div
-                    key={comment.id}
-                    className="rounded-xl border border-white/60 bg-white/70 px-3 py-2 backdrop-blur-sm"
-                  >
-                    <div className="mb-1 flex items-center justify-between gap-2">
-                      <div className="flex items-center gap-2 text-[12.5px] font-semibold text-slate-700">
-                        <UserIcon size={13} className="text-indigo-500" />
-                        <span className="max-w-[200px] truncate">{authorLabel}</span>
-                        <span className="text-[11px] font-normal text-slate-400">
-                          {formatDateTime(comment.createdAt)}
-                        </span>
-                      </div>
-                      {canDelete && (
-                        <button
-                          onClick={() => handleDeleteComment(comment.id)}
-                          className="rounded-md p-1 text-rose-500 transition-colors hover:bg-rose-100/60"
-                          aria-label="Удалить комментарий"
-                        >
-                          <Trash2 size={13} />
-                        </button>
-                      )}
-                    </div>
-                    <div className="whitespace-pre-wrap break-words text-[13px] leading-snug text-slate-700">
-                      {comment.body}
-                    </div>
-                  </div>
-                );
-              })}
-            </div>
-
-            <div className="mt-3 flex items-start gap-2">
-              <textarea
-                value={commentText}
-                onChange={(event) => setCommentText(event.target.value)}
-                onKeyDown={(event) => {
-                  if ((event.ctrlKey || event.metaKey) && event.key === 'Enter') {
-                    event.preventDefault();
-                    handleAddComment();
-                  }
-                }}
-                rows={2}
-                placeholder="Написать комментарий... (Ctrl+Enter — отправить)"
-                className={`${fieldClass} flex-1 resize-y`}
-              />
-              <button
-                onClick={handleAddComment}
-                disabled={createComment.isPending || !commentText.trim()}
-                className="btn-glass inline-flex items-center gap-2 rounded-xl px-4 py-2 text-sm font-semibold disabled:cursor-not-allowed disabled:opacity-50"
-              >
-                <Send size={14} />
-                Отправить
               </button>
             </div>
           </div>

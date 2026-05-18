@@ -14,6 +14,7 @@ import { AddColumnForm } from '../components/AddColumnForm';
 import { ArchivePanel } from '../components/ArchivePanel';
 import { AssigneeFilter } from '../components/AssigneeFilter';
 import { CardModal } from '../components/CardModal';
+import { CommentModal } from '../components/CommentModal';
 import { CardDragProvider } from '../dnd/CardDragContext';
 import { useUsers } from '../../auth/api/usersApi';
 
@@ -57,6 +58,7 @@ export const TasksView: React.FC = () => {
   const { data: archivedColumns = [] } = useArchivedTaskColumns();
   const { data: users = [] } = useUsers();
   const [selectedCardId, setSelectedCardId] = useState<string | null>(null);
+  const [selectedCommentCardId, setSelectedCommentCardId] = useState<string | null>(null);
   const [currentUserId, setCurrentUserId] = useState<string | null>(() => readCurrentUserId());
   const [searchQuery, setSearchQuery] = useState('');
   const [assigneeFilters, setAssigneeFilters] = useState<string[]>([]);
@@ -108,6 +110,15 @@ export const TasksView: React.FC = () => {
     if (!selectedCardId) return null;
     return cards.find((card) => card.id === selectedCardId) ?? null;
   }, [cards, selectedCardId]);
+
+  const selectedCommentCard = useMemo(() => {
+    if (!selectedCommentCardId) return null;
+    return cards.find((card) => card.id === selectedCommentCardId) ?? null;
+  }, [cards, selectedCommentCardId]);
+
+  const handleOpenComments = (card: TaskCard) => {
+    setSelectedCommentCardId(card.id);
+  };
 
   const reorderCards = useReorderCards();
 
@@ -211,7 +222,7 @@ export const TasksView: React.FC = () => {
 
   return (
     <CardDragProvider>
-    <div className="flex flex-col h-full min-h-0">
+    <div className="flex flex-col h-screen overflow-hidden">
       <div className="px-6 lg:px-8 pt-6 pb-4">
         <div className="flex flex-col gap-4 xl:flex-row xl:items-end xl:justify-between">
           <div>
@@ -286,8 +297,8 @@ export const TasksView: React.FC = () => {
         </div>
       )}
 
-      <div className="tasks-scroll flex-1 min-h-0 overflow-x-auto overflow-y-hidden">
-        <div className="flex gap-4 px-6 lg:px-8 pb-6 min-h-full items-start">
+      <div className="tasks-scroll flex-1 min-h-0 overflow-x-auto overflow-y-hidden" style={{ height: 'calc(100vh - 300px)' }}>
+        <div className="flex gap-4 px-6 lg:px-8 items-stretch flex-nowrap h-full min-h-0">
           {isLoading && columns.length === 0 ? (
             <div className="glass-card rounded-3xl p-8 text-center text-gray-600">
               Загрузка задач...
@@ -301,6 +312,7 @@ export const TasksView: React.FC = () => {
                   cards={cardsByColumn.get(column.id) ?? []}
                   commentsCountByCard={commentsCountByCard}
                   onOpenCard={(card) => setSelectedCardId(card.id)}
+                  onOpenComments={handleOpenComments}
                   onDropCard={handleDropCard}
                 />
               ))}
@@ -319,8 +331,15 @@ export const TasksView: React.FC = () => {
         <CardModal
           card={selectedCard}
           columns={columns}
-          currentUserId={currentUserId}
           onClose={() => setSelectedCardId(null)}
+        />
+      )}
+
+      {selectedCommentCard && (
+        <CommentModal
+          card={selectedCommentCard}
+          currentUserId={currentUserId}
+          onClose={() => setSelectedCommentCardId(null)}
         />
       )}
 

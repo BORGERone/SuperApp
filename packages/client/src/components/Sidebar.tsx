@@ -44,7 +44,7 @@ export const Sidebar: React.FC = () => {
   const [isCollapsed, setIsCollapsed] = useState(false);
   const navigate = useNavigate();
   const location = useLocation();
-  const { openCompose, getUnreadCount, addEmail, emails } = useMailStore();
+  const { openCompose, getUnreadCount, addEmail, emails, clearSelectedEmail } = useMailStore();
   const [unreadCount, setUnreadCount] = useState(0);
   const { data: taskCards = [] } = useTaskCards();
   const currentUserId = readCurrentUserId();
@@ -139,7 +139,12 @@ export const Sidebar: React.FC = () => {
     } else if (path === '/mail') {
       navigate('/mail/inbox');
     } else {
-      navigate(path);
+      // Если кликаем на тот же подпункт папки (inbox, sent, trash), закрываем письмо
+      if (location.pathname === path && (path === '/mail/inbox' || path === '/mail/sent' || path === '/mail/trash')) {
+        clearSelectedEmail();
+      } else {
+        navigate(path);
+      }
     }
   };
 

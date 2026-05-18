@@ -14,6 +14,7 @@ interface TaskColumnViewProps {
   cards: TaskCard[];
   commentsCountByCard: Record<string, number>;
   onOpenCard: (card: TaskCard) => void;
+  onOpenComments: (card: TaskCard) => void;
   onDropCard: (cardId: string, targetColumnId: string, targetIndex: number) => void;
 }
 
@@ -49,12 +50,46 @@ export const TaskColumnView: React.FC<TaskColumnViewProps> = ({
   cards,
   commentsCountByCard,
   onOpenCard,
+  onOpenComments,
   onDropCard,
 }) => {
   const updateColumn = useUpdateColumn();
   const archiveColumn = useArchiveColumn();
   const createCard = useCreateCard();
   const drag = useCardDrag();
+
+  // Обработка electron-drop события для Electron
+  useEffect(() => {
+    const handleElectronDrop = (event: CustomEvent) => {
+      const { cardId, targetColumnId, clientY } = event.detail;
+      if (!targetColumnId || targetColumnId !== column.id) return;
+
+      // Определяем индекс для drop
+      const columnElement = document.querySelector(`[data-column-id="${column.id}"]`);
+      if (!columnElement) return;
+
+      const cardElements = columnElement.querySelectorAll('[data-card-id]');
+      let targetIndex = cardElements.length;
+
+      // Вычисляем индекс на основе позиции курсора
+      for (let i = 0; i < cardElements.length; i++) {
+        const card = cardElements[i];
+        const rect = card.getBoundingClientRect();
+        const midpoint = rect.top + rect.height / 2;
+        if (clientY < midpoint) {
+          targetIndex = i;
+          break;
+        }
+      }
+
+      onDropCard(cardId, column.id, targetIndex);
+    };
+
+    window.addEventListener('electron-drop', handleElectronDrop as EventListener);
+    return () => {
+      window.removeEventListener('electron-drop', handleElectronDrop as EventListener);
+    };
+  }, [column.id, onDropCard]);
 
   const [editingDeadline, setEditingDeadline] = useState(false);
   const [draftTitle, setDraftTitle] = useState(column.title);
@@ -138,7 +173,10 @@ export const TaskColumnView: React.FC<TaskColumnViewProps> = ({
   };
 
   return (
-    <section className="glass-card flex w-[340px] flex-shrink-0 flex-col self-start rounded-3xl p-3.5 max-h-[calc(100vh-220px)]">
+    <section
+      className="glass-card flex w-[340px] flex-shrink-0 flex-col rounded-3xl p-3.5 h-full min-h-0"
+      data-column-id={column.id}
+    >
       <header className="mb-2 flex items-start justify-between gap-2">
         <div className="min-w-0 flex-1">
           <input
@@ -274,6 +312,7 @@ export const TaskColumnView: React.FC<TaskColumnViewProps> = ({
                   card={card}
                   commentsCount={commentsCountByCard[card.id] ?? 0}
                   onOpen={onOpenCard}
+                  onOpenComments={onOpenComments}
                   index={index}
                   columnId={column.id}
                 />

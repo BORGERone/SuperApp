@@ -128,7 +128,10 @@ authRouter.get('/users', async (c) => {
       username: users.username,
       email: users.email,
       role: users.role,
+      avatarUrl: users.avatarUrl,
     }).from(users).execute();
+    
+    console.log('[Auth /users] Returning users:', JSON.stringify(allUsers, null, 2));
     
     return c.json({ users: allUsers });
   } catch (error) {

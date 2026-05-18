@@ -65,7 +65,7 @@ export const Layout: React.FC = () => {
   return (
     <div className="flex h-screen bg-gradient-to-br from-blue-50 via-white to-purple-50">
       <Sidebar />
-      <main className="flex-1 overflow-auto">
+      <main className="flex-1 overflow-hidden">
         <Outlet />
       </main>
     </div>

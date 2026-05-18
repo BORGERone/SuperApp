@@ -1,11 +1,22 @@
 import { Hono } from 'hono';
 import { z } from 'zod';
+import archiver from 'archiver';
 import { db } from '../../../db';
-import { emails, users, emailAttachments } from '../../../db/schema';
+import { emails, users, emailAttachments, files } from '../../../db/schema';
 import { eq, and, desc, like, inArray } from 'drizzle-orm';
 import { authMiddleware } from '../../../shared/middleware/authMiddleware';
 
+// @ts-ignore
+const Archiver = archiver;
+
 const mail = new Hono();
+
+// Middleware для логирования всех запросов к mail routes
+mail.use('*', async (c, next) => {
+  console.log('[Mail Routes] Request:', c.req.method, c.req.path);
+  console.log('[Mail Routes] URL:', c.req.url);
+  await next();
+});
 
 // Схемы валидации
 const sendEmailSchema = z.object({
@@ -136,13 +147,19 @@ mail.get('/', authMiddleware, async (c) => {
 
     return c.json({ emails: emailsWithAttachments });
   } catch (error) {
+    const user = c.get('user');
     const errorLog = {
       timestamp: new Date().toISOString(),
       action: 'GET_EMAILS_ERROR',
       userId: user?.id || 'unknown',
-      params: { folder, search, isUnreadOnly, isStarredOnly },
-      error: error.message,
-      stack: error.stack
+      params: { 
+        folder: c.req.query('folder') || 'inbox',
+        search: c.req.query('search') || '',
+        isUnreadOnly: c.req.query('isUnreadOnly') === 'true',
+        isStarredOnly: c.req.query('isStarredOnly') === 'true'
+      },
+      error: error instanceof Error ? error.message : 'Unknown error',
+      stack: error instanceof Error ? error.stack : undefined
     };
     console.log('MAIL_LOG:', JSON.stringify(errorLog));
     
@@ -151,8 +168,180 @@ mail.get('/', authMiddleware, async (c) => {
   }
 });
 
-// Получение одного письма
+// Скачивание всех вложений письма в архиве
 mail.get('/:id', authMiddleware, async (c) => {
+  const fs = require('fs');
+  const path = require('path');
+  const logFile = path.join(__dirname, 'download-attachments.log');
+  
+  const log = (message: string) => {
+    const timestamp = new Date().toISOString();
+    const logMessage = `[${timestamp}] ${message}\n`;
+    fs.appendFileSync(logFile, logMessage);
+    console.log(message);
+  };
+  
+  log('[Mail Route /:id] Called');
+  log('[Mail Route /:id] Full URL: ' + c.req.url);
+  log('[Mail Route /:id] Query params: ' + JSON.stringify(c.req.query()));
+  
+  const downloadAll = c.req.query('download-attachments');
+  log('[Mail Route /:id] download-attachments param: ' + downloadAll);
+  
+  if (downloadAll === 'true') {
+    log('[Download All] ROUTE CALLED!');
+    log('[Download All] Request path: ' + c.req.path);
+    log('[Download All] Request URL: ' + c.req.url);
+    
+    try {
+      const user = c.get('user');
+      const emailId = c.req.param('id');
+
+      log('[Download All] Starting download for email: ' + emailId);
+      log('[Download All] User: ' + JSON.stringify(user));
+
+      // Проверяем, что письмо принадлежит пользователю
+      const email = await db
+        .select()
+        .from(emails)
+        .where(and(eq(emails.id, emailId), eq(emails.ownerId, user.id)))
+        .limit(1);
+
+      log('[Download All] Email found: ' + email.length);
+
+      if (!email.length) {
+        log('[Download All] Email not found');
+        return c.json({ error: 'Email not found' }, 404);
+      }
+
+      // Получаем вложения письма
+      const attachments = await db
+        .select()
+        .from(emailAttachments)
+        .where(eq(emailAttachments.emailId, emailId));
+
+      log('[Download All] Found attachments: ' + attachments.length);
+      log('[Download All] Attachments: ' + JSON.stringify(attachments, null, 2));
+
+      if (!attachments.length) {
+        return c.json({ error: 'No attachments found' }, 404);
+      }
+
+      // Создаем архив в памяти
+      const archiver = await import('archiver');
+      const fs = require('fs');
+
+      log('[Download All] Creating archive...');
+
+      // Создаем поток для архива
+      const archive = archiver.default('zip', { zlib: { level: 9 } });
+
+      // Создаем массив для хранения данных архива
+      const chunks: Buffer[] = [];
+
+      archive.on('data', (chunk: Buffer) => {
+        chunks.push(chunk);
+        log('[Download All] Chunk received, size: ' + chunk.length + ', total chunks: ' + chunks.length);
+      });
+
+      archive.on('warning', (err: any) => {
+        log('[Download All] Archive warning: ' + err);
+      });
+
+      archive.on('error', (err: Error) => {
+        log('[Download All] Archive error: ' + err);
+      });
+
+      // Добавляем файлы в архив
+      let filesAdded = 0;
+      for (const attachment of attachments) {
+        log('[Download All] Processing attachment: ' + attachment.filename + ', type: ' + attachment.storageType);
+
+        if (attachment.storageType === 'drive' && attachment.driveFileId) {
+          // Файл с диска - скачиваем напрямую из файловой системы диска
+          try {
+            // Ищем файл в таблице files
+            const driveFiles = await db
+              .select()
+              .from(files)
+              .where(eq(files.id, attachment.driveFileId))
+              .limit(1);
+
+            log('[Download All] Drive file found: ' + driveFiles.length);
+            if (driveFiles.length) {
+              log('[Download All] Drive file path from DB: ' + driveFiles[0].path);
+              log('[Download All] Drive file name: ' + driveFiles[0].name);
+              log('[Download All] Drive file type: ' + driveFiles[0].type);
+              
+              // Формируем путь к файлу: uploads/{fileId}-{attachmentFilename}
+              const filePath = 'e:\\Project\\SuperApp\\packages\\server\\uploads\\' + attachment.driveFileId + '-' + attachment.filename;
+              
+              log('[Download All] Constructed file path: ' + filePath);
+              log('[Download All] File exists: ' + fs.existsSync(filePath));
+              
+              if (fs.existsSync(filePath)) {
+                archive.file(filePath, { name: attachment.filename });
+                filesAdded++;
+                log('[Download All] Added drive file to archive: ' + attachment.filename + ' from ' + filePath);
+              } else {
+                log('[Download All] Drive file not found at constructed path');
+              }
+            } else {
+              log('[Download All] Drive file not found in DB');
+            }
+          } catch (error) {
+            log('[Download All] Failed to get drive file ' + attachment.filename + ': ' + error);
+          }
+        } else if (attachment.filePath && fs.existsSync(attachment.filePath)) {
+          // Локальный файл
+          archive.file(attachment.filePath, { name: attachment.filename });
+          filesAdded++;
+          log('[Download All] Added local file to archive: ' + attachment.filename);
+        } else {
+          log('[Download All] File path missing or does not exist: ' + attachment.filePath);
+        }
+      }
+
+      log('[Download All] Total files added to archive: ' + filesAdded);
+
+      // Ждем завершения архивации
+      await new Promise<void>((resolve, reject) => {
+        archive.on('end', () => {
+          log('[Download All] Archive ended, total bytes: ' + archive.pointer());
+          resolve();
+        });
+        archive.on('error', reject);
+        archive.finalize();
+      });
+
+      // Объединяем все чанки в один буфер
+      const archiveBuffer = Buffer.concat(chunks);
+
+      log('[Download All] Archive buffer size: ' + archiveBuffer.length);
+      log('[Download All] Chunks count: ' + chunks.length);
+
+      if (archiveBuffer.length === 0) {
+        log('[Download All] ERROR: Archive buffer is empty!');
+        return c.json({ error: 'Archive is empty' }, 500);
+      }
+
+      // Устанавливаем заголовки для скачивания
+      c.header('Content-Type', 'application/zip');
+      c.header('Content-Disposition', `attachment; filename="attachments-${emailId}.zip"; filename*=UTF-8''attachments-${emailId}.zip`);
+      c.header('Content-Length', String(archiveBuffer.length));
+      c.header('Cache-Control', 'no-cache, no-store, must-revalidate');
+      c.header('Pragma', 'no-cache');
+      c.header('Expires', '0');
+
+      log('[Download All] Sending archive to client, size: ' + archiveBuffer.length);
+      return c.body(archiveBuffer);
+    } catch (error) {
+      log('[Download All] Download all attachments error: ' + error);
+      return c.json({ error: 'Failed to download attachments' }, 500);
+    }
+  }
+  
+  // Обычный запрос на получение письма
   try {
     const user = c.get('user');
     const emailId = c.req.param('id');
@@ -532,51 +721,83 @@ mail.put('/:id/move', authMiddleware, async (c) => {
 mail.post('/attachments/upload', authMiddleware, async (c) => {
   try {
     const user = c.get('user');
-    const formData = await c.req.formData();
-    const file = formData.get('file') as File;
-    const storageType = formData.get('storageType') as string; // 'local' или 'drive'
-    const driveFileId = formData.get('driveFileId') as string | null;
+    const contentType = c.req.header('content-type');
 
-    console.log('Upload attachment request:', { fileName: file?.name, fileSize: file?.size, storageType, driveFileId });
+    let filename: string;
+    let size: number;
+    let mimeType: string;
+    let storageType: 'local' | 'drive' = 'local';
+    let driveFileId: string | null = null;
+    let filePath: string;
+    let file: File | null = null;
 
-    if (!file) {
-      return c.json({ error: 'No file provided' }, 400);
+    if (contentType?.includes('multipart/form-data')) {
+      // FormData запрос (для локальных файлов)
+      const body = await c.req.parseBody();
+      file = body.file as File;
+      storageType = (body.storageType as string) || 'local';
+      driveFileId = (body.driveFileId as string) || null;
+
+      console.log('Upload attachment request (FormData):', { fileName: file?.name, fileSize: file?.size, storageType, driveFileId });
+
+      if (!file) {
+        return c.json({ error: 'No file provided' }, 400);
+      }
+
+      filename = file.name;
+      size = file.size;
+      mimeType = file.type || 'application/octet-stream';
+    } else {
+      // JSON запрос (для файлов с диска)
+      const body = await c.req.json();
+      filename = body.filename;
+      size = body.size;
+      mimeType = body.mimeType;
+      storageType = body.storageType;
+      driveFileId = body.driveFileId;
+
+      console.log('Upload attachment request (JSON):', { filename, size, mimeType, storageType, driveFileId });
+
+      if (!filename || storageType !== 'drive' || !driveFileId) {
+        return c.json({ error: 'Invalid request for drive attachment' }, 400);
+      }
     }
 
     const attachmentId = crypto.randomUUID();
     const now = new Date();
-    let filePath: string;
 
     if (storageType === 'drive' && driveFileId) {
-      // Файл с сетевого диска - уже есть на сервере, используем существующий путь
-      filePath = `./uploads/${driveFileId}-${file.name}`;
-    } else {
+      // Файл с сетевого диска - не сохраняем, используем ссылку на файл диска
+      filePath = ''; // Путь не нужен, файл уже на диске
+    } else if (file) {
       // Файл с локального компьютера - сохраняем с уникальным именем
       const uploadsDir = './uploads';
       const fs = require('fs');
       if (!fs.existsSync(uploadsDir)) {
         fs.mkdirSync(uploadsDir, { recursive: true });
       }
-      filePath = `${uploadsDir}/${attachmentId}-${file.name}`;
+      filePath = `${uploadsDir}/${attachmentId}-${filename}`;
       const buffer = await file.arrayBuffer();
       fs.writeFileSync(filePath, Buffer.from(buffer));
+    } else {
+      return c.json({ error: 'Invalid request' }, 400);
     }
 
     // Создаем запись в таблице email_attachments
     await db.insert(emailAttachments).values({
       id: attachmentId,
       emailId: '', // Будет заполнено при отправке письма
-      filename: file.name,
-      size: file.size,
-      mimeType: file.type || 'application/octet-stream',
-      storageType: storageType as 'local' | 'drive',
+      filename: filename,
+      size: size,
+      mimeType: mimeType,
+      storageType: storageType,
       filePath: filePath,
-      driveFileId: driveFileId || null,
+      driveFileId: driveFileId,
       ownerId: user.id,
       createdAt: now,
     });
 
-    console.log('Attachment uploaded successfully:', { attachmentId, fileName: file.name });
+    console.log('Attachment uploaded successfully:', { attachmentId, fileName: filename });
     return c.json({ message: 'Attachment uploaded successfully', id: attachmentId });
   } catch (error) {
     console.error('Upload attachment error:', error);

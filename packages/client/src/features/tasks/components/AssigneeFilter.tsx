@@ -6,6 +6,7 @@ interface UserLite {
   id: string;
   username: string;
   email: string;
+  avatarUrl?: string;
 }
 
 interface AssigneeFilterProps {
@@ -172,7 +173,11 @@ export const AssigneeFilter: React.FC<AssigneeFilterProps> = ({
                 >
                   {isSelected && <Check size={12} />}
                 </span>
-                <UserCircle size={18} className="text-indigo-500/80" />
+                {user.avatarUrl ? (
+                  <img src={user.avatarUrl} alt={user.username} className="w-5 h-5 rounded-full object-cover" />
+                ) : (
+                  <UserCircle size={18} className="text-indigo-500/80" />
+                )}
                 <span className="flex-1 text-sm text-slate-700">
                   <span className="font-medium">{user.username}</span>
                   <span className="ml-1 text-xs text-slate-400">{user.email}</span>

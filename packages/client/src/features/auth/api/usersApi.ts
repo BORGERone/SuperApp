@@ -29,7 +29,8 @@ export const useUsers = () => {
     queryKey: ['users'],
     queryFn: usersApi.getUsers,
     enabled: !!localStorage.getItem('accessToken'),
-    staleTime: 1000 * 60 * 10, // 10 минут
+    staleTime: 0, // Сразу устаревает, чтобы всегда получать свежие данные
+    refetchOnWindowFocus: true, // Перезагружать при фокусе окна
   });
 };
 

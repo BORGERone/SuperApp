@@ -1,4 +1,4 @@
-import { app, BrowserWindow } from 'electron';
+import { app, BrowserWindow, ipcMain } from 'electron';
 import * as path from 'path';
 
 let mainWindow: BrowserWindow | null = null;
@@ -11,6 +11,7 @@ function createWindow() {
       nodeIntegration: false,
       contextIsolation: true,
       preload: path.join(__dirname, 'preload.js'),
+      webSecurity: true,
     },
   });
 
@@ -19,7 +20,6 @@ function createWindow() {
     mainWindow.loadURL('http://localhost:5180');
     mainWindow.webContents.openDevTools();
   } else {
-    // В продакшене загружаем собранные файлы
     mainWindow.loadFile(path.join(__dirname, '../dist/index.html'));
   }
 
@@ -27,6 +27,13 @@ function createWindow() {
     mainWindow = null;
   });
 }
+
+// IPC обработчик для drag and drop в Electron
+ipcMain.handle('drag:start', async () => {
+  // webContents.startDrag требует файл на диске, что не подходит для нашего случая
+  // Возвращаем успех, чтобы renderer process мог продолжить с HTML5 drag and drop
+  return { success: true };
+});
 
 app.on('ready', createWindow);
 

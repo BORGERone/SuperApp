@@ -1,7 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { X, HardDrive, File, Folder, Check } from 'lucide-react';
 import { FileItem } from '../../drive/models/driveModel';
-import { useDriveStore } from '../../drive/viewmodels/driveViewModel';
 
 interface DriveFileSelectorModalProps {
   onClose: () => void;
@@ -9,21 +8,24 @@ interface DriveFileSelectorModalProps {
 }
 
 export const DriveFileSelectorModal: React.FC<DriveFileSelectorModalProps> = ({ onClose, onFilesSelected }) => {
-  const { files, currentPath, setCurrentPath, toggleFileSelection } = useDriveStore();
-  const [selectedFileIds, setSelectedFileIds] = useState<Set<string>>(new Set());
+  const [selectedFiles, setSelectedFiles] = useState<Array<{ id: string; name: string; size: number; type: string }>>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [localFiles, setLocalFiles] = useState<FileItem[]>([]);
+  const [localCurrentPath, setLocalCurrentPath] = useState('');
 
   useEffect(() => {
-    // Загружаем файлы при открытии модального окна
+    // Загружаем файлы для текущей папки
     const loadFiles = async () => {
       try {
         setIsLoading(true);
         const isElectron = typeof window !== 'undefined' && (window as any).electronAPI !== undefined;
         const apiUrl = isElectron ? 'http://localhost:3002' : '';
 
-        console.log('Loading drive files for path:', currentPath);
-        const response = await fetch(`${apiUrl}/api/drive/list?path=${encodeURIComponent(currentPath || '/')}`, {
+        // Формируем путь для API: если localCurrentPath пустой, используем '/', иначе формируем путь
+        const apiPath = localCurrentPath ? `/${localCurrentPath}` : '/';
+        console.log('Loading drive files for path:', apiPath);
+
+        const response = await fetch(`${apiUrl}/api/drive/list?path=${encodeURIComponent(apiPath)}`, {
           headers: {
             'Authorization': `Bearer ${localStorage.getItem('accessToken')}`,
           },
@@ -44,54 +46,50 @@ export const DriveFileSelectorModal: React.FC<DriveFileSelectorModalProps> = ({ 
     };
 
     loadFiles();
-  }, [currentPath]);
+  }, [localCurrentPath]); // Загружаем при изменении текущей папки
 
   useEffect(() => {
     // Сбросить выбор при закрытии
     return () => {
-      localFiles.forEach(f => {
-        if (f.isSelected) {
-          toggleFileSelection(f.id);
-        }
-      });
+      setSelectedFiles([]);
     };
-  }, [localFiles]);
+  }, []);
 
   const handleFileClick = (file: FileItem) => {
+    console.log('File clicked:', file);
     if (file.type === 'directory') {
-      setCurrentPath(file.path);
+      // Навигация по папкам - добавляем имя папки к текущему пути
+      const newPath = localCurrentPath ? `${localCurrentPath}/${file.name}` : file.name;
+      console.log('Navigating to:', newPath);
+      setLocalCurrentPath(newPath);
     } else {
-      setSelectedFileIds(prev => {
-        const newSet = new Set(prev);
-        if (newSet.has(file.id)) {
-          newSet.delete(file.id);
+      setSelectedFiles(prev => {
+        const isSelected = prev.some(f => f.id === file.id);
+        if (isSelected) {
+          console.log('Removing file:', file.name);
+          return prev.filter(f => f.id !== file.id);
         } else {
-          newSet.add(file.id);
+          console.log('Adding file:', file.name);
+          return [
+            ...prev,
+            {
+              id: file.id,
+              name: file.name,
+              size: file.size || 0,
+              type: file.type,
+            }
+          ];
         }
-        return newSet;
       });
     }
   };
 
-  const handleBack = () => {
-    const pathParts = currentPath.split('/').filter(p => p);
-    pathParts.pop();
-    setCurrentPath(pathParts.join('/'));
-  };
-
   const handleConfirm = () => {
-    const selectedFiles = localFiles.filter(f => selectedFileIds.has(f.id) && f.type === 'file');
-    const filesData = selectedFiles.map(f => ({
-      id: f.id,
-      name: f.name,
-      size: f.size || 0,
-      type: f.type,
-    }));
-    onFilesSelected(filesData);
+    onFilesSelected(selectedFiles);
     onClose();
   };
 
-  const currentFiles = localFiles; // Временно показываем все файлы без фильтрации для отладки
+  const currentFiles = localFiles; // Показываем файлы как они возвращаются из API
 
   return (
     <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50">
@@ -114,16 +112,16 @@ export const DriveFileSelectorModal: React.FC<DriveFileSelectorModalProps> = ({ 
         <div className="px-6 py-3 border-b border-gray-200/50 bg-gray-50/50">
           <div className="flex items-center gap-2 text-sm">
             <button
-              onClick={() => setCurrentPath('')}
+              onClick={() => setLocalCurrentPath('')}
               className="text-blue-600 hover:text-blue-800 transition-colors"
             >
               Корень
             </button>
-            {currentPath.split('/').filter(p => p).map((part, index, parts) => (
+            {localCurrentPath.split('/').filter(p => p).map((part, index, parts) => (
               <React.Fragment key={part}>
                 <span className="text-gray-400">/</span>
                 <button
-                  onClick={() => setCurrentPath(parts.slice(0, index + 1).join('/'))}
+                  onClick={() => setLocalCurrentPath(parts.slice(0, index + 1).join('/'))}
                   className="text-blue-600 hover:text-blue-800 transition-colors"
                 >
                   {part}
@@ -141,7 +139,7 @@ export const DriveFileSelectorModal: React.FC<DriveFileSelectorModalProps> = ({ 
             </div>
           ) : currentFiles.length === 0 ? (
             <div className="text-center text-gray-500 py-12">
-              Папка пуста
+              На диске нет файлов
             </div>
           ) : (
             <div className="grid grid-cols-2 gap-3">
@@ -150,7 +148,7 @@ export const DriveFileSelectorModal: React.FC<DriveFileSelectorModalProps> = ({ 
                   key={file.id}
                   onClick={() => handleFileClick(file)}
                   className={`p-4 rounded-lg border-2 cursor-pointer transition-all hover:shadow-md ${
-                    selectedFileIds.has(file.id)
+                    selectedFiles.some(f => f.id === file.id)
                       ? 'border-blue-500 bg-blue-50/50'
                       : 'border-gray-200/50 bg-white hover:border-gray-300'
                   }`}
@@ -167,13 +165,13 @@ export const DriveFileSelectorModal: React.FC<DriveFileSelectorModalProps> = ({ 
                       <div className="text-sm font-medium text-gray-800 truncate">
                         {file.name}
                       </div>
-                      {file.type === 'file' && file.size && (
+                      {file.size && (
                         <div className="text-xs text-gray-500">
                           {(file.size / 1024).toFixed(1)} KB
                         </div>
                       )}
                     </div>
-                    {selectedFileIds.has(file.id) && (
+                    {selectedFiles.some(f => f.id === file.id) && (
                       <Check className="text-blue-600" size={20} />
                     )}
                   </div>
@@ -184,29 +182,14 @@ export const DriveFileSelectorModal: React.FC<DriveFileSelectorModalProps> = ({ 
         </div>
 
         {/* Footer */}
-        <div className="flex items-center justify-between p-6 border-t border-gray-200/50">
+        <div className="flex items-center justify-end p-4 border-t border-gray-200/50 bg-gray-50/50">
           <button
-            onClick={handleBack}
-            disabled={currentPath === ''}
-            className="px-4 py-2 text-gray-600 hover:text-gray-800 disabled:text-gray-400 disabled:cursor-not-allowed transition-colors"
+            onClick={handleConfirm}
+            disabled={selectedFiles.length === 0}
+            className="px-4 py-2 rounded-lg text-sm font-medium text-white bg-blue-600 hover:bg-blue-700 disabled:opacity-50 disabled:cursor-not-allowed"
           >
-            Назад
+            Прикрепить ({selectedFiles.length})
           </button>
-          <div className="flex items-center gap-3">
-            <button
-              onClick={onClose}
-              className="px-4 py-2 border border-gray-200/50 rounded-lg hover:bg-white/60 transition-colors"
-            >
-              Отмена
-            </button>
-            <button
-              onClick={handleConfirm}
-              disabled={selectedFileIds.size === 0}
-              className="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 disabled:bg-gray-300 disabled:cursor-not-allowed transition-colors"
-            >
-              Прикрепить ({selectedFileIds.size})
-            </button>
-          </div>
         </div>
       </div>
     </div>

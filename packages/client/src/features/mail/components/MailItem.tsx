@@ -1,6 +1,6 @@
 import React from 'react';
 import { Email, MailFolder } from '../models/mailModel';
-import { Reply, Forward, Trash2, Star, Archive, Mail, Paperclip, User } from 'lucide-react';
+import { Reply, Forward, Trash2, Star, Mail, Paperclip, User, Download } from 'lucide-react';
 
 interface MailItemProps {
   email: Email;
@@ -39,17 +39,40 @@ export const MailItem: React.FC<MailItemProps> = ({
       const isElectron = typeof window !== 'undefined' && (window as any).electronAPI !== undefined;
       const apiUrl = isElectron ? 'http://localhost:3002' : '';
 
-      const response = await fetch(`${apiUrl}/api/mail/attachments/${attachment.id}/download`, {
-        headers: {
-          'Authorization': `Bearer ${localStorage.getItem('accessToken')}`,
-        },
-      });
+      console.log('Downloading attachment:', attachment);
+
+      let response;
+      let downloadUrl;
+      // Если файл с диска, используем API диска
+      if (attachment.storageType === 'drive' && attachment.driveFileId) {
+        downloadUrl = `${apiUrl}/api/drive/files/${attachment.driveFileId}/download`;
+        console.log('Downloading from drive API:', downloadUrl);
+        response = await fetch(downloadUrl, {
+          headers: {
+            'Authorization': `Bearer ${localStorage.getItem('accessToken')}`,
+          },
+        });
+      } else {
+        // Иначе используем API почты
+        downloadUrl = `${apiUrl}/api/mail/attachments/${attachment.id}/download`;
+        console.log('Downloading from mail API:', downloadUrl);
+        response = await fetch(downloadUrl, {
+          headers: {
+            'Authorization': `Bearer ${localStorage.getItem('accessToken')}`,
+          },
+        });
+      }
+
+      console.log('Response status:', response.status);
 
       if (!response.ok) {
-        throw new Error('Failed to download attachment');
+        const errorText = await response.text();
+        console.error('Failed to download attachment. Status:', response.status, 'Error:', errorText);
+        throw new Error(`Failed to download attachment. Status: ${response.status}`);
       }
 
       const blob = await response.blob();
+      console.log('Blob size:', blob.size, 'type:', blob.type);
       const url = URL.createObjectURL(blob);
       const a = document.createElement('a');
       a.href = url;
@@ -58,9 +81,52 @@ export const MailItem: React.FC<MailItemProps> = ({
       a.click();
       document.body.removeChild(a);
       URL.revokeObjectURL(url);
+      console.log('Download completed successfully');
     } catch (error) {
       console.error('Failed to download attachment:', error);
       alert('Не удалось скачать файл');
+    }
+  };
+
+  const handleDownloadAllAttachments = async () => {
+    if (!email.attachments || email.attachments.length === 0) return;
+
+    try {
+      // Используем абсолютный URL напрямую к бэкенду для тестирования
+      const apiUrl = 'http://localhost:3002';
+
+      console.log('Downloading all attachments for email:', email.id);
+      console.log('apiUrl:', apiUrl);
+      console.log('Full URL:', `${apiUrl}/api/mail/${email.id}?download-attachments=true`);
+
+      const response = await fetch(`${apiUrl}/api/mail/${email.id}?download-attachments=true`, {
+        headers: {
+          'Authorization': `Bearer ${localStorage.getItem('accessToken')}`,
+        },
+      });
+
+      console.log('Response status:', response.status);
+
+      if (!response.ok) {
+        const errorText = await response.text();
+        console.error('Failed to download attachments. Status:', response.status, 'Error:', errorText);
+        throw new Error(`Failed to download attachments. Status: ${response.status}`);
+      }
+
+      const blob = await response.blob();
+      console.log('Blob size:', blob.size, 'type:', blob.type);
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement('a');
+      a.href = url;
+      a.download = `attachments-${email.id}.zip`;
+      document.body.appendChild(a);
+      a.click();
+      document.body.removeChild(a);
+      URL.revokeObjectURL(url);
+      console.log('Download completed successfully');
+    } catch (error) {
+      console.error('Failed to download attachments:', error);
+      alert('Не удалось скачать файлы');
     }
   };
 
@@ -154,23 +220,32 @@ export const MailItem: React.FC<MailItemProps> = ({
       {/* Attachments */}
       {email.attachments && email.attachments.length > 0 && (
         <div className="border-t border-gray-200/50 pt-4 mt-4">
-          <h3 className="text-sm font-semibold text-gray-700 mb-3 flex items-center gap-2">
-            <Paperclip size={16} />
-            Вложения ({email.attachments.length})
-          </h3>
-          <div className="space-y-2">
+          <div className="flex items-center justify-between mb-3">
+            <h3 className="text-sm font-semibold text-gray-700 flex items-center gap-2">
+              <Paperclip size={16} />
+              Вложения ({email.attachments.length})
+            </h3>
+            <button
+              onClick={handleDownloadAllAttachments}
+              className="flex items-center gap-2 px-3 py-1.5 text-sm text-gray-600 hover:text-gray-800 hover:bg-gray-100 rounded-lg transition-colors"
+            >
+              <Download size={14} />
+              Скачать все
+            </button>
+          </div>
+          <div className="grid grid-cols-2 md:grid-cols-3 gap-3">
             {email.attachments.map((attachment) => (
               <div
                 key={attachment.id}
-                className="flex items-center justify-between p-3 bg-gray-50/60 rounded-lg hover:bg-gray-100/80 transition-colors cursor-pointer"
+                className="p-4 bg-gray-50/60 rounded-lg hover:bg-gray-100/80 transition-colors cursor-pointer"
                 onClick={() => handleDownloadAttachment(attachment)}
               >
                 <div className="flex items-center gap-3">
-                  <div className="w-10 h-10 bg-blue-100/60 rounded-lg flex items-center justify-center">
-                    <Paperclip size={16} className="text-blue-600" />
+                  <div className="w-12 h-12 bg-blue-100/60 rounded-lg flex items-center justify-center flex-shrink-0">
+                    <Paperclip size={20} className="text-blue-600" />
                   </div>
-                  <div>
-                    <div className="text-sm font-medium text-gray-800">
+                  <div className="flex-1 min-w-0">
+                    <div className="text-sm font-medium text-gray-800 truncate">
                       {attachment.filename}
                     </div>
                     <div className="text-xs text-gray-500">

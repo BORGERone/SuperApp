@@ -16,6 +16,7 @@ interface UserLite {
   username: string;
   email: string;
   role?: string;
+  avatarUrl?: string;
 }
 
 // Множественный выбор ответственных пользователей с выпадающим списком
@@ -110,8 +111,12 @@ export const AssigneePicker: React.FC<AssigneePickerProps> = ({
             onMouseDown={(event) => event.stopPropagation()}
             className="flex items-center gap-3 px-3 py-2 hover:bg-blue-50/70 cursor-pointer transition-colors"
           >
-            <div className="w-8 h-8 bg-blue-100 rounded-full flex items-center justify-center">
-              <UserIcon size={16} className="text-blue-600" />
+            <div className="w-8 h-8 bg-blue-100 rounded-full flex items-center justify-center overflow-hidden">
+              {user.avatarUrl ? (
+                <img src={user.avatarUrl} alt={user.username} className="w-full h-full object-cover" />
+              ) : (
+                <UserIcon size={16} className="text-blue-600" />
+              )}
             </div>
             <div className="flex-1 min-w-0">
               <div className="text-sm font-medium text-gray-900 truncate">{user.username}</div>
@@ -135,7 +140,11 @@ export const AssigneePicker: React.FC<AssigneePickerProps> = ({
                 key={userId}
                 className="inline-flex items-center gap-2 px-3 py-1 bg-blue-100/70 text-blue-700 rounded-full text-sm"
               >
-                <UserIcon size={14} />
+                {user?.avatarUrl ? (
+                  <img src={user.avatarUrl} alt={label} className="w-4 h-4 rounded-full object-cover" />
+                ) : (
+                  <UserIcon size={14} />
+                )}
                 <span className="max-w-[180px] truncate">{label}</span>
                 <button
                   type="button"
