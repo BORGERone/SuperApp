@@ -1,5 +1,6 @@
 import React, { useEffect, useMemo, useState } from 'react';
-import { Archive, RefreshCw, Search, Users } from 'lucide-react';
+import { Archive, RefreshCw, Search, Users, LogOut } from 'lucide-react';
+import { useNavigate } from 'react-router-dom';
 import { useIsMutating, useQueryClient } from '@tanstack/react-query';
 import {
   cardsCacheKey,
@@ -17,6 +18,7 @@ import { CardModal } from '../components/CardModal';
 import { CommentModal } from '../components/CommentModal';
 import { CardDragProvider } from '../dnd/CardDragContext';
 import { useUsers } from '../../auth/api/usersApi';
+import { useAuthStore } from '../../../store';
 
 function readCurrentUserId(): string | null {
   try {
@@ -52,7 +54,9 @@ function matchesCardSearch(
 }
 
 export const TasksView: React.FC = () => {
+  const navigate = useNavigate();
   const queryClient = useQueryClient();
+  const { currentUser, logout } = useAuthStore();
   const { data: columns = [], isLoading: columnsLoading, error: columnsError } = useTaskColumns();
   const { data: cards = [], isLoading: cardsLoading, error: cardsError } = useTaskCards();
   const { data: archivedColumns = [] } = useArchivedTaskColumns();
@@ -63,6 +67,14 @@ export const TasksView: React.FC = () => {
   const [searchQuery, setSearchQuery] = useState('');
   const [assigneeFilters, setAssigneeFilters] = useState<string[]>([]);
   const [isArchiveOpen, setIsArchiveOpen] = useState(false);
+
+  const handleLogout = () => {
+    logout();
+    queryClient.clear();
+    localStorage.removeItem('accessToken');
+    localStorage.removeItem('refreshToken');
+    navigate('/login');
+  };
 
   const mutatingCount = useIsMutating();
   const isSyncing = mutatingCount > 0;
@@ -223,12 +235,22 @@ export const TasksView: React.FC = () => {
   return (
     <CardDragProvider>
     <div className="flex flex-col h-screen overflow-hidden">
-      <div className="px-6 lg:px-8 pt-6 pb-4">
-        <div className="flex flex-col gap-4 xl:flex-row xl:items-end xl:justify-between">
-          <div>
-            <h1 className="text-4xl font-black text-gray-900">Задачи</h1>
+      <div className="glass px-10 py-6">
+        <div className="flex items-center justify-between mb-4">
+          <h1 className="text-4xl font-black text-gray-900">Задачи</h1>
+          <div className="flex items-center gap-4">
+            <span className="text-sm font-medium text-gray-700">{currentUser || 'Пользователь'}</span>
+            <button
+              onClick={handleLogout}
+              className="flex items-center gap-2 px-4 py-2 btn-glass-secondary rounded-lg"
+            >
+              <LogOut size={16} />
+              <span>Выйти</span>
+            </button>
           </div>
+        </div>
 
+        <div className="flex flex-col gap-4 xl:flex-row xl:items-end xl:justify-between">
           <div className="glass-card flex flex-wrap items-center gap-3 rounded-2xl p-3">
             <div className="relative">
               <Search

@@ -255,31 +255,31 @@ export const MailView: React.FC = () => {
   });
 
   return (
-    <div className="flex h-full">
+    <div className="flex h-full fade-in">
       
       {/* Main Content */}
       <div className="flex-1 flex flex-col m-4">
         {/* Toolbar - скрываем при открытом письме */}
         {!selectedEmail && (
-          <div className="glass-card rounded-lg p-4 mb-4">
+          <div className="glass-card rounded-xl p-4 mb-4 transition-all duration-300 hover:bg-white/70">
             <div className="flex items-center gap-4">
               <div className="flex-1 relative">
-                <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400" size={20} />
+                <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400 transition-colors duration-200" size={20} />
                 <input
                   type="text"
                   placeholder="Поиск писем..."
                   value={searchQuery}
                   onChange={(e) => handleSearch(e.target.value)}
-                  className="w-full pl-10 pr-4 py-2 rounded-lg border border-gray-200/50 focus:outline-none focus:ring-2 focus:ring-blue-400 bg-white/80"
+                  className="glass-input w-full pl-10 pr-4 py-2 rounded-lg"
                 />
               </div>
 
               <button
                 onClick={() => setFilters({ isUnreadOnly: !filters.isUnreadOnly })}
-                className={`p-2 rounded-lg transition-colors ${
+                className={`p-2 rounded-lg transition-all duration-300 transform hover:scale-105 ${
                   filters.isUnreadOnly
-                    ? 'bg-blue-200/90 text-blue-700'
-                    : 'hover:bg-white/60 text-gray-600'
+                    ? 'bg-gradient-to-br from-blue-100/90 to-purple-100/90 text-blue-700 shadow-md'
+                    : 'hover:bg-white/60 text-gray-600 hover:shadow-sm'
                 }`}
                 title="Только непрочитанные"
               >
@@ -288,10 +288,10 @@ export const MailView: React.FC = () => {
 
               <button
                 onClick={() => setFilters({ isStarredOnly: !filters.isStarredOnly })}
-                className={`p-2 rounded-lg transition-colors ${
+                className={`p-2 rounded-lg transition-all duration-300 transform hover:scale-105 ${
                   filters.isStarredOnly
-                    ? 'bg-blue-200/90 text-blue-700'
-                    : 'hover:bg-white/60 text-gray-600'
+                    ? 'bg-gradient-to-br from-blue-100/90 to-purple-100/90 text-blue-700 shadow-md'
+                    : 'hover:bg-white/60 text-gray-600 hover:shadow-sm'
                 }`}
                 title="Только избранные"
               >
@@ -301,7 +301,7 @@ export const MailView: React.FC = () => {
               {selectedEmails.length > 0 && (
                 <button
                   onClick={handleDelete}
-                  className="p-2 rounded-lg hover:bg-red-100/80 text-red-600 transition-colors"
+                  className="p-2 rounded-lg hover:bg-gradient-to-br hover:from-red-100/80 hover:to-red-200/80 text-red-600 transition-all duration-300 transform hover:scale-105 hover:shadow-md"
                   title="Удалить выбранные"
                 >
                   <Trash2 size={20} />
@@ -314,24 +314,20 @@ export const MailView: React.FC = () => {
         {/* Email List and Detail */}
         <div className="flex-1 flex flex-col min-h-0">
           {selectedEmail ? (
-            <div className="flex items-center gap-2 mb-4">
+            <div className="flex items-center gap-2 mb-4 fade-in">
               <button
                 onClick={() => setSelectedEmail(null)}
-                className="p-2 rounded-lg hover:bg-white/60 transition-colors flex items-center gap-2"
+                className="glass-card px-4 py-2 rounded-lg hover:bg-white/70 transition-all duration-300 transform hover:scale-105 flex items-center gap-2"
               >
                 <span>←</span>
-                <span>К списку</span>
+                <span className="font-medium">К списку</span>
               </button>
-              <div className="flex-1" />
-              <span className="text-sm text-gray-500">
-                {selectedEmail.subject}
-              </span>
             </div>
           ) : null}
 
           <div className="flex-1 overflow-hidden">
             {selectedEmail ? (
-              <div className="glass-card rounded-lg p-6 overflow-hidden h-full">
+              <div className="glass-card rounded-xl p-6 overflow-hidden h-full transition-all duration-300 hover:bg-white/70 fade-in">
                 <MailItem
                   email={selectedEmail}
                   onReply={() => openCompose(selectedEmail)}
@@ -348,11 +344,11 @@ export const MailView: React.FC = () => {
                 />
               </div>
             ) : (
-              <div className="glass-card rounded-lg p-4 overflow-hidden flex flex-col h-full">
+              <div className="glass-card rounded-xl p-4 overflow-hidden flex flex-col h-full transition-all duration-300 hover:bg-white/70">
                 <div className="flex-1 overflow-y-auto">
                   {filteredEmails.length === 0 ? (
                     <div className="flex items-center justify-center h-full">
-                      <div className="text-gray-500 text-center">
+                      <div className="text-gray-500 text-center fade-in">
                         <div className="text-4xl mb-2">📭</div>
                         <div>Писем не найдено</div>
                       </div>

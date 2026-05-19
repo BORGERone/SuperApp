@@ -1,9 +1,12 @@
 import React, { useEffect } from 'react';
-import { Outlet } from 'react-router-dom';
 import { Sidebar } from './Sidebar';
 import { useMailStore } from '../features/mail/viewmodels/mailViewModel';
 
-export const Layout: React.FC = () => {
+interface LayoutProps {
+  children: React.ReactNode;
+}
+
+export const Layout: React.FC<LayoutProps> = ({ children }) => {
   const { emails, setEmails } = useMailStore();
 
   // Периодическая проверка новых писем в inbox для обновления счетчика
@@ -66,7 +69,7 @@ export const Layout: React.FC = () => {
     <div className="flex h-screen bg-gradient-to-br from-blue-50 via-white to-purple-50">
       <Sidebar />
       <main className="flex-1 overflow-hidden">
-        <Outlet />
+        {children}
       </main>
     </div>
   );

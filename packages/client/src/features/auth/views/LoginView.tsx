@@ -2,13 +2,19 @@ import React, { useState } from 'react';
 import { useAuthStore } from '../../../store';
 import { useNavigate } from 'react-router-dom';
 import { useLogin } from '../api/authApi';
+import { PinInput } from '../components/PinInput';
 
 export const LoginView: React.FC = () => {
   const [username, setUsername] = useState('');
   const [password, setPassword] = useState('');
-  const [rememberPassword, setRememberPassword] = useState(false);
+  const [pinCode, setPinCode] = useState('');
+  const [rememberPassword, setRememberPassword] = useState(() => {
+    const saved = localStorage.getItem('rememberPassword');
+    return saved === 'true';
+  });
   const [error, setError] = useState('');
   const [isLoading, setIsLoading] = useState(false);
+  const [isShaking, setIsShaking] = useState(false);
 
   const { login } = useAuthStore();
   const navigate = useNavigate();
@@ -17,24 +23,25 @@ export const LoginView: React.FC = () => {
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    setError('');
     setIsLoading(true);
 
     try {
-      console.log('Attempting login with:', { username, password });
-      
-      const result = await loginMutation.mutateAsync({ email: username, password });
-      
+      console.log('Attempting login with:', { username, password, pinCode });
+
+      const result = await loginMutation.mutateAsync({ email: username, password, pinCode });
+
       // Обновляем состояние авторизации
       if (result.user) {
+        setError('');
         login(result.user.username, result.user.role);
-        
+
         // Перенаправляем на drive после успешного входа
         navigate('/drive');
-        
+
         if (rememberPassword) {
           localStorage.setItem('savedUsername', username);
           localStorage.setItem('savedPassword', password);
+          // Пин-код НЕ сохраняем
         } else {
           localStorage.removeItem('savedUsername');
           localStorage.removeItem('savedPassword');
@@ -42,11 +49,21 @@ export const LoginView: React.FC = () => {
       }
     } catch (err) {
       console.error('Login error:', err);
-      setError('Неверный логин или пароль');
+      setError('Неверный логин, пароль или пин-код');
+      setIsShaking(true);
+      setTimeout(() => {
+        setPinCode('');
+        setIsShaking(false);
+      }, 500);
     } finally {
       setIsLoading(false);
     }
   };
+
+  // Сохраняем состояние чекбокса в localStorage
+  React.useEffect(() => {
+    localStorage.setItem('rememberPassword', rememberPassword.toString());
+  }, [rememberPassword]);
 
   // Загружаем сохраненные данные при монтировании
   React.useEffect(() => {
@@ -108,8 +125,28 @@ export const LoginView: React.FC = () => {
             </label>
           </div>
 
+          <div>
+            <label className="block text-sm font-medium text-gray-700 mb-2">
+              PIN-код
+            </label>
+            <div className="glass-card rounded-xl p-6">
+              <PinInput
+                value={pinCode}
+                onChange={setPinCode}
+                isShaking={isShaking}
+                onComplete={() => {
+                  // Автосабмит при заполнении всех 4 цифр
+                  const submitBtn = document.querySelector('button[type="submit"]') as HTMLButtonElement;
+                  if (submitBtn && pinCode.length === 4) {
+                    submitBtn.click();
+                  }
+                }}
+              />
+            </div>
+          </div>
+
           {error && (
-            <div className="text-red-500 text-sm text-center bg-red-50 p-3 rounded-lg border border-red-200">
+            <div className="text-red-500 text-sm text-center bg-red-50 p-3 rounded-lg border border-red-200 error-message">
               {error}
             </div>
           )}

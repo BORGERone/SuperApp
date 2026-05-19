@@ -1,8 +1,8 @@
-import React from 'react';
 import { Outlet, useNavigate } from 'react-router-dom';
 import { useAuthStore } from './store';
 import { useEffect } from 'react';
 import { Layout } from './components/Layout';
+import { ThemeProvider } from './components/ThemeProvider';
 
 function App() {
   const { isAuthenticated, checkAuth } = useAuthStore();
@@ -20,9 +20,11 @@ function App() {
   }, [isAuthenticated, navigate]);
 
   return (
-    <Layout>
-      <Outlet />
-    </Layout>
+    <ThemeProvider>
+      <Layout>
+        <Outlet />
+      </Layout>
+    </ThemeProvider>
   );
 }
 

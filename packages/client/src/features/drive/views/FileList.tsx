@@ -153,48 +153,62 @@ export const FileList: React.FC<FileListProps> = ({
       {sortedFiles.map((file) => (
         <div
           key={file.id}
-          className={`glass-card p-4 rounded-lg cursor-pointer transition-all duration-200 hover:bg-white/60 relative group ${
+          className={`glass-card p-4 rounded-lg cursor-pointer transition-all duration-300 hover:bg-white/60 relative group ${
             viewMode === 'list' 
               ? (file.isSelected ? 'translate-x-1' : 'hover:translate-x-1')
               : (file.isSelected ? 'scale-105' : 'hover:scale-105')
           } ${
-            file.isSelected ? '!bg-blue-200/90' : ''
+            file.isSelected 
+              ? 'bg-gradient-to-br from-blue-100/80 to-purple-100/80 border-blue-300/50 shadow-lg shadow-blue-500/10' 
+              : ''
           }`}
           onClick={() => handleFileClick(file)}
         >
           {viewMode === 'list' && (
             <div
-              className={`absolute left-0 top-0 bottom-0 w-12 flex items-center justify-center cursor-pointer z-10 transition-opacity ${
+              className={`absolute left-0 top-0 bottom-0 w-12 flex items-center justify-center cursor-pointer z-10 transition-opacity duration-200 ${
                 file.isSelected ? 'opacity-100' : 'opacity-0 group-hover:opacity-100'
               }`}
               onClick={(e) => handleCheckboxClick(e, file.name)}
             >
-              <input
-                type="checkbox"
-                checked={file.isSelected}
-                readOnly
-                className="w-6 h-6 rounded accent-indigo-500"
-              />
+              <div className={`relative w-6 h-6 rounded-lg border-2 flex items-center justify-center transition-all duration-200 ${
+                file.isSelected 
+                  ? 'bg-gradient-to-br from-blue-500 to-purple-500 border-transparent' 
+                  : 'border-gray-300 bg-white hover:border-blue-400'
+              }`}>
+                {file.isSelected && (
+                  <svg className="w-4 h-4 text-white" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={3} d="M5 13l4 4L19 7" />
+                  </svg>
+                )}
+              </div>
             </div>
           )}
           {viewMode !== 'list' && (
             <div
-              className={`absolute left-0 top-0 cursor-pointer z-10 transition-opacity ${
+              className={`absolute left-0 top-0 cursor-pointer z-10 transition-opacity duration-200 ${
                 file.isSelected ? 'opacity-100' : 'opacity-0 group-hover:opacity-100'
               }`}
               onClick={(e) => handleCheckboxClick(e, file.name)}
             >
-              <input
-                type="checkbox"
-                checked={file.isSelected}
-                readOnly
-                className="w-4 h-4 rounded accent-indigo-500"
-              />
+              <div className={`relative w-4 h-4 rounded-md border-2 flex items-center justify-center transition-all duration-200 ${
+                file.isSelected 
+                  ? 'bg-gradient-to-br from-blue-500 to-purple-500 border-transparent' 
+                  : 'border-gray-300 bg-white hover:border-blue-400'
+              }`}>
+                {file.isSelected && (
+                  <svg className="w-3 h-3 text-white" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={3} d="M5 13l4 4L19 7" />
+                  </svg>
+                )}
+              </div>
             </div>
           )}
           <div className={`flex items-center gap-1 ${viewMode === 'list' ? 'pl-4' : ''}`}>
-            <span className="text-2xl filter drop-shadow-sm">{file.type === 'directory' ? '📁' : getFileIcon(file.name)}</span>
-            <span className="text-sm font-medium text-gray-700 truncate flex-1">
+            <span className="text-2xl filter drop-shadow-sm transition-transform duration-300 group-hover:scale-110">
+              {file.type === 'directory' ? '📁' : getFileIcon(file.name)}
+            </span>
+            <span className="text-sm font-medium text-gray-700 truncate flex-1 transition-colors duration-200 group-hover:text-gray-900">
               {file.name.replace(/\/$/, '')}
             </span>
           </div>
