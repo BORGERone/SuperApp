@@ -204,7 +204,26 @@ driveRouter.delete('/delete', async (c) => {
       return c.json({ error: 'File not found' }, 404);
     }
 
-    if (user.role !== 'admin' && file[0].ownerId !== user.userId) {
+    // Проверяем права: администратор или владелец или пользователь с правами доступа
+    const hasAccess = user.role === 'admin' || file[0].ownerId === user.userId;
+
+    // Проверяем права доступа через таблицу filePermissions
+    let hasPermission = false;
+    if (!hasAccess) {
+      const permission = await db.select()
+        .from(filePermissions)
+        .where(
+          and(
+            eq(filePermissions.fileId, file[0].id),
+            eq(filePermissions.userId, user.userId)
+          )
+        )
+        .limit(1);
+
+      hasPermission = permission.length > 0;
+    }
+
+    if (!hasAccess && !hasPermission) {
       return c.json({ error: 'Permission denied' }, 403);
     }
 

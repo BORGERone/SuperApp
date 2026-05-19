@@ -41,13 +41,21 @@ interface SidebarItem {
 }
 
 export const Sidebar: React.FC = () => {
-  const [isCollapsed, setIsCollapsed] = useState(false);
+  const [isCollapsed, setIsCollapsed] = useState(() => {
+    const saved = localStorage.getItem('sidebarCollapsed');
+    return saved === 'true';
+  });
   const navigate = useNavigate();
   const location = useLocation();
   const { openCompose, getUnreadCount, addEmail, emails, clearSelectedEmail } = useMailStore();
   const [unreadCount, setUnreadCount] = useState(0);
   const { data: taskCards = [] } = useTaskCards();
   const currentUserId = readCurrentUserId();
+
+  // Сохраняем состояние боковой панели в localStorage
+  useEffect(() => {
+    localStorage.setItem('sidebarCollapsed', isCollapsed.toString());
+  }, [isCollapsed]);
 
   // Счётчик задач: только карточки, где я в ответственных и которые ещё не выполнены.
   // Цвет: красный если есть просрочка, жёлтый если есть срок сегодня, иначе нейтральный.

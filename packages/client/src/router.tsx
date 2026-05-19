@@ -1,6 +1,6 @@
 import { createBrowserRouter, Navigate } from 'react-router-dom';
 import App from './App';
-import { LoginView } from './features/auth';
+import { LoginView, PinView } from './features/auth';
 import { DriveView } from './features/drive';
 import { MailView } from './features/mail';
 import { TasksView } from './features/tasks';
@@ -10,6 +10,10 @@ export const router = createBrowserRouter([
   {
     path: '/login',
     element: <LoginView />,
+  },
+  {
+    path: '/pin',
+    element: <PinView />,
   },
   {
     path: '/',
