@@ -7,4 +7,16 @@ contextBridge.exposeInMainWorld('electron', {
   startDrag: (options) => ipcRenderer.invoke('drag:start', options),
   // API для показа уведомлений через Electron
   showNotification: (options) => ipcRenderer.invoke('show-notification', options),
+  // API кастомного титлбара
+  window: {
+    minimize: () => ipcRenderer.invoke('window:minimize'),
+    toggleMaximize: () => ipcRenderer.invoke('window:toggleMaximize'),
+    close: () => ipcRenderer.invoke('window:close'),
+    isMaximized: () => ipcRenderer.invoke('window:isMaximized'),
+    onMaximizeChange: (cb) => {
+      const handler = (_e, isMax) => cb(isMax);
+      ipcRenderer.on('window:maximize-state', handler);
+      return () => ipcRenderer.removeListener('window:maximize-state', handler);
+    },
+  },
 });

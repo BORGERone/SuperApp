@@ -14,6 +14,13 @@ import { useMailStore } from '../features/mail/viewmodels/mailViewModel';
 import { useTaskCards } from '../features/tasks/api/tasksApi';
 import { computeDeadlineState } from '../features/tasks/models/tasksModel';
 
+// Константы размеров боковой панели и титлбара. Экспортируются, чтобы
+// Layout/TitleBar могли выровнять brand-зону строго по верху сайдбара.
+export const SIDEBAR_WIDTH_COLLAPSED = 64; // tailwind w-16
+export const SIDEBAR_WIDTH_EXPANDED = 256; // tailwind w-64
+export const SIDEBAR_LEFT_MARGIN = 12; // tailwind m-3
+export const TITLEBAR_HEIGHT = 36;
+
 function readCurrentUserId(): string | null {
   try {
     const raw = localStorage.getItem('user');
@@ -49,9 +56,15 @@ export const Sidebar: React.FC = () => {
   const { data: taskCards = [] } = useTaskCards();
   const currentUserId = readCurrentUserId();
 
-  // Сохраняем состояние боковой панели в localStorage
+  // Сохраняем состояние боковой панели в localStorage и уведомляем
+  // Layout/TitleBar, чтобы выровнять brand-зону по текущей ширине.
   useEffect(() => {
     localStorage.setItem('sidebarCollapsed', isCollapsed.toString());
+    if (typeof window !== 'undefined') {
+      window.dispatchEvent(
+        new CustomEvent('sidebar:collapsed-change', { detail: { collapsed: isCollapsed } }),
+      );
+    }
   }, [isCollapsed]);
 
   // Счётчик задач: только карточки, где я в ответственных и которые ещё не выполнены.
@@ -192,11 +205,15 @@ export const Sidebar: React.FC = () => {
 
   return (
     <div
-      className={`glass-deep sidebar-anim m-3 flex flex-col ${
+      className={`glass-deep sidebar-anim mx-3 mb-3 flex flex-col ${
         isCollapsed ? 'w-16' : 'w-64'
       }`}
       style={{
-        height: 'calc(100vh - 24px)',
+        // Сайдбар визуально прижат к нижней границе титлбара и продолжает его
+        // brand-зону: нет верхнего радиуса, верх вровень с паддингом Layout (= TITLEBAR_HEIGHT).
+        height: `calc(100vh - ${TITLEBAR_HEIGHT}px - 12px)`,
+        borderTopLeftRadius: 0,
+        borderTopRightRadius: 0,
         transition: 'width 360ms cubic-bezier(0.16, 1, 0.3, 1)',
       }}
     >

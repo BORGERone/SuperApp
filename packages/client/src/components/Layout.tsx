@@ -1,5 +1,6 @@
-import React, { useEffect } from 'react';
-import { Sidebar } from './Sidebar';
+import React, { useEffect, useState } from 'react';
+import { Sidebar, SIDEBAR_WIDTH_COLLAPSED, SIDEBAR_WIDTH_EXPANDED, SIDEBAR_LEFT_MARGIN, TITLEBAR_HEIGHT } from './Sidebar';
+import { TitleBar } from './TitleBar';
 import { useMailStore } from '../features/mail/viewmodels/mailViewModel';
 
 interface LayoutProps {
@@ -8,6 +9,24 @@ interface LayoutProps {
 
 export const Layout: React.FC<LayoutProps> = ({ children }) => {
   const { emails, setEmails } = useMailStore();
+  const [isSidebarCollapsed, setIsSidebarCollapsed] = useState(() => {
+    const saved = localStorage.getItem('sidebarCollapsed');
+    return saved === 'true';
+  });
+
+  // Подписываемся на изменения localStorage от Sidebar — Sidebar при
+  // переключении сохраняет состояние в localStorage и шлёт CustomEvent,
+  // чтобы TitleBar знал ширину brand-зоны.
+  useEffect(() => {
+    const handler = (e: Event) => {
+      const detail = (e as CustomEvent<{ collapsed: boolean }>).detail;
+      if (detail && typeof detail.collapsed === 'boolean') {
+        setIsSidebarCollapsed(detail.collapsed);
+      }
+    };
+    window.addEventListener('sidebar:collapsed-change', handler as EventListener);
+    return () => window.removeEventListener('sidebar:collapsed-change', handler as EventListener);
+  }, []);
 
   // Периодическая проверка новых писем в inbox для обновления счетчика
   useEffect(() => {
@@ -74,7 +93,19 @@ export const Layout: React.FC<LayoutProps> = ({ children }) => {
         <div className="app-bg__image" />
         <div className="app-bg__veil" />
       </div>
-      <div className="flex h-screen">
+
+      {/* Кастомный титлбар, визуально вкладывающийся в верх сайдбара */}
+      <TitleBar
+        collapsed={isSidebarCollapsed}
+        sidebarWidthCollapsed={SIDEBAR_WIDTH_COLLAPSED}
+        sidebarWidthExpanded={SIDEBAR_WIDTH_EXPANDED}
+        sidebarLeftMargin={SIDEBAR_LEFT_MARGIN}
+      />
+
+      <div
+        className="flex h-screen"
+        style={{ paddingTop: TITLEBAR_HEIGHT }}
+      >
         <Sidebar />
         <main className="flex-1 overflow-hidden">
           {children}

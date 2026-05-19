@@ -103,14 +103,19 @@ export const TaskColumnView: React.FC<TaskColumnViewProps> = ({
   }, [column.id, column.title, column.deadline]);
 
   const deadlineState = computeDeadlineState(column.deadline, false);
-  const deadlineBadgeClasses =
+  // Палитра badge для дедлайна колонки берётся из CSS-переменных темы,
+  // поэтому в тёмной теме он не остаётся белым.
+  const deadlineBadgeStyle: React.CSSProperties =
     deadlineState === 'overdue'
-      ? 'bg-red-100/80 text-red-700 ring-1 ring-red-200/60'
+      ? { background: 'rgba(239, 68, 68, 0.18)', color: 'rgb(248, 113, 113)' }
       : deadlineState === 'today'
-        ? 'bg-amber-100/80 text-amber-700 ring-1 ring-amber-200/60'
+        ? { background: 'rgba(245, 158, 11, 0.18)', color: 'rgb(251, 191, 36)' }
         : column.deadline
-          ? 'bg-indigo-100/70 text-indigo-700 ring-1 ring-indigo-200/60'
-          : 'bg-white/70 text-slate-500 ring-1 ring-slate-200/60';
+          ? {
+              background: 'rgba(var(--color-primary-rgb), 0.16)',
+              color: 'var(--color-primary)',
+            }
+          : { background: 'var(--surface-2)', color: 'var(--text-secondary)' };
 
   const saveTitle = async (nextTitle: string) => {
     const trimmed = nextTitle.trim();
@@ -174,7 +179,7 @@ export const TaskColumnView: React.FC<TaskColumnViewProps> = ({
 
   return (
     <section
-      className="glass-card flex w-[340px] flex-shrink-0 flex-col rounded-3xl p-3.5 h-full min-h-0"
+      className="glass-mid flex w-[340px] flex-shrink-0 flex-col p-3.5 h-full min-h-0"
       data-column-id={column.id}
     >
       <header className="mb-2 flex items-start justify-between gap-2">
@@ -190,12 +195,13 @@ export const TaskColumnView: React.FC<TaskColumnViewProps> = ({
                 (event.target as HTMLInputElement).blur();
               }
             }}
-            className="w-full rounded-xl border border-transparent bg-transparent px-2 py-1 text-[15px] font-semibold tracking-tight text-slate-900 hover:border-indigo-100 hover:bg-white/60 focus:border-indigo-200 focus:bg-white/80 focus:outline-none"
+            className="w-full rounded-xl border border-transparent bg-transparent px-2 py-1 text-[15px] font-semibold tracking-tight focus:outline-none"
+            style={{ color: 'var(--text-primary)' }}
             aria-label="Название колонки"
             placeholder="Название колонки"
           />
           <div className="mt-0.5 flex items-center gap-2 text-[11px]">
-            <Calendar size={12} className="text-slate-400" />
+            <Calendar size={12} style={{ color: 'var(--text-muted)' }} />
             {editingDeadline ? (
               <>
                 <input
@@ -211,13 +217,13 @@ export const TaskColumnView: React.FC<TaskColumnViewProps> = ({
                       setEditingDeadline(false);
                     }
                   }}
-                  className="rounded-lg border border-indigo-200 bg-white/80 px-2 py-1 text-xs focus:outline-none"
+                  className="glass-input rounded-lg px-2 py-1 text-xs"
                 />
                 {draftDeadline && (
                   <button
                     type="button"
                     onClick={() => saveDeadline('')}
-                    className="rounded p-1 text-gray-400 hover:bg-white hover:text-gray-700"
+                    className="btn-icon"
                     title="Очистить дедлайн"
                   >
                     <X size={12} />
@@ -231,7 +237,8 @@ export const TaskColumnView: React.FC<TaskColumnViewProps> = ({
                   setDraftDeadline(isoToLocalInput(column.deadline));
                   setEditingDeadline(true);
                 }}
-                className={`inline-flex items-center gap-1 rounded-full px-2 py-[2px] font-semibold ${deadlineBadgeClasses}`}
+                className="inline-flex items-center gap-1 rounded-full px-2 py-[2px] font-semibold"
+                style={deadlineBadgeStyle}
               >
                 {column.deadline ? formatDeadlineShort(column.deadline) : 'Без дедлайна'}
               </button>
@@ -239,14 +246,17 @@ export const TaskColumnView: React.FC<TaskColumnViewProps> = ({
           </div>
         </div>
         <div className="flex items-center gap-1.5">
-          <span className="rounded-full bg-white/70 px-2.5 py-[3px] text-[11px] font-semibold text-slate-500 ring-1 ring-slate-200/60">
+          <span
+            className="rounded-full px-2.5 py-[3px] text-[11px] font-semibold"
+            style={{ background: 'var(--surface-2)', color: 'var(--text-secondary)' }}
+          >
             {cards.length}
           </span>
           <button
             type="button"
             onClick={handleArchive}
             disabled={archiveColumn.isPending}
-            className="rounded-lg p-1.5 text-slate-400 transition-colors hover:bg-amber-100/60 hover:text-amber-600 disabled:cursor-not-allowed disabled:opacity-50"
+            className="btn-icon disabled:cursor-not-allowed disabled:opacity-50"
             aria-label="Перенести колонку в архив"
             title="Перенести в архив"
           >
@@ -294,11 +304,20 @@ export const TaskColumnView: React.FC<TaskColumnViewProps> = ({
         <div className="flex flex-col gap-2.5">
           {cards.length === 0 ? (
             <div
-              className={`flex items-center justify-center rounded-2xl border border-dashed p-6 text-center text-[12.5px] transition-colors ${
+              className="flex items-center justify-center rounded-2xl border border-dashed p-6 text-center text-[12.5px] transition-colors"
+              style={
                 drag.hoverColumnId === column.id && drag.draggingCardId
-                  ? 'border-indigo-300 bg-indigo-50/70 text-indigo-600'
-                  : 'border-slate-200/70 bg-white/35 text-slate-400'
-              }`}
+                  ? {
+                      borderColor: 'rgba(var(--color-primary-rgb), 0.5)',
+                      background: 'rgba(var(--color-primary-rgb), 0.12)',
+                      color: 'var(--color-primary)',
+                    }
+                  : {
+                      borderColor: 'var(--border-app)',
+                      background: 'var(--surface-2)',
+                      color: 'var(--text-muted)',
+                    }
+              }
             >
               {drag.hoverColumnId === column.id && drag.draggingCardId
                 ? 'Перенести карточку сюда'
@@ -345,7 +364,7 @@ export const TaskColumnView: React.FC<TaskColumnViewProps> = ({
 
       <div className="mt-3">
         {isAddingCard ? (
-          <div className="rounded-2xl border border-indigo-100/70 bg-white/65 p-3 shadow-sm backdrop-blur-md">
+          <div className="glass-mid p-3">
             <textarea
               autoFocus
               value={newCardTitle}
@@ -389,7 +408,12 @@ export const TaskColumnView: React.FC<TaskColumnViewProps> = ({
           <button
             type="button"
             onClick={() => setIsAddingCard(true)}
-            className="inline-flex w-full items-center justify-center gap-2 rounded-2xl border border-dashed border-indigo-200/70 bg-white/40 px-4 py-2.5 text-[12.5px] font-semibold text-indigo-600 transition-all hover:border-indigo-300 hover:bg-white/70"
+            className="inline-flex w-full items-center justify-center gap-2 rounded-2xl border border-dashed px-4 py-2.5 text-[12.5px] font-semibold transition-all"
+            style={{
+              borderColor: 'rgba(var(--color-primary-rgb), 0.35)',
+              background: 'rgba(var(--color-primary-rgb), 0.08)',
+              color: 'var(--color-primary)',
+            }}
           >
             <Plus size={14} />
             Добавить карточку

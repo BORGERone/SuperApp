@@ -234,15 +234,15 @@ export const TasksView: React.FC = () => {
 
   return (
     <CardDragProvider>
-    <div className="flex flex-col h-screen overflow-hidden">
-      <div className="glass px-10 py-6">
-        <div className="flex items-center justify-between mb-4">
-          <h1 className="text-4xl font-black text-gray-900">Задачи</h1>
-          <div className="flex items-center gap-4">
-            <span className="text-sm font-medium text-gray-700">{currentUser || 'Пользователь'}</span>
+    <div className="flex flex-col h-screen overflow-hidden p-3 gap-3 page-fade-in">
+      <div className="glass-deep px-6 py-4 flex flex-col gap-3">
+        <div className="flex items-center justify-between">
+          <h1 className="text-2xl font-semibold text-gradient flex items-center gap-2">Задачи</h1>
+          <div className="flex items-center gap-3">
+            <span className="text-sm font-medium text-app-secondary">{currentUser || 'Пользователь'}</span>
             <button
               onClick={handleLogout}
-              className="flex items-center gap-2 px-4 py-2 btn-glass-secondary rounded-lg"
+              className="flex items-center gap-2 px-4 py-2 btn-glass-secondary"
             >
               <LogOut size={16} />
               <span>Выйти</span>
@@ -250,8 +250,8 @@ export const TasksView: React.FC = () => {
           </div>
         </div>
 
-        <div className="flex flex-col gap-4 xl:flex-row xl:items-end xl:justify-between">
-          <div className="glass-card flex flex-wrap items-center gap-3 rounded-2xl p-3">
+        <div className="flex flex-col gap-3 xl:flex-row xl:items-end xl:justify-between">
+          <div className="flex flex-wrap items-center gap-2">
             <div className="relative">
               <Search
                 className="pointer-events-none absolute left-3 top-1/2 -translate-y-1/2 text-gray-400"
@@ -272,7 +272,7 @@ export const TasksView: React.FC = () => {
             />
             <button
               onClick={handleRefresh}
-              className="inline-flex items-center gap-1.5 rounded-xl bg-white/80 border border-gray-200 px-3 py-2 text-sm font-semibold text-gray-700 hover:bg-white"
+              className="flex items-center gap-2 px-3 py-2 btn-glass-secondary text-sm"
               aria-label="Обновить"
               title="Обновить"
             >
@@ -282,14 +282,20 @@ export const TasksView: React.FC = () => {
             <button
               type="button"
               onClick={() => setIsArchiveOpen(true)}
-              className="inline-flex items-center gap-1.5 rounded-xl border border-amber-200 bg-amber-50 px-3 py-2 text-sm font-semibold text-amber-700 transition-colors hover:bg-amber-100"
+              className="flex items-center gap-2 px-3 py-2 btn-glass-secondary text-sm"
               aria-label="Открыть архив"
               title="Открыть архив колонок"
             >
               <Archive size={14} />
               Архив
               {archivedColumns.length > 0 && (
-                <span className="ml-1 inline-flex items-center justify-center rounded-full bg-amber-200 px-1.5 text-[10px] font-bold text-amber-800">
+                <span
+                  className="ml-1 inline-flex items-center justify-center rounded-full px-1.5 text-[10px] font-bold"
+                  style={{
+                    background: 'rgba(var(--color-primary-rgb), 0.18)',
+                    color: 'var(--color-primary)',
+                  }}
+                >
                   {archivedColumns.length}
                 </span>
               )}
@@ -297,16 +303,28 @@ export const TasksView: React.FC = () => {
           </div>
         </div>
 
-        <div className="mt-4 flex flex-wrap items-center gap-2 text-xs text-gray-500">
-          <span className="inline-flex items-center gap-1.5 rounded-full bg-white/75 px-3 py-1.5 font-bold text-gray-600">
+        <div className="flex flex-wrap items-center gap-2 text-xs text-app-secondary">
+          <span
+            className="inline-flex items-center gap-1.5 rounded-full px-3 py-1 font-semibold"
+            style={{ background: 'var(--surface-2)', color: 'var(--text-secondary)' }}
+          >
             <Users size={13} />
             Колонок: {columns.length}
           </span>
-          <span className="inline-flex items-center gap-1.5 rounded-full bg-white/75 px-3 py-1.5 font-bold text-gray-600">
+          <span
+            className="inline-flex items-center gap-1.5 rounded-full px-3 py-1 font-semibold"
+            style={{ background: 'var(--surface-2)', color: 'var(--text-secondary)' }}
+          >
             Карточек: {cards.length}
           </span>
           {isSyncing && (
-            <span className="rounded-full bg-indigo-50 px-3 py-1.5 font-bold text-indigo-600">
+            <span
+              className="rounded-full px-3 py-1 font-semibold"
+              style={{
+                background: 'rgba(var(--color-primary-rgb), 0.14)',
+                color: 'var(--color-primary)',
+              }}
+            >
               Синхронизация...
             </span>
           )}
@@ -314,15 +332,15 @@ export const TasksView: React.FC = () => {
       </div>
 
       {error && (
-        <div className="mx-6 lg:mx-8 mb-3 bg-red-100/80 border border-red-200 text-red-700 px-3 py-2 rounded-lg text-sm">
+        <div className="bg-red-100/80 border border-red-200 text-red-700 px-3 py-2 rounded-lg text-sm">
           Не удалось загрузить данные задач. Проверьте подключение к серверу.
         </div>
       )}
 
-      <div className="tasks-scroll flex-1 min-h-0 overflow-x-auto overflow-y-hidden" style={{ height: 'calc(100vh - 300px)' }}>
-        <div className="flex gap-4 px-6 lg:px-8 items-stretch flex-nowrap h-full min-h-0">
+      <div className="tasks-scroll flex-1 min-h-0 overflow-x-auto overflow-y-hidden">
+        <div className="flex gap-3 items-stretch flex-nowrap h-full min-h-0">
           {isLoading && columns.length === 0 ? (
-            <div className="glass-card rounded-3xl p-8 text-center text-gray-600">
+            <div className="glass-mid p-8 text-center text-app-secondary">
               Загрузка задач...
             </div>
           ) : (
@@ -339,7 +357,7 @@ export const TasksView: React.FC = () => {
                 />
               ))}
               {isFilterActive && visibleColumns.length === 0 && sortedColumns.length > 0 && (
-                <div className="glass-card flex w-[340px] flex-shrink-0 items-center justify-center rounded-3xl p-8 text-center text-sm text-slate-500">
+                <div className="glass-mid flex w-[340px] flex-shrink-0 items-center justify-center p-8 text-center text-sm text-app-secondary">
                   Ни одна колонка не содержит карточек, подходящих под фильтр.
                 </div>
               )}

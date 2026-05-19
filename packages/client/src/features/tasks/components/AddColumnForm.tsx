@@ -35,8 +35,8 @@ export const AddColumnForm: React.FC = () => {
   };
 
   return (
-    <section className="glass-card flex w-[300px] flex-shrink-0 flex-col gap-3 self-start rounded-3xl p-4">
-      <h3 className="text-sm font-bold text-gray-800">Новая колонка</h3>
+    <section className="glass-mid flex w-[300px] flex-shrink-0 flex-col gap-3 self-start p-4">
+      <h3 className="text-sm font-semibold text-app">Новая колонка</h3>
       <input
         type="text"
         value={title}
@@ -59,7 +59,7 @@ export const AddColumnForm: React.FC = () => {
         type="button"
         onClick={handleSubmit}
         disabled={createColumn.isPending || !title.trim()}
-        className="btn-glass inline-flex items-center justify-center gap-2 rounded-xl px-4 py-2 text-sm font-semibold disabled:cursor-not-allowed disabled:opacity-50"
+        className="btn-glass inline-flex items-center justify-center gap-2 px-4 py-2 text-sm font-semibold disabled:cursor-not-allowed disabled:opacity-50"
       >
         <Plus size={16} />
         Создать колонку

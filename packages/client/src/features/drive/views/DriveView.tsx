@@ -287,7 +287,7 @@ export const DriveView: React.FC = () => {
   }, [currentPath, refetch]);
 
   return (
-    <div className="min-h-screen p-3 space-y-3 fade-in">
+    <div className="min-h-screen p-3 space-y-3 page-fade-in">
       {/* Header */}
       <div className="glass-deep px-6 py-4 flex flex-col gap-3">
         <div className="flex items-center justify-between">
@@ -353,10 +353,10 @@ export const DriveView: React.FC = () => {
         </div>
       </div>
 
-      {/* File List */}
-      <div className="glass-mid p-4">
-        <FileList 
-          files={files} 
+      {/* File List — без фонового островка, файлы лежат прямо на app-bg */}
+      <div className="px-1">
+        <FileList
+          files={files}
           currentPath={currentPath}
           setDownloading={setIsDownloading}
           setDownloadProgress={setDownloadProgress}

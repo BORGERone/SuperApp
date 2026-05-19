@@ -255,13 +255,13 @@ export const MailView: React.FC = () => {
   });
 
   return (
-    <div className="flex h-full fade-in">
+    <div className="flex h-full page-fade-in">
       
       {/* Main Content */}
       <div className="flex-1 flex flex-col m-3 gap-3">
         {/* Toolbar - скрываем при открытом письме */}
         {!selectedEmail && (
-          <div className="glass-deep p-3">
+          <div className="glass-deep p-3 slide-in-left">
             <div className="flex items-center gap-2">
               <div className="flex-1 relative">
                 <Search
@@ -310,7 +310,7 @@ export const MailView: React.FC = () => {
         {/* Email List and Detail */}
         <div className="flex-1 flex flex-col min-h-0">
           {selectedEmail ? (
-            <div className="flex items-center gap-2 mb-3 fade-in">
+            <div className="flex items-center gap-2 mb-3 slide-in-left">
               <button
                 onClick={() => setSelectedEmail(null)}
                 className="btn-glass-secondary px-3 py-1.5 flex items-center gap-2"
@@ -323,7 +323,10 @@ export const MailView: React.FC = () => {
 
           <div className="flex-1 overflow-hidden">
             {selectedEmail ? (
-              <div className="glass-mid p-6 overflow-hidden h-full fade-in">
+              <div
+                key={selectedEmail.id}
+                className="glass-mid p-6 overflow-hidden h-full slide-in-right"
+              >
                 <MailItem
                   email={selectedEmail}
                   onReply={() => openCompose(selectedEmail)}
@@ -339,7 +342,7 @@ export const MailView: React.FC = () => {
                 />
               </div>
             ) : (
-              <div className="glass-mid p-3 overflow-hidden flex flex-col h-full">
+              <div className="glass-mid p-3 overflow-hidden flex flex-col h-full slide-in-left">
                 <div className="flex-1 overflow-y-auto">
                   {filteredEmails.length === 0 ? (
                     <div className="flex items-center justify-center h-full">

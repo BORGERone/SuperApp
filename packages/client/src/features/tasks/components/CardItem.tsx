@@ -135,13 +135,24 @@ export const CardItem: React.FC<CardItemProps> = ({
 
   const deadlineState = computeDeadlineState(card.deadline, card.completed);
 
+  // Отделяем семантические варианты (просрочка / сегодня / выполнено) от
+  // дефолтного фона карточки. Дефолт использует CSS-переменные темы,
+  // чтобы в тёмной теме карточки не оставались белыми.
+  const isSemanticVariant = card.completed || deadlineState === 'overdue' || deadlineState === 'today';
   const cardSurfaceClasses = card.completed
     ? 'border-emerald-200/70 bg-emerald-50/65 hover:bg-emerald-50/80'
     : deadlineState === 'overdue'
       ? 'border-red-200/70 bg-red-50/65 hover:bg-red-50/80'
       : deadlineState === 'today'
         ? 'border-amber-200/70 bg-amber-50/65 hover:bg-amber-50/80'
-        : 'border-white/60 bg-white/55 hover:bg-white/75';
+        : '';
+  const cardSurfaceStyle: React.CSSProperties | undefined = isSemanticVariant
+    ? undefined
+    : {
+        background: 'var(--surface-1)',
+        borderColor: 'var(--border-app)',
+        color: 'var(--text-primary)',
+      };
 
   const deadlineLabel = formatDeadline(card.deadline);
   const deadlineBadgeClasses = card.completed
@@ -205,7 +216,8 @@ export const CardItem: React.FC<CardItemProps> = ({
       onDragEnter={handleDragEnter}
       onDragOver={handleDragOver}
       data-card-id={card.id}
-      className={`group relative cursor-pointer rounded-2xl border p-4 shadow-[0_1px_2px_rgba(15,23,42,0.04),0_4px_18px_-12px_rgba(15,23,42,0.18)] backdrop-blur-md transition-[background-color,border-color,box-shadow] duration-200 hover:border-indigo-300/70 hover:shadow-[0_2px_4px_rgba(15,23,42,0.05),0_10px_28px_-12px_rgba(79,70,229,0.35)] ${cardSurfaceClasses} ${
+      style={cardSurfaceStyle}
+      className={`group relative cursor-pointer rounded-2xl border p-4 shadow-[0_1px_2px_rgba(15,23,42,0.04),0_4px_18px_-12px_rgba(15,23,42,0.18)] backdrop-blur-md transition-[background-color,border-color,box-shadow] duration-200 ${cardSurfaceClasses} ${
         isDragging ? 'pointer-events-none scale-[0.98] opacity-40' : ''
       }`}
     >
@@ -222,14 +234,18 @@ export const CardItem: React.FC<CardItemProps> = ({
         />
         <div className="min-w-0 flex-1">
           <h3
-            className={`text-[13px] font-semibold leading-snug tracking-tight text-slate-900 break-words ${
-              card.completed ? 'text-slate-400 line-through' : ''
+            className={`text-[13px] font-semibold leading-snug tracking-tight break-words ${
+              card.completed ? 'line-through opacity-60' : ''
             }`}
+            style={{ color: 'var(--text-primary)' }}
           >
             {card.title}
           </h3>
           {card.description && (
-            <p className="mt-1 line-clamp-2 text-[11.5px] leading-[1.45] text-slate-500 break-words whitespace-pre-wrap">
+            <p
+              className="mt-1 line-clamp-2 text-[11.5px] leading-[1.45] break-words whitespace-pre-wrap"
+              style={{ color: 'var(--text-secondary)' }}
+            >
               {card.description}
             </p>
           )}

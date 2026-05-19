@@ -71,6 +71,9 @@
   --surface-hover: rgba(255, 255, 255, 0.85);
   --surface-active: rgba(255, 255, 255, 0.95);
 
+  /* Граница для плоских поверхностей */
+  --border-app: rgba(15, 23, 42, 0.10);
+
   /* Чекбокс */
   --checkbox-bg: rgba(148, 163, 184, 0.18);
   --checkbox-border: rgba(100, 116, 139, 0.45);
@@ -83,35 +86,38 @@
 }
 
 .dark {
-  --glass-bg-deep: 22 24 38;
-  --glass-bg-mid: 28 30 46;
-  --glass-bg-top: 36 38 54;
-  --glass-tint-deep: 0.5;
-  --glass-tint-mid: 0.62;
+  /* Нейтральная тёмно-серая палитра (без синего оттенка) */
+  --glass-bg-deep: 22 22 24;
+  --glass-bg-mid: 28 28 30;
+  --glass-bg-top: 36 36 38;
+  --glass-tint-deep: 0.55;
+  --glass-tint-mid: 0.65;
   --glass-tint-top: 0.78;
 
-  --glass-border: rgba(255, 255, 255, 0.12);
+  --glass-border: rgba(255, 255, 255, 0.10);
   --glass-border-soft: rgba(255, 255, 255, 0.06);
-  --glass-highlight: rgba(255, 255, 255, 0.18);
-  --glass-shadow-color: rgba(0, 0, 0, 0.4);
-  --glass-shadow-color-strong: rgba(0, 0, 0, 0.55);
+  --glass-highlight: rgba(255, 255, 255, 0.14);
+  --glass-shadow-color: rgba(0, 0, 0, 0.45);
+  --glass-shadow-color-strong: rgba(0, 0, 0, 0.6);
 
   --text-primary: #f3f4f6;
   --text-secondary: #d1d5db;
   --text-tertiary: #9ca3af;
   --text-muted: #6b7280;
 
-  --surface-1: rgba(255, 255, 255, 0.08);
-  --surface-2: rgba(255, 255, 255, 0.05);
-  --surface-3: rgba(255, 255, 255, 0.03);
-  --surface-hover: rgba(255, 255, 255, 0.12);
-  --surface-active: rgba(255, 255, 255, 0.18);
+  --surface-1: rgba(255, 255, 255, 0.06);
+  --surface-2: rgba(255, 255, 255, 0.04);
+  --surface-3: rgba(255, 255, 255, 0.02);
+  --surface-hover: rgba(255, 255, 255, 0.10);
+  --surface-active: rgba(255, 255, 255, 0.16);
 
-  --checkbox-bg: rgba(148, 163, 184, 0.12);
+  --border-app: rgba(255, 255, 255, 0.10);
+
+  --checkbox-bg: rgba(148, 163, 184, 0.10);
   --checkbox-border: rgba(148, 163, 184, 0.45);
   --checkbox-checked-bg: rgba(229, 231, 235, 0.95);
   --checkbox-checked-border: rgba(229, 231, 235, 0.95);
-  --checkbox-check: #1a1a2e;
+  --checkbox-check: #1a1a1d;
 }
 
 * {
@@ -159,7 +165,8 @@ body {
 }
 
 .dark .app-bg__base {
-  background: #0f1020;
+  /* Нейтральный почти-чёрный (не синий) */
+  background: #131315;
 }
 
 .app-bg__gradient {
@@ -177,12 +184,15 @@ body {
 }
 
 .dark .app-bg__gradient {
+  /* В тёмной теме акцент-радиалы заметно приглушены, чтобы не давать
+     синий/фиолетовый оттенок всему интерфейсу. */
   background:
-    radial-gradient(at 0% 0%, rgba(var(--color-primary-rgb), 0.35) 0%, transparent 55%),
-    radial-gradient(at 100% 0%, rgba(120, 90, 220, 0.22) 0%, transparent 55%),
-    radial-gradient(at 0% 100%, rgba(60, 120, 200, 0.22) 0%, transparent 55%),
-    radial-gradient(at 100% 100%, rgba(var(--color-primary-rgb), 0.25) 0%, transparent 55%),
-    radial-gradient(at 50% 50%, rgba(20, 30, 60, 0.5) 0%, transparent 60%);
+    radial-gradient(at 0% 0%, rgba(var(--color-primary-rgb), 0.16) 0%, transparent 55%),
+    radial-gradient(at 100% 0%, rgba(var(--color-primary-rgb), 0.08) 0%, transparent 55%),
+    radial-gradient(at 0% 100%, rgba(var(--color-primary-rgb), 0.10) 0%, transparent 55%),
+    radial-gradient(at 100% 100%, rgba(var(--color-primary-rgb), 0.14) 0%, transparent 55%),
+    radial-gradient(at 50% 50%, rgba(0, 0, 0, 0.35) 0%, transparent 65%);
+  opacity: 0.55;
 }
 
 .app-bg__image {
@@ -215,77 +225,85 @@ body {
 
 /* =====================================================================
    Базовые классы стекла (legacy совместимость + новая система слоёв)
+   ---------------------------------------------------------------------
+   Внимание: положены в @layer components намеренно, чтобы position-родные
+   правила (position: relative) НЕ перебивали утилиты Tailwind (.fixed,
+   .absolute, .static и т.п.), которые живут в слое utilities и выигрывают
+   у components даже при равной specificity. Без этого fixed-«острова»
+   в Drive и абсолютные оверлеи в Sidebar схлопывались до relative и
+   растягивались по ширине родителя.
    ===================================================================== */
 
-.glass,
-.glass-card {
-  position: relative;
-  background: linear-gradient(135deg,
-      rgba(var(--glass-bg-mid), calc(var(--glass-tint-mid) + 0.08)) 0%,
-      rgba(var(--glass-bg-mid), var(--glass-tint-mid)) 50%,
-      rgba(var(--glass-bg-mid), calc(var(--glass-tint-mid) + 0.06)) 100%);
-  backdrop-filter: blur(22px) saturate(180%);
-  -webkit-backdrop-filter: blur(22px) saturate(180%);
-  border: 1px solid var(--glass-border);
-  border-radius: var(--radius-lg);
-  box-shadow:
-    inset 0 1px 0 var(--glass-highlight),
-    0 1px 2px var(--glass-shadow-color),
-    0 8px 24px -8px var(--glass-shadow-color-strong);
-  transition:
-    background 200ms var(--ease-standard),
-    box-shadow 200ms var(--ease-standard),
-    border-color 200ms var(--ease-standard),
-    transform 200ms var(--ease-standard);
-}
+@layer components {
+  .glass,
+  .glass-card {
+    position: relative;
+    background: linear-gradient(135deg,
+        rgba(var(--glass-bg-mid), calc(var(--glass-tint-mid) + 0.08)) 0%,
+        rgba(var(--glass-bg-mid), var(--glass-tint-mid)) 50%,
+        rgba(var(--glass-bg-mid), calc(var(--glass-tint-mid) + 0.06)) 100%);
+    backdrop-filter: blur(22px) saturate(180%);
+    -webkit-backdrop-filter: blur(22px) saturate(180%);
+    border: 1px solid var(--glass-border);
+    border-radius: var(--radius-lg);
+    box-shadow:
+      inset 0 1px 0 var(--glass-highlight),
+      0 1px 2px var(--glass-shadow-color),
+      0 8px 24px -8px var(--glass-shadow-color-strong);
+    transition:
+      background 200ms var(--ease-standard),
+      box-shadow 200ms var(--ease-standard),
+      border-color 200ms var(--ease-standard),
+      transform 200ms var(--ease-standard);
+  }
 
-/* Слои наслоения */
-.glass-deep {
-  position: relative;
-  background:
-    linear-gradient(135deg,
-      rgba(var(--glass-bg-deep), calc(var(--glass-tint-deep) + 0.06)) 0%,
-      rgba(var(--glass-bg-deep), var(--glass-tint-deep)) 100%);
-  backdrop-filter: blur(28px) saturate(170%);
-  -webkit-backdrop-filter: blur(28px) saturate(170%);
-  border: 1px solid var(--glass-border-soft);
-  border-radius: var(--radius-xl);
-  box-shadow:
-    inset 0 1px 0 var(--glass-highlight),
-    0 1px 2px var(--glass-shadow-color),
-    0 12px 32px -10px var(--glass-shadow-color-strong);
-}
+  .glass-deep {
+    position: relative;
+    background:
+      linear-gradient(135deg,
+        rgba(var(--glass-bg-deep), calc(var(--glass-tint-deep) + 0.06)) 0%,
+        rgba(var(--glass-bg-deep), var(--glass-tint-deep)) 100%);
+    backdrop-filter: blur(28px) saturate(170%);
+    -webkit-backdrop-filter: blur(28px) saturate(170%);
+    border: 1px solid var(--glass-border-soft);
+    border-radius: var(--radius-xl);
+    box-shadow:
+      inset 0 1px 0 var(--glass-highlight),
+      0 1px 2px var(--glass-shadow-color),
+      0 12px 32px -10px var(--glass-shadow-color-strong);
+  }
 
-.glass-mid {
-  position: relative;
-  background:
-    linear-gradient(135deg,
-      rgba(var(--glass-bg-mid), calc(var(--glass-tint-mid) + 0.06)) 0%,
-      rgba(var(--glass-bg-mid), var(--glass-tint-mid)) 100%);
-  backdrop-filter: blur(20px) saturate(180%);
-  -webkit-backdrop-filter: blur(20px) saturate(180%);
-  border: 1px solid var(--glass-border);
-  border-radius: var(--radius-lg);
-  box-shadow:
-    inset 0 1px 0 var(--glass-highlight),
-    0 1px 2px var(--glass-shadow-color),
-    0 6px 20px -8px var(--glass-shadow-color-strong);
-}
+  .glass-mid {
+    position: relative;
+    background:
+      linear-gradient(135deg,
+        rgba(var(--glass-bg-mid), calc(var(--glass-tint-mid) + 0.06)) 0%,
+        rgba(var(--glass-bg-mid), var(--glass-tint-mid)) 100%);
+    backdrop-filter: blur(20px) saturate(180%);
+    -webkit-backdrop-filter: blur(20px) saturate(180%);
+    border: 1px solid var(--glass-border);
+    border-radius: var(--radius-lg);
+    box-shadow:
+      inset 0 1px 0 var(--glass-highlight),
+      0 1px 2px var(--glass-shadow-color),
+      0 6px 20px -8px var(--glass-shadow-color-strong);
+  }
 
-.glass-top {
-  position: relative;
-  background:
-    linear-gradient(135deg,
-      rgba(var(--glass-bg-top), calc(var(--glass-tint-top) + 0.04)) 0%,
-      rgba(var(--glass-bg-top), var(--glass-tint-top)) 100%);
-  backdrop-filter: blur(16px) saturate(200%);
-  -webkit-backdrop-filter: blur(16px) saturate(200%);
-  border: 1px solid var(--glass-border);
-  border-radius: var(--radius-md);
-  box-shadow:
-    inset 0 1px 0 var(--glass-highlight),
-    0 2px 4px var(--glass-shadow-color),
-    0 10px 30px -8px var(--glass-shadow-color-strong);
+  .glass-top {
+    position: relative;
+    background:
+      linear-gradient(135deg,
+        rgba(var(--glass-bg-top), calc(var(--glass-tint-top) + 0.04)) 0%,
+        rgba(var(--glass-bg-top), var(--glass-tint-top)) 100%);
+    backdrop-filter: blur(16px) saturate(200%);
+    -webkit-backdrop-filter: blur(16px) saturate(200%);
+    border: 1px solid var(--glass-border);
+    border-radius: var(--radius-md);
+    box-shadow:
+      inset 0 1px 0 var(--glass-highlight),
+      0 2px 4px var(--glass-shadow-color),
+      0 10px 30px -8px var(--glass-shadow-color-strong);
+  }
 }
 
 /* Градиентная hairline-обводка поверх стекла */
@@ -503,6 +521,28 @@ body {
 }
 .error-message { animation: errorSlideIn 260ms var(--ease-spring); }
 
+/* Плавный slide-in справа для открытия сообщения в почте и подобных переходов */
+@keyframes slideInRight {
+  from { opacity: 0; transform: translateX(28px); }
+  to { opacity: 1; transform: translateX(0); }
+}
+.slide-in-right { animation: slideInRight 320ms var(--ease-spring); }
+
+@keyframes slideInLeft {
+  from { opacity: 0; transform: translateX(-28px); }
+  to { opacity: 1; transform: translateX(0); }
+}
+.slide-in-left { animation: slideInLeft 320ms var(--ease-spring); }
+
+/* Общий fade-in с лёгким подъёмом для смены вкладок, чтобы переход
+   не выглядел рваным. Совпадает по длительности с fade-in, но выводит
+   страницу без рывка прозрачности. */
+@keyframes pageFadeIn {
+  from { opacity: 0; }
+  to { opacity: 1; }
+}
+.page-fade-in { animation: pageFadeIn 280ms var(--ease-spring); }
+
 @keyframes checkmarkDraw {
   to {
     stroke-dashoffset: 0;
@@ -627,6 +667,103 @@ button, a, input, select, textarea, label {
 .ui-checkbox--lg .ui-checkbox__box svg {
   width: 16px;
   height: 16px;
+}
+
+/* =====================================================================
+   Кастомный тайтлбар (визуальный продолжитель боковой панели)
+   ===================================================================== */
+
+.titlebar {
+  position: fixed;
+  top: 0;
+  left: 0;
+  right: 0;
+  height: 36px;
+  z-index: 100;
+  display: flex;
+  align-items: center;
+  pointer-events: none;
+  /* drag-region перетаскивания окна в Electron */
+  -webkit-app-region: drag;
+  user-select: none;
+}
+
+.titlebar__brand-zone {
+  /* Блок, визуально вкладывающийся в боковую панель (слева).
+     Использует ту же стеклянную подложку, что и .glass-deep сайдбара,
+     но без нижнего скругления, чтобы стыковка с сайдбаром выглядела как
+     один сплошной элемент. */
+  position: relative;
+  height: 100%;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding-left: 18px;
+  color: var(--text-primary);
+  pointer-events: auto;
+  flex-shrink: 0;
+  background:
+    linear-gradient(135deg,
+      rgba(var(--glass-bg-deep), calc(var(--glass-tint-deep) + 0.06)) 0%,
+      rgba(var(--glass-bg-deep), var(--glass-tint-deep)) 100%);
+  backdrop-filter: blur(28px) saturate(170%);
+  -webkit-backdrop-filter: blur(28px) saturate(170%);
+  border: 1px solid var(--glass-border-soft);
+  border-bottom: 0;
+  border-top-left-radius: var(--radius-xl);
+  border-top-right-radius: var(--radius-xl);
+  border-bottom-left-radius: 0;
+  border-bottom-right-radius: 0;
+  box-shadow:
+    inset 0 1px 0 var(--glass-highlight),
+    0 1px 2px var(--glass-shadow-color);
+}
+
+.titlebar__brand {
+  font-size: 12.5px;
+  font-weight: 600;
+  letter-spacing: 0.02em;
+  color: var(--text-secondary);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.titlebar__spacer {
+  flex: 1;
+  height: 100%;
+}
+
+.titlebar__controls {
+  display: flex;
+  align-items: center;
+  height: 100%;
+  padding-right: 4px;
+  -webkit-app-region: no-drag;
+  pointer-events: auto;
+}
+
+.titlebar__btn {
+  width: 44px;
+  height: 100%;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  background: transparent;
+  border: 0;
+  color: var(--text-secondary);
+  cursor: pointer;
+  transition: background 160ms var(--ease-standard), color 160ms var(--ease-standard);
+}
+
+.titlebar__btn:hover {
+  background: var(--surface-2);
+  color: var(--text-primary);
+}
+
+.titlebar__btn--close:hover {
+  background: #e81123;
+  color: #ffffff;
 }
 
 /* =====================================================================
