@@ -258,53 +258,49 @@ export const MailView: React.FC = () => {
     <div className="flex h-full fade-in">
       
       {/* Main Content */}
-      <div className="flex-1 flex flex-col m-4">
+      <div className="flex-1 flex flex-col m-3 gap-3">
         {/* Toolbar - скрываем при открытом письме */}
         {!selectedEmail && (
-          <div className="glass-card rounded-xl p-4 mb-4 transition-all duration-300 hover:bg-white/70">
-            <div className="flex items-center gap-4">
+          <div className="glass-deep p-3">
+            <div className="flex items-center gap-2">
               <div className="flex-1 relative">
-                <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400 transition-colors duration-200" size={20} />
+                <Search
+                  className="absolute left-3 top-1/2 transform -translate-y-1/2 text-app-muted"
+                  size={18}
+                />
                 <input
                   type="text"
                   placeholder="Поиск писем..."
                   value={searchQuery}
                   onChange={(e) => handleSearch(e.target.value)}
-                  className="glass-input w-full pl-10 pr-4 py-2 rounded-lg"
+                  className="glass-input w-full pl-10 pr-4 py-2"
                 />
               </div>
 
               <button
                 onClick={() => setFilters({ isUnreadOnly: !filters.isUnreadOnly })}
-                className={`p-2 rounded-lg transition-all duration-300 transform hover:scale-105 ${
-                  filters.isUnreadOnly
-                    ? 'bg-gradient-to-br from-blue-100/90 to-purple-100/90 text-blue-700 shadow-md'
-                    : 'hover:bg-white/60 text-gray-600 hover:shadow-sm'
-                }`}
+                className={`btn-icon ${filters.isUnreadOnly ? 'is-active' : ''}`}
                 title="Только непрочитанные"
               >
-                <Filter size={20} />
+                <Filter size={18} />
               </button>
 
               <button
                 onClick={() => setFilters({ isStarredOnly: !filters.isStarredOnly })}
-                className={`p-2 rounded-lg transition-all duration-300 transform hover:scale-105 ${
-                  filters.isStarredOnly
-                    ? 'bg-gradient-to-br from-blue-100/90 to-purple-100/90 text-blue-700 shadow-md'
-                    : 'hover:bg-white/60 text-gray-600 hover:shadow-sm'
-                }`}
+                className={`btn-icon ${filters.isStarredOnly ? 'is-active' : ''}`}
                 title="Только избранные"
               >
-                <Star size={20} />
+                <Star size={18} />
               </button>
 
               {selectedEmails.length > 0 && (
                 <button
                   onClick={handleDelete}
-                  className="p-2 rounded-lg hover:bg-gradient-to-br hover:from-red-100/80 hover:to-red-200/80 text-red-600 transition-all duration-300 transform hover:scale-105 hover:shadow-md"
+                  className="btn-icon text-red-500 hover:text-red-600"
                   title="Удалить выбранные"
+                  style={{ background: 'rgba(239,68,68,0.08)' }}
                 >
-                  <Trash2 size={20} />
+                  <Trash2 size={18} />
                 </button>
               )}
             </div>
@@ -314,10 +310,10 @@ export const MailView: React.FC = () => {
         {/* Email List and Detail */}
         <div className="flex-1 flex flex-col min-h-0">
           {selectedEmail ? (
-            <div className="flex items-center gap-2 mb-4 fade-in">
+            <div className="flex items-center gap-2 mb-3 fade-in">
               <button
                 onClick={() => setSelectedEmail(null)}
-                className="glass-card px-4 py-2 rounded-lg hover:bg-white/70 transition-all duration-300 transform hover:scale-105 flex items-center gap-2"
+                className="btn-glass-secondary px-3 py-1.5 flex items-center gap-2"
               >
                 <span>←</span>
                 <span className="font-medium">К списку</span>
@@ -327,13 +323,12 @@ export const MailView: React.FC = () => {
 
           <div className="flex-1 overflow-hidden">
             {selectedEmail ? (
-              <div className="glass-card rounded-xl p-6 overflow-hidden h-full transition-all duration-300 hover:bg-white/70 fade-in">
+              <div className="glass-mid p-6 overflow-hidden h-full fade-in">
                 <MailItem
                   email={selectedEmail}
                   onReply={() => openCompose(selectedEmail)}
                   onForward={() => openCompose(selectedEmail)}
                   onDelete={() => {
-                    console.log('MailItem onDelete called:', selectedEmail.id);
                     deleteEmailMutation.mutate(selectedEmail.id);
                     setSelectedEmail(null);
                   }}
@@ -344,11 +339,11 @@ export const MailView: React.FC = () => {
                 />
               </div>
             ) : (
-              <div className="glass-card rounded-xl p-4 overflow-hidden flex flex-col h-full transition-all duration-300 hover:bg-white/70">
+              <div className="glass-mid p-3 overflow-hidden flex flex-col h-full">
                 <div className="flex-1 overflow-y-auto">
                   {filteredEmails.length === 0 ? (
                     <div className="flex items-center justify-center h-full">
-                      <div className="text-gray-500 text-center fade-in">
+                      <div className="text-app-muted text-center fade-in">
                         <div className="text-4xl mb-2">📭</div>
                         <div>Писем не найдено</div>
                       </div>

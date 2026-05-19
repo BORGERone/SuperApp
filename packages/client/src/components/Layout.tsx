@@ -66,11 +66,20 @@ export const Layout: React.FC<LayoutProps> = ({ children }) => {
   }, [emails, setEmails]);
 
   return (
-    <div className="flex h-screen bg-gradient-to-br from-blue-50 via-white to-purple-50">
-      <Sidebar />
-      <main className="flex-1 overflow-hidden">
-        {children}
-      </main>
-    </div>
+    <>
+      {/* Фоновые слои приложения (контролируются ThemeProvider через CSS-переменные) */}
+      <div className="app-bg" aria-hidden="true">
+        <div className="app-bg__base" />
+        <div className="app-bg__gradient" />
+        <div className="app-bg__image" />
+        <div className="app-bg__veil" />
+      </div>
+      <div className="flex h-screen">
+        <Sidebar />
+        <main className="flex-1 overflow-hidden">
+          {children}
+        </main>
+      </div>
+    </>
   );
 };

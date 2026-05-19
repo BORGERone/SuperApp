@@ -2,7 +2,15 @@ import { create } from 'zustand';
 import { persist } from 'zustand/middleware';
 
 type ThemeMode = 'light' | 'dark' | 'auto';
-type ColorScheme = 'blue' | 'purple' | 'green' | 'orange' | 'pink';
+export type ColorScheme =
+  | 'blue'
+  | 'purple'
+  | 'green'
+  | 'orange'
+  | 'pink'
+  | 'graphite'
+  | 'teal'
+  | 'crimson';
 
 interface AppearanceSettings {
   // Тема

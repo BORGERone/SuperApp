@@ -1,6 +1,82 @@
 import React, { useState, useRef } from 'react';
-import { useAppearanceStore } from '../viewmodels/appearanceViewModel';
-import { Sun, Moon, Monitor, Image, Upload, X, Check, Type, Zap } from 'lucide-react';
+import { useAppearanceStore, ColorScheme } from '../viewmodels/appearanceViewModel';
+import {
+  Sun,
+  Moon,
+  Monitor,
+  Image as ImageIcon,
+  Upload,
+  X,
+  Check,
+  Type,
+  Zap,
+  Palette,
+} from 'lucide-react';
+
+type SchemeMeta = {
+  id: ColorScheme;
+  name: string;
+  colors: [string, string, string];
+};
+
+const COLOR_SCHEMES: SchemeMeta[] = [
+  { id: 'blue', name: 'Синий', colors: ['#3b82f6', '#60a5fa', '#93c5fd'] },
+  { id: 'purple', name: 'Фиолетовый', colors: ['#8b5cf6', '#a78bfa', '#c4b5fd'] },
+  { id: 'green', name: 'Зелёный', colors: ['#10b981', '#34d399', '#6ee7b7'] },
+  { id: 'orange', name: 'Оранжевый', colors: ['#f97316', '#fb923c', '#fdba74'] },
+  { id: 'pink', name: 'Розовый', colors: ['#ec4899', '#f472b6', '#f9a8d4'] },
+  { id: 'teal', name: 'Бирюза', colors: ['#0d9488', '#14b8a6', '#5eead4'] },
+  { id: 'graphite', name: 'Графит', colors: ['#475569', '#64748b', '#94a3b8'] },
+  { id: 'crimson', name: 'Багровый', colors: ['#dc2626', '#ef4444', '#fca5a5'] },
+];
+
+const FONT_SIZES = [
+  { id: 'small' as const, name: 'Маленький' },
+  { id: 'medium' as const, name: 'Средний' },
+  { id: 'large' as const, name: 'Большой' },
+];
+
+type ToggleProps = {
+  checked: boolean;
+  onChange: (next: boolean) => void;
+};
+
+const GlassToggle: React.FC<ToggleProps> = ({ checked, onChange }) => (
+  <button
+    type="button"
+    onClick={() => onChange(!checked)}
+    className="relative inline-flex flex-shrink-0 items-center"
+    style={{
+      width: 44,
+      height: 26,
+      borderRadius: 999,
+      background: checked
+        ? 'linear-gradient(135deg, var(--gradient-from), var(--gradient-to))'
+        : 'var(--surface-3)',
+      border: '1px solid var(--glass-border-soft)',
+      transition:
+        'background 240ms var(--ease-spring), border-color 240ms var(--ease-spring), box-shadow 240ms var(--ease-spring)',
+      boxShadow: checked
+        ? '0 4px 12px rgba(var(--color-primary-rgb), 0.35)'
+        : 'inset 0 1px 2px rgba(0, 0, 0, 0.06)',
+    }}
+    aria-pressed={checked}
+  >
+    <span
+      style={{
+        position: 'absolute',
+        top: 2,
+        left: checked ? 20 : 2,
+        width: 20,
+        height: 20,
+        borderRadius: 999,
+        background: '#fff',
+        boxShadow: '0 2px 6px rgba(0,0,0,0.22)',
+        transition: 'left 280ms var(--ease-spring)',
+      }}
+    />
+  </button>
+);
 
 export const AppearanceSettings: React.FC = () => {
   const {
@@ -21,37 +97,29 @@ export const AppearanceSettings: React.FC = () => {
   const [uploading, setUploading] = useState(false);
   const fileInputRef = useRef<HTMLInputElement>(null);
 
-  const colorSchemes = [
-    { id: 'blue' as const, name: 'Синий', primary: '#3b82f6', colors: ['#3b82f6', '#60a5fa', '#93c5fd'] },
-    { id: 'purple' as const, name: 'Фиолетовый', primary: '#8b5cf6', colors: ['#8b5cf6', '#a78bfa', '#c4b5fd'] },
-    { id: 'green' as const, name: 'Зеленый', primary: '#10b981', colors: ['#10b981', '#34d399', '#6ee7b7'] },
-    { id: 'orange' as const, name: 'Оранжевый', primary: '#f97316', colors: ['#f97316', '#fb923c', '#fdba74'] },
-    { id: 'pink' as const, name: 'Розовый', primary: '#ec4899', colors: ['#ec4899', '#f472b6', '#f9a8d4'] },
-  ];
-
-  const fontSizes = [
-    { id: 'small' as const, name: 'Маленький' },
-    { id: 'medium' as const, name: 'Средний' },
-    { id: 'large' as const, name: 'Большой' },
-  ];
-
   const handleFileSelect = async (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
     if (!file) return;
 
     setUploading(true);
     try {
-      // Для демо версии используем локальный URL вместо загрузки на сервер
       const reader = new FileReader();
       reader.onloadend = () => {
         setBackgroundImage(reader.result as string);
         setBackgroundImageEnabled(true);
+        setUploading(false);
+      };
+      reader.onerror = () => {
+        console.error('Failed to load background');
+        setUploading(false);
       };
       reader.readAsDataURL(file);
     } catch (error) {
       console.error('Failed to load background:', error);
-    } finally {
       setUploading(false);
+    } finally {
+      // Reset input so re-uploading the same file works
+      if (e.target) e.target.value = '';
     }
   };
 
@@ -60,128 +128,180 @@ export const AppearanceSettings: React.FC = () => {
     setBackgroundImageEnabled(false);
   };
 
+  const themeOptions: Array<{
+    id: 'light' | 'dark' | 'auto';
+    name: string;
+    icon: React.ReactNode;
+  }> = [
+    { id: 'light', name: 'Светлая', icon: <Sun className="w-5 h-5" /> },
+    { id: 'dark', name: 'Тёмная', icon: <Moon className="w-5 h-5" /> },
+    { id: 'auto', name: 'Авто', icon: <Monitor className="w-5 h-5" /> },
+  ];
+
   return (
-    <div className="w-full max-w-4xl mx-auto px-2 sm:px-4">
-      <h2 className="text-xl sm:text-2xl font-bold text-gray-800 mb-4 sm:mb-6">Внешний вид</h2>
-      
-      <div className="space-y-4 sm:space-y-6">
+    <div className="w-full max-w-4xl mx-auto px-2 sm:px-4 fade-in">
+      <h2 className="text-xl sm:text-2xl font-bold text-app mb-4 sm:mb-6">
+        Внешний вид
+      </h2>
+
+      <div className="space-y-4 sm:space-y-5">
         {/* Тема оформления */}
-        <div className="glass-card p-4 sm:p-6 rounded-lg">
-          <div className="flex items-center gap-2 sm:gap-3 mb-3 sm:mb-4">
-            <Monitor className="text-blue-500 flex-shrink-0 w-5 h-5 sm:w-6 sm:h-6" />
-            <h3 className="text-base sm:text-lg font-semibold text-gray-800">Тема оформления</h3>
+        <section className="glass-deep p-4 sm:p-6">
+          <header className="flex items-center gap-2 sm:gap-3 mb-4">
+            <span
+              className="flex w-9 h-9 items-center justify-center rounded-[10px]"
+              style={{ background: 'rgba(var(--color-primary-rgb), 0.15)', color: 'var(--color-primary)' }}
+            >
+              <Monitor className="w-5 h-5" />
+            </span>
+            <div>
+              <h3 className="text-base sm:text-lg font-semibold text-app">Тема оформления</h3>
+              <p className="text-xs sm:text-sm text-app-muted">Выберите светлую, тёмную или системную тему</p>
+            </div>
+          </header>
+
+          <div className="grid grid-cols-3 gap-3">
+            {themeOptions.map((opt) => {
+              const active = themeMode === opt.id;
+              return (
+                <button
+                  key={opt.id}
+                  type="button"
+                  onClick={() => setThemeMode(opt.id)}
+                  className="glass-mid relative p-4 flex flex-col items-center gap-2"
+                  style={{
+                    background: active
+                      ? 'rgba(var(--color-primary-rgb), 0.14)'
+                      : undefined,
+                    borderColor: active ? 'rgba(var(--color-primary-rgb), 0.45)' : undefined,
+                    color: active ? 'var(--color-primary)' : 'var(--text-secondary)',
+                    transform: active ? 'scale(1.02)' : undefined,
+                    transition:
+                      'background 240ms var(--ease-spring), border-color 240ms var(--ease-spring), color 200ms ease-out, transform 240ms var(--ease-spring)',
+                  }}
+                >
+                  {opt.icon}
+                  <span className="text-sm font-medium">{opt.name}</span>
+                  {active && (
+                    <span
+                      className="absolute top-2 right-2"
+                      style={{ color: 'var(--color-primary)' }}
+                    >
+                      <Check className="w-4 h-4" />
+                    </span>
+                  )}
+                </button>
+              );
+            })}
           </div>
-          
-          <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
-            <button
-              onClick={() => setThemeMode('light')}
-              className={`p-4 rounded-lg border-2 transition-all ${
-                themeMode === 'light'
-                  ? 'border-blue-500 bg-blue-50'
-                  : 'border-gray-200 hover:border-gray-300 bg-white'
-              }`}
-            >
-              <Sun className="w-6 h-6 mx-auto mb-2 text-yellow-500" />
-              <span className="block text-sm font-medium text-center">Светлая</span>
-            </button>
-            
-            <button
-              onClick={() => setThemeMode('dark')}
-              className={`p-4 rounded-lg border-2 transition-all ${
-                themeMode === 'dark'
-                  ? 'border-blue-500 bg-blue-50'
-                  : 'border-gray-200 hover:border-gray-300 bg-white'
-              }`}
-            >
-              <Moon className="w-6 h-6 mx-auto mb-2 text-gray-700" />
-              <span className="block text-sm font-medium text-center">Темная</span>
-            </button>
-            
-            <button
-              onClick={() => setThemeMode('auto')}
-              className={`p-4 rounded-lg border-2 transition-all ${
-                themeMode === 'auto'
-                  ? 'border-blue-500 bg-blue-50'
-                  : 'border-gray-200 hover:border-gray-300 bg-white'
-              }`}
-            >
-              <Monitor className="w-6 h-6 mx-auto mb-2 text-gray-700" />
-              <span className="block text-sm font-medium text-center">Авто</span>
-            </button>
-          </div>
-        </div>
+        </section>
 
         {/* Цветовая схема */}
-        <div className="glass-card p-4 sm:p-6 rounded-lg">
-          <div className="flex items-center gap-2 sm:gap-3 mb-3 sm:mb-4">
-            <Type className="text-purple-500 flex-shrink-0 w-5 h-5 sm:w-6 sm:h-6" />
-            <h3 className="text-base sm:text-lg font-semibold text-gray-800">Цветовая схема</h3>
+        <section className="glass-deep p-4 sm:p-6">
+          <header className="flex items-center gap-2 sm:gap-3 mb-4">
+            <span
+              className="flex w-9 h-9 items-center justify-center rounded-[10px]"
+              style={{ background: 'rgba(var(--color-primary-rgb), 0.15)', color: 'var(--color-primary)' }}
+            >
+              <Palette className="w-5 h-5" />
+            </span>
+            <div>
+              <h3 className="text-base sm:text-lg font-semibold text-app">Цветовая схема</h3>
+              <p className="text-xs sm:text-sm text-app-muted">Акцентный цвет и градиенты подложек</p>
+            </div>
+          </header>
+
+          <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
+            {COLOR_SCHEMES.map((scheme) => {
+              const active = colorScheme === scheme.id;
+              return (
+                <button
+                  key={scheme.id}
+                  type="button"
+                  onClick={() => setColorScheme(scheme.id)}
+                  className="glass-mid relative p-3 flex flex-col items-start gap-2"
+                  style={{
+                    background: active
+                      ? `linear-gradient(135deg, ${scheme.colors[0]}22, ${scheme.colors[1]}11)`
+                      : undefined,
+                    borderColor: active ? `${scheme.colors[0]}88` : undefined,
+                    transform: active ? 'scale(1.02)' : undefined,
+                    transition:
+                      'background 240ms var(--ease-spring), border-color 240ms var(--ease-spring), transform 240ms var(--ease-spring)',
+                  }}
+                >
+                  <div className="flex gap-1">
+                    {scheme.colors.map((color, i) => (
+                      <span
+                        key={i}
+                        className="w-5 h-5 rounded-full"
+                        style={{
+                          background: color,
+                          boxShadow: '0 2px 4px rgba(0,0,0,0.12), inset 0 1px 0 rgba(255,255,255,0.25)',
+                        }}
+                      />
+                    ))}
+                  </div>
+                  <span className="text-xs sm:text-sm font-medium text-app-secondary">
+                    {scheme.name}
+                  </span>
+                  {active && (
+                    <span
+                      className="absolute top-2 right-2"
+                      style={{ color: scheme.colors[0] }}
+                    >
+                      <Check className="w-4 h-4" />
+                    </span>
+                  )}
+                </button>
+              );
+            })}
           </div>
-          
-          <div className="grid grid-cols-2 sm:grid-cols-5 gap-3">
-            {colorSchemes.map((scheme) => (
-              <button
-                key={scheme.id}
-                onClick={() => setColorScheme(scheme.id)}
-                className={`relative p-3 rounded-lg border-2 transition-all duration-300 transform hover:scale-105 ${
-                  colorScheme === scheme.id
-                    ? 'border-blue-500 bg-blue-50 shadow-md'
-                    : 'border-gray-200 hover:border-gray-300 bg-white hover:shadow-sm'
-                }`}
-              >
-                <div className="flex gap-1 mb-2">
-                  {scheme.colors.map((color, i) => (
-                    <div
-                      key={i}
-                      className="w-6 h-6 rounded-full"
-                      style={{ backgroundColor: color }}
-                    />
-                  ))}
-                </div>
-                <span className="block text-xs font-medium text-center">{scheme.name}</span>
-                {colorScheme === scheme.id && (
-                  <svg className="absolute top-2 right-2 w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" style={{ color: scheme.primary }}>
-                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={3} d="M5 13l4 4L19 7" />
-                  </svg>
-                )}
-              </button>
-            ))}
-          </div>
-        </div>
+        </section>
 
         {/* Фоновое изображение */}
-        <div className="glass-card p-4 sm:p-6 rounded-lg">
-          <div className="flex items-center gap-2 sm:gap-3 mb-3 sm:mb-4">
-            <Image className="text-green-500 flex-shrink-0 w-5 h-5 sm:w-6 sm:h-6" />
-            <h3 className="text-base sm:text-lg font-semibold text-gray-800">Фоновое изображение</h3>
-          </div>
-          
+        <section className="glass-deep p-4 sm:p-6">
+          <header className="flex items-center gap-2 sm:gap-3 mb-4">
+            <span
+              className="flex w-9 h-9 items-center justify-center rounded-[10px]"
+              style={{ background: 'rgba(var(--color-primary-rgb), 0.15)', color: 'var(--color-primary)' }}
+            >
+              <ImageIcon className="w-5 h-5" />
+            </span>
+            <div>
+              <h3 className="text-base sm:text-lg font-semibold text-app">Фоновое изображение</h3>
+              <p className="text-xs sm:text-sm text-app-muted">Поставьте собственный фон приложения</p>
+            </div>
+          </header>
+
           <div className="space-y-4">
-            <div className="flex items-center justify-between">
+            <div className="flex items-center justify-between gap-4">
               <div>
-                <p className="font-medium text-gray-700 text-sm sm:text-base">Использовать фоновое изображение</p>
-                <p className="text-xs sm:text-sm text-gray-500">Установить собственный фон приложения</p>
+                <p className="font-medium text-app text-sm sm:text-base">
+                  Использовать фоновое изображение
+                </p>
+                <p className="text-xs sm:text-sm text-app-muted">
+                  Изображение применяется ко всему окну приложения
+                </p>
               </div>
-              <label className="relative inline-flex items-center cursor-pointer flex-shrink-0">
-                <input
-                  type="checkbox"
-                  checked={backgroundImageEnabled}
-                  onChange={(e) => {
-                    setBackgroundImageEnabled(e.target.checked);
-                    if (e.target.checked && !backgroundImage) {
-                      fileInputRef.current?.click();
-                    }
-                  }}
-                  className="sr-only peer"
-                />
-                <div className="w-11 h-6 bg-gray-200 peer-focus:outline-none peer-focus:ring-4 peer-focus:ring-green-300 rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-green-500"></div>
-              </label>
+              <GlassToggle
+                checked={backgroundImageEnabled}
+                onChange={(next) => {
+                  setBackgroundImageEnabled(next);
+                  if (next && !backgroundImage) {
+                    fileInputRef.current?.click();
+                  }
+                }}
+              />
             </div>
 
             {backgroundImageEnabled && (
               <div className="space-y-3">
                 {backgroundImage && (
-                  <div className="relative rounded-lg overflow-hidden h-32 sm:h-40">
+                  <div
+                    className="relative overflow-hidden h-32 sm:h-40 glass-mid"
+                    style={{ padding: 0 }}
+                  >
                     <img
                       src={backgroundImage}
                       alt="Background"
@@ -189,22 +309,28 @@ export const AppearanceSettings: React.FC = () => {
                     />
                     <button
                       onClick={handleRemoveBackground}
-                      className="absolute top-2 right-2 p-2 bg-red-500 text-white rounded-full hover:bg-red-600 transition-colors"
+                      className="absolute top-2 right-2 btn-icon"
+                      style={{
+                        background: 'rgba(0, 0, 0, 0.55)',
+                        color: '#fff',
+                        borderRadius: 999,
+                      }}
+                      title="Удалить фон"
                     >
                       <X className="w-4 h-4" />
                     </button>
                   </div>
                 )}
-                
+
                 <button
                   onClick={() => fileInputRef.current?.click()}
                   disabled={uploading}
-                  className="flex items-center justify-center gap-2 w-full px-4 py-3 bg-green-500 text-white rounded-lg hover:bg-green-600 transition-colors disabled:opacity-50"
+                  className="btn-glass flex items-center justify-center gap-2 w-full px-4 py-2.5"
                 >
                   <Upload className="w-4 h-4 sm:w-5 sm:h-5" />
                   <span>{uploading ? 'Загрузка...' : 'Загрузить изображение'}</span>
                 </button>
-                
+
                 <input
                   ref={fileInputRef}
                   type="file"
@@ -212,69 +338,101 @@ export const AppearanceSettings: React.FC = () => {
                   onChange={handleFileSelect}
                   className="hidden"
                 />
-                
-                <p className="text-xs text-gray-500 text-center">
-                  Поддерживаемые форматы: JPG, PNG, GIF. Максимальный размер: 5 МБ
+
+                <p className="text-xs text-app-muted text-center">
+                  Поддерживаемые форматы: JPG, PNG, GIF. Рекомендуемый размер до 5 МБ.
                 </p>
               </div>
             )}
           </div>
-        </div>
+        </section>
 
         {/* Размер шрифта */}
-        <div className="glass-card p-4 sm:p-6 rounded-lg">
-          <div className="flex items-center gap-2 sm:gap-3 mb-3 sm:mb-4">
-            <Type className="text-orange-500 flex-shrink-0 w-5 h-5 sm:w-6 sm:h-6" />
-            <h3 className="text-base sm:text-lg font-semibold text-gray-800">Размер шрифта</h3>
+        <section className="glass-deep p-4 sm:p-6">
+          <header className="flex items-center gap-2 sm:gap-3 mb-4">
+            <span
+              className="flex w-9 h-9 items-center justify-center rounded-[10px]"
+              style={{ background: 'rgba(var(--color-primary-rgb), 0.15)', color: 'var(--color-primary)' }}
+            >
+              <Type className="w-5 h-5" />
+            </span>
+            <div>
+              <h3 className="text-base sm:text-lg font-semibold text-app">Размер шрифта</h3>
+              <p className="text-xs sm:text-sm text-app-muted">Базовый размер интерфейса</p>
+            </div>
+          </header>
+
+          <div className="grid grid-cols-3 gap-3">
+            {FONT_SIZES.map((size) => {
+              const active = fontSize === size.id;
+              return (
+                <button
+                  key={size.id}
+                  type="button"
+                  onClick={() => setFontSize(size.id)}
+                  className="glass-mid relative p-4 flex flex-col items-center gap-2"
+                  style={{
+                    background: active
+                      ? 'rgba(var(--color-primary-rgb), 0.14)'
+                      : undefined,
+                    borderColor: active ? 'rgba(var(--color-primary-rgb), 0.45)' : undefined,
+                    color: active ? 'var(--color-primary)' : 'var(--text-secondary)',
+                    transform: active ? 'scale(1.02)' : undefined,
+                    transition:
+                      'background 240ms var(--ease-spring), border-color 240ms var(--ease-spring), color 200ms ease-out, transform 240ms var(--ease-spring)',
+                  }}
+                >
+                  <span
+                    className={`font-medium ${
+                      size.id === 'small'
+                        ? 'text-sm'
+                        : size.id === 'medium'
+                          ? 'text-base'
+                          : 'text-lg'
+                    }`}
+                  >
+                    Aa
+                  </span>
+                  <span className="text-xs">{size.name}</span>
+                  {active && (
+                    <span
+                      className="absolute top-2 right-2"
+                      style={{ color: 'var(--color-primary)' }}
+                    >
+                      <Check className="w-4 h-4" />
+                    </span>
+                  )}
+                </button>
+              );
+            })}
           </div>
-          
-          <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
-            {fontSizes.map((size) => (
-              <button
-                key={size.id}
-                onClick={() => setFontSize(size.id)}
-                className={`p-4 rounded-lg border-2 transition-all ${
-                  fontSize === size.id
-                    ? 'border-blue-500 bg-blue-50'
-                    : 'border-gray-200 hover:border-gray-300 bg-white'
-                }`}
-              >
-                <span className={`block text-sm font-medium text-center ${
-                  size.id === 'small' ? 'text-sm' : size.id === 'medium' ? 'text-base' : 'text-lg'
-                }`}>
-                  {size.name}
-                </span>
-                {fontSize === size.id && (
-                  <Check className="w-4 h-4 mx-auto mt-2 text-blue-500" />
-                )}
-              </button>
-            ))}
-          </div>
-        </div>
+        </section>
 
         {/* Анимации */}
-        <div className="glass-card p-4 sm:p-6 rounded-lg">
-          <div className="flex items-center gap-2 sm:gap-3 mb-3 sm:mb-4">
-            <Zap className="text-yellow-500 flex-shrink-0 w-5 h-5 sm:w-6 sm:h-6" />
-            <h3 className="text-base sm:text-lg font-semibold text-gray-800">Анимации</h3>
-          </div>
-          
-          <div className="flex items-center justify-between">
+        <section className="glass-deep p-4 sm:p-6">
+          <header className="flex items-center gap-2 sm:gap-3 mb-4">
+            <span
+              className="flex w-9 h-9 items-center justify-center rounded-[10px]"
+              style={{ background: 'rgba(var(--color-primary-rgb), 0.15)', color: 'var(--color-primary)' }}
+            >
+              <Zap className="w-5 h-5" />
+            </span>
             <div>
-              <p className="font-medium text-gray-700 text-sm sm:text-base">Включить анимации</p>
-              <p className="text-xs sm:text-sm text-gray-500">Плавные переходы и эффекты</p>
+              <h3 className="text-base sm:text-lg font-semibold text-app">Анимации</h3>
+              <p className="text-xs sm:text-sm text-app-muted">Плавные переходы и эффекты по всему UI</p>
             </div>
-            <label className="relative inline-flex items-center cursor-pointer flex-shrink-0">
-              <input
-                type="checkbox"
-                checked={animationsEnabled}
-                onChange={(e) => setAnimationsEnabled(e.target.checked)}
-                className="sr-only peer"
-              />
-              <div className="w-11 h-6 bg-gray-200 peer-focus:outline-none peer-focus:ring-4 peer-focus:ring-yellow-300 rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-yellow-500"></div>
-            </label>
+          </header>
+
+          <div className="flex items-center justify-between gap-4">
+            <div>
+              <p className="font-medium text-app text-sm sm:text-base">Включить анимации</p>
+              <p className="text-xs sm:text-sm text-app-muted">
+                Отключите для снижения нагрузки на слабых устройствах
+              </p>
+            </div>
+            <GlassToggle checked={animationsEnabled} onChange={setAnimationsEnabled} />
           </div>
-        </div>
+        </section>
       </div>
     </div>
   );

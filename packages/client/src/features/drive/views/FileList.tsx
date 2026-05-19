@@ -141,6 +141,12 @@ export const FileList: React.FC<FileListProps> = ({
 
   const gridClassName = viewMode === 'list' ? 'space-y-2' : 'grid grid-cols-4 gap-4';
 
+  const CheckIcon = (
+    <svg viewBox="0 0 16 16" aria-hidden="true">
+      <path d="M3.5 8.2 L6.7 11.4 L12.5 4.8" />
+    </svg>
+  );
+
   // Сортируем файлы: сначала папки, потом файлы
   const sortedFiles = [...files].sort((a, b) => {
     if (a.type === 'directory' && b.type !== 'directory') return -1;
@@ -153,62 +159,64 @@ export const FileList: React.FC<FileListProps> = ({
       {sortedFiles.map((file) => (
         <div
           key={file.id}
-          className={`glass-card p-4 rounded-lg cursor-pointer transition-all duration-300 hover:bg-white/60 relative group ${
-            viewMode === 'list' 
-              ? (file.isSelected ? 'translate-x-1' : 'hover:translate-x-1')
-              : (file.isSelected ? 'scale-105' : 'hover:scale-105')
-          } ${
-            file.isSelected 
-              ? 'bg-gradient-to-br from-blue-100/80 to-purple-100/80 border-blue-300/50 shadow-lg shadow-blue-500/10' 
-              : ''
+          className={`glass-mid relative group cursor-pointer ${
+            viewMode === 'list' ? 'px-4 py-3 pl-12' : 'p-4'
           }`}
+          style={{
+            transform: file.isSelected
+              ? viewMode === 'list'
+                ? 'translateX(2px)'
+                : 'scale(1.02)'
+              : undefined,
+            background: file.isSelected
+              ? 'rgba(var(--color-primary-rgb), 0.12)'
+              : undefined,
+            borderColor: file.isSelected ? 'rgba(var(--color-primary-rgb), 0.45)' : undefined,
+            transition:
+              'transform 220ms cubic-bezier(0.16, 1, 0.3, 1), background 220ms ease-out, border-color 220ms ease-out, box-shadow 220ms ease-out',
+          }}
           onClick={() => handleFileClick(file)}
         >
           {viewMode === 'list' && (
             <div
-              className={`absolute left-0 top-0 bottom-0 w-12 flex items-center justify-center cursor-pointer z-10 transition-opacity duration-200 ${
-                file.isSelected ? 'opacity-100' : 'opacity-0 group-hover:opacity-100'
-              }`}
+              className="absolute left-0 top-0 bottom-0 w-12 flex items-center justify-center cursor-pointer z-10"
+              style={{
+                opacity: file.isSelected ? 1 : undefined,
+                transition: 'opacity 200ms ease-out',
+              }}
               onClick={(e) => handleCheckboxClick(e, file.name)}
             >
-              <div className={`relative w-6 h-6 rounded-lg border-2 flex items-center justify-center transition-all duration-200 ${
-                file.isSelected 
-                  ? 'bg-gradient-to-br from-blue-500 to-purple-500 border-transparent' 
-                  : 'border-gray-300 bg-white hover:border-blue-400'
-              }`}>
-                {file.isSelected && (
-                  <svg className="w-4 h-4 text-white" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={3} d="M5 13l4 4L19 7" />
-                  </svg>
-                )}
-              </div>
+              <span
+                className={`ui-checkbox ${file.isSelected ? '' : 'opacity-0 group-hover:opacity-100'}`}
+                data-checked={file.isSelected ? 'true' : 'false'}
+                style={{ transition: 'opacity 200ms ease-out' }}
+              >
+                <span className="ui-checkbox__box">{CheckIcon}</span>
+              </span>
             </div>
           )}
           {viewMode !== 'list' && (
             <div
-              className={`absolute left-0 top-0 cursor-pointer z-10 transition-opacity duration-200 ${
-                file.isSelected ? 'opacity-100' : 'opacity-0 group-hover:opacity-100'
-              }`}
+              className="absolute left-2 top-2 cursor-pointer z-10"
               onClick={(e) => handleCheckboxClick(e, file.name)}
             >
-              <div className={`relative w-4 h-4 rounded-md border-2 flex items-center justify-center transition-all duration-200 ${
-                file.isSelected 
-                  ? 'bg-gradient-to-br from-blue-500 to-purple-500 border-transparent' 
-                  : 'border-gray-300 bg-white hover:border-blue-400'
-              }`}>
-                {file.isSelected && (
-                  <svg className="w-3 h-3 text-white" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={3} d="M5 13l4 4L19 7" />
-                  </svg>
-                )}
-              </div>
+              <span
+                className={`ui-checkbox ui-checkbox--sm ${file.isSelected ? '' : 'opacity-0 group-hover:opacity-100'}`}
+                data-checked={file.isSelected ? 'true' : 'false'}
+                style={{ transition: 'opacity 200ms ease-out' }}
+              >
+                <span className="ui-checkbox__box">{CheckIcon}</span>
+              </span>
             </div>
           )}
-          <div className={`flex items-center gap-1 ${viewMode === 'list' ? 'pl-4' : ''}`}>
-            <span className="text-2xl filter drop-shadow-sm transition-transform duration-300 group-hover:scale-110">
+          <div className={`flex items-center gap-2 ${viewMode === 'list' ? '' : 'mt-1'}`}>
+            <span
+              className="text-2xl filter drop-shadow-sm"
+              style={{ transition: 'transform 220ms cubic-bezier(0.16,1,0.3,1)' }}
+            >
               {file.type === 'directory' ? '📁' : getFileIcon(file.name)}
             </span>
-            <span className="text-sm font-medium text-gray-700 truncate flex-1 transition-colors duration-200 group-hover:text-gray-900">
+            <span className="text-sm font-medium text-app truncate flex-1">
               {file.name.replace(/\/$/, '')}
             </span>
           </div>

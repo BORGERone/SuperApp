@@ -425,21 +425,19 @@ export const ComposeModal: React.FC<ComposeModalProps> = ({ onClose, replyTo }) 
   }, [onClose]);
 
   return (
-    <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50">
+    <div className="fixed inset-0 bg-black/30 backdrop-blur-sm flex items-center justify-center z-50 fade-in">
       <div
-        className="glass-card rounded-xl w-full max-w-4xl max-h-[95vh] m-4 flex flex-col"
+        className="glass-top scale-in w-full max-w-4xl max-h-[95vh] m-4 flex flex-col"
         onKeyDown={handleKeyDown}
       >
         {/* Header */}
-        <div className="flex items-center justify-between p-6 border-b border-gray-200/50">
-          <h2 className="text-xl font-semibold text-gray-800">
+        <div className="flex items-center justify-between p-6 relative">
+          <div className="divider absolute bottom-0 left-0 right-0" />
+          <h2 className="text-xl font-semibold text-app">
             {replyTo ? 'Ответ на письмо' : 'Новое письмо'}
           </h2>
-          <button
-            onClick={onClose}
-            className="p-2 rounded-lg hover:bg-white/60 transition-colors"
-          >
-            <X size={20} className="text-gray-600" />
+          <button onClick={onClose} className="btn-icon">
+            <X size={20} />
           </button>
         </div>
 
@@ -564,52 +562,58 @@ export const ComposeModal: React.FC<ComposeModalProps> = ({ onClose, replyTo }) 
 
         {/* Subject */}
         <div className="px-6 flex-shrink-0">
-          <label className="block text-sm font-medium text-gray-700 mb-2">Тема:</label>
+          <label className="block text-sm font-medium text-app-secondary mb-2">Тема:</label>
           <input
             type="text"
             value={email.subject}
             onChange={(e) => setEmail(prev => ({ ...prev, subject: e.target.value }))}
             placeholder="Введите тему письма..."
-            className="w-full px-3 py-2 border border-gray-200/50 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-400 bg-white/80"
+            className="glass-input w-full px-3 py-2"
           />
         </div>
 
         {/* Body */}
-        <div className="flex-1 p-6 pt-0 flex flex-col min-h-0">
-          <label className="block text-sm font-medium text-gray-700 mb-2">Текст письма:</label>
+        <div className="flex-1 p-6 pt-3 flex flex-col min-h-0">
+          <label className="block text-sm font-medium text-app-secondary mb-2">Текст письма:</label>
           <textarea
             value={email.body}
             onChange={(e) => setEmail(prev => ({ ...prev, body: e.target.value }))}
             placeholder="Введите текст письма..."
-            className="flex-1 w-full min-h-[150px] px-3 py-2 border border-gray-200/50 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-400 bg-white/80 resize-none"
+            className="glass-input flex-1 w-full min-h-[150px] px-3 py-2 resize-none"
           />
         </div>
 
         {/* Attachments */}
         {pendingAttachments.length > 0 && (
           <div className="px-6 pb-4 flex-shrink-0">
-            <div className="text-sm font-medium text-gray-700 mb-2">Вложения:</div>
+            <div className="text-sm font-medium text-app-secondary mb-2">Вложения:</div>
             <div className="space-y-2">
               {pendingAttachments.map((attachment) => (
                 <div
                   key={`attachment-${attachment.id}`}
-                  className="flex items-center justify-between p-3 bg-gray-50/60 rounded-lg"
+                  className="glass-top flex items-center justify-between p-3"
                 >
                   <div className="flex items-center gap-3">
-                    <Paperclip size={16} className="text-gray-400" />
-                    <span className="text-sm text-gray-700">{attachment.file.name}</span>
-                    <span className="text-xs text-gray-500">
+                    <Paperclip size={16} className="text-app-muted" />
+                    <span className="text-sm text-app">{attachment.file.name}</span>
+                    <span className="text-xs text-app-muted">
                       {(attachment.file.size / 1024).toFixed(1)} KB
                     </span>
                     {attachment.storageType === 'drive' && (
-                      <span className="text-xs text-blue-600 bg-blue-100/60 px-2 py-1 rounded-full">
+                      <span
+                        className="text-xs px-2 py-0.5 rounded-full"
+                        style={{
+                          background: 'rgba(var(--color-primary-rgb), 0.15)',
+                          color: 'var(--color-primary)',
+                        }}
+                      >
                         Диск
                       </span>
                     )}
                   </div>
                   <button
                     onClick={() => handleRemoveAttachment(attachment.id)}
-                    className="text-red-600 hover:text-red-800"
+                    className="text-red-500 hover:text-red-600"
                   >
                     ×
                   </button>
@@ -620,9 +624,10 @@ export const ComposeModal: React.FC<ComposeModalProps> = ({ onClose, replyTo }) 
         )}
 
         {/* Footer */}
-        <div className="flex items-center justify-between p-6 border-t border-gray-200/50 flex-shrink-0">
+        <div className="flex items-center justify-between p-6 flex-shrink-0 relative">
+          <div className="divider absolute top-0 left-0 right-0" />
           <div className="flex items-center gap-3">
-            <label className="flex items-center gap-2 cursor-pointer text-sm text-gray-600 hover:text-gray-800">
+            <label className="btn-glass-secondary flex items-center gap-2 cursor-pointer px-3 py-1.5 text-sm">
               <input
                 type="file"
                 multiple
@@ -630,30 +635,27 @@ export const ComposeModal: React.FC<ComposeModalProps> = ({ onClose, replyTo }) 
                 disabled={isUploading}
                 className="hidden"
               />
-              <Paperclip size={18} />
-              {isUploading ? 'Загрузка...' : 'Прикрепить файлы'}
+              <Paperclip size={16} />
+              {isUploading ? 'Загрузка...' : 'Прикрепить'}
             </label>
             <button
               onClick={() => setShowDriveSelector(true)}
               disabled={isUploading}
-              className="flex items-center gap-2 text-sm text-gray-600 hover:text-gray-800 disabled:text-gray-400 disabled:cursor-not-allowed"
+              className="btn-glass-secondary flex items-center gap-2 px-3 py-1.5 text-sm disabled:opacity-50 disabled:cursor-not-allowed"
             >
-              <HardDrive size={18} />
+              <HardDrive size={16} />
               С диска
             </button>
           </div>
 
           <div className="flex items-center gap-3">
-            <button
-              onClick={onClose}
-              className="px-4 py-2 border border-gray-200/50 rounded-lg hover:bg-white/60 transition-colors"
-            >
+            <button onClick={onClose} className="btn-glass-secondary px-4 py-2">
               Отмена
             </button>
             <button
               onClick={handleSend}
               disabled={sendEmailMutation.isPending}
-              className="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors flex items-center gap-2 disabled:opacity-50 disabled:cursor-not-allowed"
+              className="btn-glass flex items-center gap-2 px-4 py-2 disabled:opacity-50 disabled:cursor-not-allowed"
             >
               <Send size={16} />
               {sendEmailMutation.isPending ? 'Отправка...' : 'Отправить'}

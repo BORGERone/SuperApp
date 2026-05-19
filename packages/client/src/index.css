@@ -4,201 +4,383 @@
 @tailwind components;
 @tailwind utilities;
 
+/* =====================================================================
+   Apple-style Liquid Glass Design System
+   ---------------------------------------------------------------------
+   Уровни глубины (наслоение стёкол):
+     glass-deep  — самый дальний слой (контейнеры верхнего уровня)
+     glass-mid   — средний слой (карточки, тулбары)
+     glass-top   — ближний слой (модалки, поповеры, попапы)
+   Все слои поддерживают gradient hairline border через ::before mask.
+   ===================================================================== */
+
+:root {
+  /* Бренд / цветовая схема (значения проставляются из ThemeProvider) */
+  --color-primary: #3b82f6;
+  --color-secondary: #60a5fa;
+  --color-accent: #93c5fd;
+  --gradient-from: #3b82f6;
+  --gradient-to: #8b5cf6;
+  --color-primary-rgb: 59 130 246;
+  --color-primary-alpha: rgba(59, 130, 246, 0.1);
+  --color-primary-alpha-15: rgba(59, 130, 246, 0.15);
+
+  /* Скругления (более квадратный язык дизайна) */
+  --radius-xs: 6px;
+  --radius-sm: 8px;
+  --radius-md: 10px;
+  --radius-lg: 12px;
+  --radius-xl: 14px;
+  --radius-2xl: 18px;
+
+  /* Easing */
+  --ease-spring: cubic-bezier(0.16, 1, 0.3, 1);
+  --ease-out: cubic-bezier(0.22, 1, 0.36, 1);
+  --ease-standard: cubic-bezier(0.4, 0, 0.2, 1);
+  --transition-duration: 200ms;
+
+  /* Фоновые слои (управляются JS) */
+  --bg-gradient-opacity: 0.7;
+  --bg-image: none;
+  --bg-image-opacity: 1;
+
+  /* Стекло — белый стек (light) */
+  --glass-bg-deep: 235 240 250;
+  --glass-bg-mid: 255 255 255;
+  --glass-bg-top: 255 255 255;
+  --glass-tint-deep: 0.36;
+  --glass-tint-mid: 0.58;
+  --glass-tint-top: 0.72;
+
+  --glass-border: rgba(255, 255, 255, 0.55);
+  --glass-border-soft: rgba(255, 255, 255, 0.35);
+  --glass-highlight: rgba(255, 255, 255, 0.85);
+  --glass-shadow-color: rgba(15, 23, 42, 0.08);
+  --glass-shadow-color-strong: rgba(15, 23, 42, 0.12);
+
+  /* Текст */
+  --text-primary: #1a1a2e;
+  --text-secondary: #4b5563;
+  --text-tertiary: #6b7280;
+  --text-muted: #9ca3af;
+
+  /* Surfaces (плоские поверхности для контролов) */
+  --surface-1: rgba(255, 255, 255, 0.72);
+  --surface-2: rgba(255, 255, 255, 0.55);
+  --surface-3: rgba(255, 255, 255, 0.38);
+  --surface-hover: rgba(255, 255, 255, 0.85);
+  --surface-active: rgba(255, 255, 255, 0.95);
+
+  /* Чекбокс */
+  --checkbox-bg: rgba(148, 163, 184, 0.18);
+  --checkbox-border: rgba(100, 116, 139, 0.45);
+  --checkbox-checked-bg: rgba(71, 85, 105, 0.95);
+  --checkbox-checked-border: rgba(71, 85, 105, 0.95);
+  --checkbox-check: #ffffff;
+
+  /* Ring (focus) */
+  --ring: rgba(59, 130, 246, 0.35);
+}
+
+.dark {
+  --glass-bg-deep: 22 24 38;
+  --glass-bg-mid: 28 30 46;
+  --glass-bg-top: 36 38 54;
+  --glass-tint-deep: 0.5;
+  --glass-tint-mid: 0.62;
+  --glass-tint-top: 0.78;
+
+  --glass-border: rgba(255, 255, 255, 0.12);
+  --glass-border-soft: rgba(255, 255, 255, 0.06);
+  --glass-highlight: rgba(255, 255, 255, 0.18);
+  --glass-shadow-color: rgba(0, 0, 0, 0.4);
+  --glass-shadow-color-strong: rgba(0, 0, 0, 0.55);
+
+  --text-primary: #f3f4f6;
+  --text-secondary: #d1d5db;
+  --text-tertiary: #9ca3af;
+  --text-muted: #6b7280;
+
+  --surface-1: rgba(255, 255, 255, 0.08);
+  --surface-2: rgba(255, 255, 255, 0.05);
+  --surface-3: rgba(255, 255, 255, 0.03);
+  --surface-hover: rgba(255, 255, 255, 0.12);
+  --surface-active: rgba(255, 255, 255, 0.18);
+
+  --checkbox-bg: rgba(148, 163, 184, 0.12);
+  --checkbox-border: rgba(148, 163, 184, 0.45);
+  --checkbox-checked-bg: rgba(229, 231, 235, 0.95);
+  --checkbox-checked-border: rgba(229, 231, 235, 0.95);
+  --checkbox-check: #1a1a2e;
+}
+
 * {
   margin: 0;
   padding: 0;
   box-sizing: border-box;
 }
 
+html, body {
+  height: 100%;
+}
+
 body {
   margin: 0;
   font-family: 'Inter', 'Segoe UI Semibold', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Oxygen, Ubuntu, Cantarell, sans-serif;
-  background: #ffffff;
-  background-attachment: fixed;
   min-height: 100vh;
-  color: #1a1a2e;
+  color: var(--text-primary);
   line-height: 1.6;
   position: relative;
   overflow-x: hidden;
+  background: transparent;
   -webkit-font-smoothing: antialiased;
   -moz-osx-font-smoothing: grayscale;
 }
 
-body::before {
-  content: '';
+/* =====================================================================
+   Фоновые слои (наслоение): база + градиент + опциональная картинка.
+   Все слои живут на html/body через separate pseudo-элементы или
+   контейнер `app-bg`, который монтируется в Layout.
+   ===================================================================== */
+
+.app-bg {
   position: fixed;
-  top: 0;
-  left: 0;
-  right: 0;
-  bottom: 0;
-  background:
-    radial-gradient(at 0% 0%, #d3e0fb 0%, transparent 50%),
-    radial-gradient(at 100% 0%, #e8f0ff 0%, transparent 50%),
-    radial-gradient(at 0% 100%, #f0f4ff 0%, transparent 50%),
-    radial-gradient(at 100% 100%, #e0e8ff 0%, transparent 50%),
-    radial-gradient(at 50% 50%, #f5f8ff 0%, transparent 60%),
-    radial-gradient(at 25% 25%, #dce8ff 0%, transparent 45%),
-    radial-gradient(at 75% 25%, #e4ecff 0%, transparent 45%),
-    radial-gradient(at 25% 75%, #e8f2ff 0%, transparent 45%),
-    radial-gradient(at 75% 75%, #dfe8ff 0%, transparent 45%);
-  animation: gradientPulse 8s ease-in-out infinite;
-  z-index: -1;
-  transition: opacity 0.3s ease;
+  inset: 0;
+  z-index: -3;
+  pointer-events: none;
+  overflow: hidden;
 }
 
-/* Темная тема */
-.dark body::before {
+.app-bg__base {
+  position: absolute;
+  inset: 0;
+  background: #f7f8fc;
+  transition: background 600ms var(--ease-standard);
+}
+
+.dark .app-bg__base {
+  background: #0f1020;
+}
+
+.app-bg__gradient {
+  position: absolute;
+  inset: 0;
   background:
-    radial-gradient(at 0% 0%, #1a1a2e 0%, transparent 50%),
-    radial-gradient(at 100% 0%, #16213e 0%, transparent 50%),
-    radial-gradient(at 0% 100%, #1f1f3a 0%, transparent 50%),
-    radial-gradient(at 100% 100%, #1a1a2e 0%, transparent 50%),
-    radial-gradient(at 50% 50%, #16162a 0%, transparent 60%),
-    radial-gradient(at 25% 25%, #1a1a2e 0%, transparent 45%),
-    radial-gradient(at 75% 25%, #16213e 0%, transparent 45%),
-    radial-gradient(at 25% 75%, #1f1f3a 0%, transparent 45%),
-    radial-gradient(at 75% 75%, #1a1a2e 0%, transparent 45%);
+    radial-gradient(at 0% 0%, rgba(var(--color-primary-rgb), 0.22) 0%, transparent 50%),
+    radial-gradient(at 100% 0%, rgba(var(--color-primary-rgb), 0.10) 0%, transparent 55%),
+    radial-gradient(at 0% 100%, rgba(var(--color-primary-rgb), 0.12) 0%, transparent 55%),
+    radial-gradient(at 100% 100%, rgba(var(--color-primary-rgb), 0.18) 0%, transparent 55%),
+    radial-gradient(at 50% 50%, rgba(var(--color-primary-rgb), 0.06) 0%, transparent 65%);
+  opacity: var(--bg-gradient-opacity, 0.7);
+  animation: gradientPulse 14s ease-in-out infinite;
+  transition: opacity 600ms var(--ease-standard);
+}
+
+.dark .app-bg__gradient {
+  background:
+    radial-gradient(at 0% 0%, rgba(var(--color-primary-rgb), 0.35) 0%, transparent 55%),
+    radial-gradient(at 100% 0%, rgba(120, 90, 220, 0.22) 0%, transparent 55%),
+    radial-gradient(at 0% 100%, rgba(60, 120, 200, 0.22) 0%, transparent 55%),
+    radial-gradient(at 100% 100%, rgba(var(--color-primary-rgb), 0.25) 0%, transparent 55%),
+    radial-gradient(at 50% 50%, rgba(20, 30, 60, 0.5) 0%, transparent 60%);
+}
+
+.app-bg__image {
+  position: absolute;
+  inset: 0;
+  background-image: var(--bg-image, none);
+  background-size: cover;
+  background-position: center;
+  background-repeat: no-repeat;
+  opacity: var(--bg-image-opacity, 1);
+  transition: opacity 600ms var(--ease-standard);
+}
+
+.app-bg__veil {
+  position: absolute;
+  inset: 0;
+  background:
+    linear-gradient(180deg, rgba(255, 255, 255, 0.0) 0%, rgba(255, 255, 255, 0.0) 100%);
+  pointer-events: none;
 }
 
 @keyframes gradientPulse {
   0%, 100% {
-    opacity: 0.6;
     transform: scale(1);
   }
   50% {
-    opacity: 0.9;
-    transform: scale(1.05);
+    transform: scale(1.04);
   }
 }
 
-/* Glassmorphism utility classes - Apple Liquid Glass style */
-.glass {
-  background: linear-gradient(135deg, 
-    rgba(255, 255, 255, 0.7) 0%, 
-    rgba(255, 255, 255, 0.4) 50%,
-    rgba(255, 255, 255, 0.6) 100%);
+/* =====================================================================
+   Базовые классы стекла (legacy совместимость + новая система слоёв)
+   ===================================================================== */
+
+.glass,
+.glass-card {
+  position: relative;
+  background: linear-gradient(135deg,
+      rgba(var(--glass-bg-mid), calc(var(--glass-tint-mid) + 0.08)) 0%,
+      rgba(var(--glass-bg-mid), var(--glass-tint-mid)) 50%,
+      rgba(var(--glass-bg-mid), calc(var(--glass-tint-mid) + 0.06)) 100%);
+  backdrop-filter: blur(22px) saturate(180%);
+  -webkit-backdrop-filter: blur(22px) saturate(180%);
+  border: 1px solid var(--glass-border);
+  border-radius: var(--radius-lg);
+  box-shadow:
+    inset 0 1px 0 var(--glass-highlight),
+    0 1px 2px var(--glass-shadow-color),
+    0 8px 24px -8px var(--glass-shadow-color-strong);
+  transition:
+    background 200ms var(--ease-standard),
+    box-shadow 200ms var(--ease-standard),
+    border-color 200ms var(--ease-standard),
+    transform 200ms var(--ease-standard);
+}
+
+/* Слои наслоения */
+.glass-deep {
+  position: relative;
+  background:
+    linear-gradient(135deg,
+      rgba(var(--glass-bg-deep), calc(var(--glass-tint-deep) + 0.06)) 0%,
+      rgba(var(--glass-bg-deep), var(--glass-tint-deep)) 100%);
+  backdrop-filter: blur(28px) saturate(170%);
+  -webkit-backdrop-filter: blur(28px) saturate(170%);
+  border: 1px solid var(--glass-border-soft);
+  border-radius: var(--radius-xl);
+  box-shadow:
+    inset 0 1px 0 var(--glass-highlight),
+    0 1px 2px var(--glass-shadow-color),
+    0 12px 32px -10px var(--glass-shadow-color-strong);
+}
+
+.glass-mid {
+  position: relative;
+  background:
+    linear-gradient(135deg,
+      rgba(var(--glass-bg-mid), calc(var(--glass-tint-mid) + 0.06)) 0%,
+      rgba(var(--glass-bg-mid), var(--glass-tint-mid)) 100%);
   backdrop-filter: blur(20px) saturate(180%);
   -webkit-backdrop-filter: blur(20px) saturate(180%);
-  border: 1px solid rgba(255, 255, 255, 0.6);
-  outline: 1px solid rgba(255, 255, 255, 0.3);
+  border: 1px solid var(--glass-border);
+  border-radius: var(--radius-lg);
   box-shadow:
-    0 1px 0px rgba(255, 255, 255, 0.9) inset,
-    0 4px 6px -1px rgba(0, 0, 0, 0.05),
-    0 2px 4px -1px rgba(0, 0, 0, 0.03),
-    0 0 0 1px rgba(255, 255, 255, 0.05);
-  transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+    inset 0 1px 0 var(--glass-highlight),
+    0 1px 2px var(--glass-shadow-color),
+    0 6px 20px -8px var(--glass-shadow-color-strong);
 }
 
-.dark .glass {
-  background: linear-gradient(135deg, 
-    rgba(30, 30, 46, 0.7) 0%, 
-    rgba(30, 30, 46, 0.4) 50%,
-    rgba(30, 30, 46, 0.6) 100%);
-  border: 1px solid rgba(255, 255, 255, 0.1);
-  outline: 1px solid rgba(255, 255, 255, 0.05);
+.glass-top {
+  position: relative;
+  background:
+    linear-gradient(135deg,
+      rgba(var(--glass-bg-top), calc(var(--glass-tint-top) + 0.04)) 0%,
+      rgba(var(--glass-bg-top), var(--glass-tint-top)) 100%);
+  backdrop-filter: blur(16px) saturate(200%);
+  -webkit-backdrop-filter: blur(16px) saturate(200%);
+  border: 1px solid var(--glass-border);
+  border-radius: var(--radius-md);
   box-shadow:
-    0 1px 0px rgba(255, 255, 255, 0.1) inset,
-    0 4px 6px -1px rgba(0, 0, 0, 0.3),
-    0 2px 4px -1px rgba(0, 0, 0, 0.2),
-    0 0 0 1px rgba(255, 255, 255, 0.05);
+    inset 0 1px 0 var(--glass-highlight),
+    0 2px 4px var(--glass-shadow-color),
+    0 10px 30px -8px var(--glass-shadow-color-strong);
 }
 
-.glass-card {
-  background: linear-gradient(135deg, 
-    rgba(255, 255, 255, 0.85) 0%, 
-    rgba(255, 255, 255, 0.55) 50%,
-    rgba(255, 255, 255, 0.75) 100%);
-  backdrop-filter: blur(16px) saturate(180%);
-  -webkit-backdrop-filter: blur(16px) saturate(180%);
-  border: 1px solid rgba(255, 255, 255, 0.7);
-  outline: 1px solid rgba(255, 255, 255, 0.4);
-  box-shadow:
-    0 1px 0px rgba(255, 255, 255, 0.95) inset,
-    0 4px 6px -1px rgba(0, 0, 0, 0.04),
-    0 2px 4px -1px rgba(0, 0, 0, 0.02),
-    0 0 0 1px rgba(255, 255, 255, 0.08);
-  transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+/* Градиентная hairline-обводка поверх стекла */
+.glass-deep::before,
+.glass-mid::before,
+.glass-top::before,
+.glass-border-gradient::before {
+  content: '';
+  position: absolute;
+  inset: 0;
+  border-radius: inherit;
+  padding: 1px;
+  background: linear-gradient(135deg,
+      rgba(255, 255, 255, 0.7) 0%,
+      rgba(var(--color-primary-rgb), 0.35) 50%,
+      rgba(255, 255, 255, 0.5) 100%);
+  -webkit-mask: linear-gradient(#000 0 0) content-box, linear-gradient(#000 0 0);
+  -webkit-mask-composite: xor;
+          mask-composite: exclude;
+  pointer-events: none;
+  opacity: 0.65;
 }
 
-.dark .glass-card {
-  background: linear-gradient(135deg, 
-    rgba(30, 30, 46, 0.85) 0%, 
-    rgba(30, 30, 46, 0.55) 50%,
-    rgba(30, 30, 46, 0.75) 100%);
-  border: 1px solid rgba(255, 255, 255, 0.1);
-  outline: 1px solid rgba(255, 255, 255, 0.05);
-  box-shadow:
-    0 1px 0px rgba(255, 255, 255, 0.1) inset,
-    0 4px 6px -1px rgba(0, 0, 0, 0.3),
-    0 2px 4px -1px rgba(0, 0, 0, 0.2),
-    0 0 0 1px rgba(255, 255, 255, 0.05);
+.dark .glass-deep::before,
+.dark .glass-mid::before,
+.dark .glass-top::before,
+.dark .glass-border-gradient::before {
+  background: linear-gradient(135deg,
+      rgba(255, 255, 255, 0.18) 0%,
+      rgba(var(--color-primary-rgb), 0.45) 50%,
+      rgba(255, 255, 255, 0.08) 100%);
+  opacity: 0.7;
 }
 
-.glass-card:hover {
-  background: linear-gradient(135deg, 
-    rgba(255, 255, 255, 0.9) 0%, 
-    rgba(255, 255, 255, 0.6) 50%,
-    rgba(255, 255, 255, 0.8) 100%);
+.glass-card:hover,
+.glass-mid:hover {
   box-shadow:
-    0 1px 0px rgba(255, 255, 255, 0.95) inset,
-    0 8px 12px -2px rgba(0, 0, 0, 0.06),
-    0 4px 6px -2px rgba(0, 0, 0, 0.03),
-    0 0 0 1px rgba(255, 255, 255, 0.1);
+    inset 0 1px 0 var(--glass-highlight),
+    0 2px 4px var(--glass-shadow-color),
+    0 10px 28px -8px var(--glass-shadow-color-strong);
 }
 
-.dark .glass-card:hover {
-  background: linear-gradient(135deg, 
-    rgba(40, 40, 56, 0.9) 0%, 
-    rgba(40, 40, 56, 0.6) 50%,
-    rgba(40, 40, 56, 0.8) 100%);
-}
+/* =====================================================================
+   Поля ввода
+   ===================================================================== */
 
 .glass-input {
-  background: rgba(255, 255, 255, 0.7);
-  border: 1px solid var(--color-primary, rgba(102, 126, 234, 0.15));
-  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.02);
-  transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
-  backdrop-filter: blur(8px) saturate(120%);
-  -webkit-backdrop-filter: blur(8px) saturate(120%);
+  background: var(--surface-1);
+  border: 1px solid var(--glass-border-soft);
+  border-radius: var(--radius-md);
+  color: var(--text-primary);
+  backdrop-filter: blur(10px) saturate(140%);
+  -webkit-backdrop-filter: blur(10px) saturate(140%);
+  transition: all 180ms var(--ease-standard);
 }
 
-.dark .glass-input {
-  background: rgba(30, 30, 46, 0.7);
-  border: 1px solid var(--color-primary, rgba(102, 126, 234, 0.3));
+.glass-input::placeholder {
+  color: var(--text-muted);
+}
+
+.glass-input:hover {
+  background: var(--surface-hover);
+  border-color: rgba(var(--color-primary-rgb), 0.25);
 }
 
 .glass-input:focus {
   outline: none;
-  border-color: var(--color-primary, rgba(102, 126, 234, 0.4));
-  background: rgba(255, 255, 255, 0.9);
-  box-shadow: 0 0 0 4px var(--color-primary-alpha, rgba(102, 126, 234, 0.1)), 0 4px 12px var(--color-primary-alpha, rgba(102, 126, 234, 0.08));
-  transform: translateY(-1px);
+  background: var(--surface-active);
+  border-color: rgba(var(--color-primary-rgb), 0.55);
+  box-shadow: 0 0 0 4px var(--color-primary-alpha-15);
 }
 
-.dark .glass-input:focus {
-  background: rgba(40, 40, 56, 0.9);
-}
+/* =====================================================================
+   Кнопки
+   ===================================================================== */
 
-/* Enhanced button styles with Liquid Glass effect */
 .btn-glass {
-  background: linear-gradient(135deg, var(--gradient-from, #667eea) 0%, var(--gradient-to, #764ba2) 100%);
+  background: linear-gradient(135deg, var(--gradient-from) 0%, var(--gradient-to) 100%);
   color: white;
-  border: 1px solid rgba(255, 255, 255, 0.3);
-  box-shadow: 
-    0 4px 15px var(--color-primary-alpha, rgba(102, 126, 234, 0.25)),
-    0 2px 6px var(--color-primary-alpha, rgba(102, 126, 234, 0.15)),
-    inset 0 1px 0 rgba(255, 255, 255, 0.2);
-  transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
-  backdrop-filter: blur(8px);
-  -webkit-backdrop-filter: blur(8px);
+  border: 1px solid rgba(255, 255, 255, 0.25);
+  border-radius: var(--radius-md);
+  box-shadow:
+    0 1px 0 rgba(255, 255, 255, 0.25) inset,
+    0 6px 16px -4px rgba(var(--color-primary-rgb), 0.45),
+    0 2px 4px rgba(0, 0, 0, 0.08);
+  transition: transform 160ms var(--ease-spring), box-shadow 200ms var(--ease-standard), background 200ms var(--ease-standard);
+  font-weight: 500;
 }
 
 .btn-glass:hover {
-  transform: translateY(-2px);
-  box-shadow: 
-    0 8px 25px var(--color-primary-alpha, rgba(102, 126, 234, 0.35)),
-    0 4px 10px var(--color-primary-alpha, rgba(102, 126, 234, 0.2)),
-    inset 0 1px 0 rgba(255, 255, 255, 0.3);
+  transform: translateY(-1px);
+  box-shadow:
+    0 1px 0 rgba(255, 255, 255, 0.35) inset,
+    0 10px 22px -6px rgba(var(--color-primary-rgb), 0.55),
+    0 4px 8px rgba(0, 0, 0, 0.1);
 }
 
 .btn-glass:active {
@@ -206,221 +388,305 @@ body::before {
 }
 
 .btn-glass-secondary {
-  background: linear-gradient(135deg, 
-    rgba(255, 255, 255, 0.95) 0%, 
-    rgba(255, 255, 255, 0.85) 100%);
-  color: #1a1a2e;
-  border: 1px solid rgba(255, 255, 255, 0.8);
-  backdrop-filter: blur(10px) saturate(120%);
-  -webkit-backdrop-filter: blur(10px) saturate(120%);
+  background: var(--surface-1);
+  color: var(--text-primary);
+  border: 1px solid var(--glass-border-soft);
+  border-radius: var(--radius-md);
+  backdrop-filter: blur(10px) saturate(140%);
+  -webkit-backdrop-filter: blur(10px) saturate(140%);
   box-shadow:
-    0 4px 6px rgba(0, 0, 0, 0.05),
-    0 1px 3px rgba(0, 0, 0, 0.1),
-    inset 0 1px 0 rgba(255, 255, 255, 0.9);
-  transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+    0 1px 0 var(--glass-highlight) inset,
+    0 2px 6px var(--glass-shadow-color);
+  transition: transform 160ms var(--ease-spring), box-shadow 200ms var(--ease-standard), background 200ms var(--ease-standard);
+  font-weight: 500;
 }
 
 .btn-glass-secondary:hover {
-  background: linear-gradient(135deg, 
-    rgba(255, 255, 255, 1) 0%, 
-    rgba(255, 255, 255, 0.95) 100%);
-  box-shadow:
-    0 6px 10px rgba(0, 0, 0, 0.08),
-    0 2px 4px rgba(0, 0, 0, 0.12),
-    inset 0 1px 0 rgba(255, 255, 255, 1);
+  background: var(--surface-hover);
   transform: translateY(-1px);
+  box-shadow:
+    0 1px 0 var(--glass-highlight) inset,
+    0 4px 10px var(--glass-shadow-color-strong);
+}
+
+.btn-glass-secondary:active {
+  transform: translateY(0);
 }
 
 .btn-glass-danger {
   background: linear-gradient(135deg, #ff6b6b 0%, #ee5a5a 100%);
   color: white;
-  border: 1px solid rgba(255, 255, 255, 0.3);
+  border: 1px solid rgba(255, 255, 255, 0.25);
+  border-radius: var(--radius-md);
   box-shadow:
-    0 4px 15px rgba(238, 90, 90, 0.3),
-    0 2px 6px rgba(238, 90, 90, 0.15),
-    0 0 20px rgba(238, 90, 90, 0.15),
-    inset 0 1px 0 rgba(255, 255, 255, 0.2);
-  transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
-  backdrop-filter: blur(8px);
-  -webkit-backdrop-filter: blur(8px);
+    0 1px 0 rgba(255, 255, 255, 0.25) inset,
+    0 6px 16px -4px rgba(238, 90, 90, 0.45),
+    0 2px 4px rgba(0, 0, 0, 0.08);
+  transition: transform 160ms var(--ease-spring), box-shadow 200ms var(--ease-standard);
+  font-weight: 500;
 }
 
 .btn-glass-danger:hover {
-  transform: translateY(-2px);
+  transform: translateY(-1px);
   box-shadow:
-    0 6px 20px rgba(238, 90, 90, 0.4),
-    0 3px 8px rgba(238, 90, 90, 0.2),
-    0 0 30px rgba(238, 90, 90, 0.25),
-    inset 0 1px 0 rgba(255, 255, 255, 0.3);
+    0 1px 0 rgba(255, 255, 255, 0.35) inset,
+    0 10px 22px -6px rgba(238, 90, 90, 0.55),
+    0 4px 8px rgba(0, 0, 0, 0.1);
 }
 
 .btn-glass-danger:active {
   transform: translateY(0);
 }
 
+/* Иконочные / прозрачные кнопки */
+.btn-icon {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  border-radius: var(--radius-sm);
+  padding: 0.5rem;
+  color: var(--text-secondary);
+  background: transparent;
+  transition: background 160ms var(--ease-standard), color 160ms var(--ease-standard), transform 160ms var(--ease-spring);
+  cursor: pointer;
+  border: 1px solid transparent;
+}
+
+.btn-icon:hover {
+  background: var(--surface-2);
+  color: var(--text-primary);
+}
+
+.btn-icon:active {
+  transform: scale(0.96);
+}
+
+.btn-icon.is-active {
+  background: rgba(var(--color-primary-rgb), 0.12);
+  color: var(--color-primary);
+  border-color: rgba(var(--color-primary-rgb), 0.25);
+}
+
+/* Текстовые градиенты */
 .text-gradient {
-  background: linear-gradient(135deg, var(--gradient-from, #667eea) 0%, var(--gradient-to, #764ba2) 100%);
+  background: linear-gradient(135deg, var(--gradient-from) 0%, var(--gradient-to) 100%);
   -webkit-background-clip: text;
   -webkit-text-fill-color: transparent;
   background-clip: text;
 }
 
-/* Глобальные плавные анимации */
-* {
-  transition-property: background-color, border-color, color, fill, stroke, opacity, box-shadow, transform;
-  transition-duration: var(--transition-duration, 200ms);
-  transition-timing-function: cubic-bezier(0.4, 0, 0.2, 1);
+/* =====================================================================
+   Анимации
+   ===================================================================== */
+
+@keyframes fadeIn {
+  from { opacity: 0; transform: translateY(8px); }
+  to { opacity: 1; transform: translateY(0); }
+}
+.fade-in { animation: fadeIn 260ms var(--ease-spring); }
+
+@keyframes scaleIn {
+  from { opacity: 0; transform: scale(0.96); }
+  to { opacity: 1; transform: scale(1); }
+}
+.scale-in { animation: scaleIn 260ms var(--ease-spring); }
+
+@keyframes slideIn {
+  from { opacity: 0; transform: translateX(-16px); }
+  to { opacity: 1; transform: translateX(0); }
+}
+.slide-in { animation: slideIn 280ms var(--ease-spring); }
+
+@keyframes errorSlideIn {
+  from { opacity: 0; transform: translateY(-10px); }
+  to { opacity: 1; transform: translateY(0); }
+}
+.error-message { animation: errorSlideIn 260ms var(--ease-spring); }
+
+@keyframes checkmarkDraw {
+  to {
+    stroke-dashoffset: 0;
+  }
 }
 
-/* Улучшенные анимации для интерактивных элементов */
-button, a, input, select, textarea {
-  transition-duration: var(--transition-duration, 150ms);
+/* Лёгкие глобальные переходы только для цвета/фона — не трогаем
+   transform/width, чтобы не мешать конкретным переходам компонентов. */
+button, a, input, select, textarea, label {
+  transition: background-color 160ms var(--ease-standard),
+              color 160ms var(--ease-standard),
+              border-color 160ms var(--ease-standard),
+              box-shadow 200ms var(--ease-standard);
 }
 
-/* Отключение анимаций */
 .no-animations *,
-.no-animations button,
-.no-animations a,
-.no-animations input,
-.no-animations select,
-.no-animations textarea {
+.no-animations *::before,
+.no-animations *::after {
   transition: none !important;
   animation: none !important;
 }
 
-/* Анимация появления */
-@keyframes fadeIn {
-  from {
-    opacity: 0;
-    transform: translateY(10px);
-  }
-  to {
-    opacity: 1;
-    transform: translateY(0);
-  }
+/* =====================================================================
+   Кастомный чекбокс — монохромный, круглый, с draw-анимацией галочки
+   Использование:
+     <label class="ui-checkbox">
+       <input type="checkbox" />
+       <span class="ui-checkbox__box">
+         <svg viewBox="0 0 16 16">
+           <path d="M3.5 8.2 L6.7 11.4 L12.5 4.8" />
+         </svg>
+       </span>
+     </label>
+   ===================================================================== */
+
+.ui-checkbox {
+  position: relative;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  cursor: pointer;
+  user-select: none;
 }
 
-.fade-in {
-  animation: fadeIn 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+.ui-checkbox input {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  opacity: 0;
+  pointer-events: none;
 }
 
-/* Анимация масштабирования */
-@keyframes scaleIn {
-  from {
-    opacity: 0;
-    transform: scale(0.95);
-  }
-  to {
-    opacity: 1;
-    transform: scale(1);
-  }
+.ui-checkbox__box {
+  width: 20px;
+  height: 20px;
+  border-radius: 999px;
+  background: var(--checkbox-bg);
+  border: 1.5px solid var(--checkbox-border);
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  transition:
+    background 220ms var(--ease-spring),
+    border-color 220ms var(--ease-spring),
+    transform 220ms var(--ease-spring),
+    box-shadow 220ms var(--ease-spring);
+  position: relative;
+  backdrop-filter: blur(6px);
+  -webkit-backdrop-filter: blur(6px);
 }
 
-.scale-in {
-  animation: scaleIn 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+.ui-checkbox__box svg {
+  width: 14px;
+  height: 14px;
+  pointer-events: none;
 }
 
-/* Анимация слайда */
-@keyframes slideIn {
-  from {
-    opacity: 0;
-    transform: translateX(-20px);
-  }
-  to {
-    opacity: 1;
-    transform: translateX(0);
-  }
+.ui-checkbox__box svg path {
+  fill: none;
+  stroke: var(--checkbox-check);
+  stroke-width: 2.4;
+  stroke-linecap: round;
+  stroke-linejoin: round;
+  stroke-dasharray: 22;
+  stroke-dashoffset: 22;
+  transition: stroke-dashoffset 240ms var(--ease-spring) 60ms;
 }
 
-.slide-in {
-  animation: slideIn 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+.ui-checkbox:hover .ui-checkbox__box {
+  border-color: rgba(100, 116, 139, 0.7);
+  transform: scale(1.04);
 }
 
-/* Анимация дрожания для ошибок */
-@keyframes shake {
-  0%, 100% {
-    transform: translateX(0);
-  }
-  10%, 30%, 50%, 70%, 90% {
-    transform: translateX(-5px);
-  }
-  20%, 40%, 60%, 80% {
-    transform: translateX(5px);
-  }
+.ui-checkbox input:checked + .ui-checkbox__box,
+.ui-checkbox[data-checked='true'] .ui-checkbox__box {
+  background: var(--checkbox-checked-bg);
+  border-color: var(--checkbox-checked-border);
+  box-shadow:
+    inset 0 1px 0 rgba(255, 255, 255, 0.15),
+    0 4px 10px rgba(0, 0, 0, 0.12);
 }
 
-/* Анимация появления сообщения об ошибке */
-@keyframes errorSlideIn {
-  from {
-    opacity: 0;
-    transform: translateY(-10px);
-  }
-  to {
-    opacity: 1;
-    transform: translateY(0);
-  }
+.ui-checkbox input:checked + .ui-checkbox__box svg path,
+.ui-checkbox[data-checked='true'] .ui-checkbox__box svg path {
+  stroke-dashoffset: 0;
 }
 
-.error-message {
-  animation: errorSlideIn 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+/* Размеры */
+.ui-checkbox--sm .ui-checkbox__box {
+  width: 18px;
+  height: 18px;
+}
+.ui-checkbox--sm .ui-checkbox__box svg {
+  width: 12px;
+  height: 12px;
 }
 
-/* ===== Стилизованные скроллбары ===== */
+.ui-checkbox--lg .ui-checkbox__box {
+  width: 24px;
+  height: 24px;
+}
+.ui-checkbox--lg .ui-checkbox__box svg {
+  width: 16px;
+  height: 16px;
+}
 
-/* Глобальный скроллбар для основных WebKit-браузеров (Chromium, Safari) */
+/* =====================================================================
+   Скроллбары
+   ===================================================================== */
+
 *::-webkit-scrollbar {
+  width: 10px;
+  height: 10px;
+}
+
+*::-webkit-scrollbar-track {
+  background: transparent;
+}
+
+*::-webkit-scrollbar-thumb {
+  background: rgba(148, 163, 184, 0.4);
+  border-radius: 999px;
+  border: 2px solid transparent;
+  background-clip: padding-box;
+}
+
+*::-webkit-scrollbar-thumb:hover {
+  background: rgba(148, 163, 184, 0.65);
+  background-clip: padding-box;
+  border: 2px solid transparent;
+}
+
+*::-webkit-scrollbar-corner {
+  background: transparent;
+}
+
+* {
+  scrollbar-width: thin;
+  scrollbar-color: rgba(148, 163, 184, 0.5) transparent;
+}
+
+.tasks-scroll::-webkit-scrollbar {
   width: 8px;
   height: 8px;
 }
 
-*::-webkit-scrollbar-track {
-  background: rgba(255, 255, 255, 0.3);
-  border-radius: 2px;
+/* =====================================================================
+   Утилиты
+   ===================================================================== */
+
+.surface-1 { background: var(--surface-1); }
+.surface-2 { background: var(--surface-2); }
+.surface-3 { background: var(--surface-3); }
+
+.divider {
+  height: 1px;
+  background: linear-gradient(90deg, transparent 0%, var(--glass-border-soft) 50%, transparent 100%);
 }
 
-*::-webkit-scrollbar-thumb {
-  background: rgba(148, 163, 184, 0.5);
-  border-radius: 2px;
-  border: 1px solid rgba(255, 255, 255, 0.3);
-  transition: background 0.2s ease;
-}
+.text-app { color: var(--text-primary); }
+.text-app-secondary { color: var(--text-secondary); }
+.text-app-muted { color: var(--text-muted); }
 
-*::-webkit-scrollbar-thumb:hover {
-  background: rgba(148, 163, 184, 0.7);
-}
-
-*::-webkit-scrollbar-corner {
-  background: rgba(255, 255, 255, 0.3);
-}
-
-/* Firefox */
-* {
-  scrollbar-width: thin;
-  scrollbar-color: rgba(148, 163, 184, 0.5) rgba(255, 255, 255, 0.3);
-}
-
-/* Компактный вариант для досок задач и подобных областей */
-.tasks-scroll::-webkit-scrollbar {
-  width: 6px;
-  height: 6px;
-}
-
-.tasks-scroll::-webkit-scrollbar-track {
-  background: rgba(255, 255, 255, 0.2);
-  border-radius: 2px;
-}
-
-.tasks-scroll::-webkit-scrollbar-thumb {
-  background: rgba(148, 163, 184, 0.4);
-  border-radius: 2px;
-  border: 1px solid rgba(255, 255, 255, 0.2);
-}
-
-.tasks-scroll::-webkit-scrollbar-thumb:hover {
-  background: rgba(148, 163, 184, 0.6);
-}
-
-.tasks-scroll {
-  scrollbar-width: thin;
-  scrollbar-color: rgba(148, 163, 184, 0.4) rgba(255, 255, 255, 0.2);
+/* Sidebar-конкретные классы — для самых плавных анимаций */
+.sidebar-anim {
+  will-change: width, transform, opacity;
 }
