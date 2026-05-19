@@ -181,34 +181,38 @@ export const CardModal: React.FC<CardModalProps> = ({ card, columns, onClose }) 
         : deadlineState === 'future'
           ? 'text-indigo-600'
           : 'text-slate-500';
-  const sectionClass =
-    'rounded-2xl border border-white/60 bg-white/55 p-4 backdrop-blur-md shadow-[0_1px_2px_rgba(15,23,42,0.04),0_4px_18px_-12px_rgba(15,23,42,0.18)]';
+  // Гласс-островки внутри модалки используют CSS-переменные,
+  // чтобы корректно перекрашиваться под тёмную/светлую тему.
+  const sectionClass = 'glass-mid p-4';
   const labelClass =
-    'mb-2 flex items-center gap-1.5 text-[11px] font-semibold uppercase tracking-wide text-slate-500';
-  const fieldClass =
-    'w-full rounded-xl border border-white/70 bg-white/70 px-3 py-2 text-sm text-slate-900 shadow-inner placeholder:text-slate-400 focus:border-indigo-300/70 focus:bg-white/90 focus:outline-none focus:ring-2 focus:ring-indigo-200/60';
+    'mb-2 flex items-center gap-1.5 text-[11px] font-semibold uppercase tracking-wide text-app-muted';
+  const fieldClass = 'glass-input w-full rounded-xl px-3 py-2 text-sm';
 
   return (
     <div
-      className="fixed inset-0 z-40 flex items-center justify-center bg-slate-900/40 p-4 backdrop-blur-sm"
+      className="fixed inset-0 z-40 modal-backdrop flex items-center justify-center p-4 fade-in"
       onClick={onClose}
     >
       <div
-        className="glass-card relative flex max-h-[95vh] w-full max-w-3xl flex-col overflow-hidden rounded-3xl"
+        className="glass-top scale-in relative flex max-h-[95vh] w-full max-w-3xl flex-col overflow-hidden rounded-3xl"
         onClick={(event) => event.stopPropagation()}
       >
-        <div className="flex items-start gap-3 border-b border-white/40 px-6 py-5">
+        <div className="flex items-start gap-3 px-6 py-5 relative">
+          <div className="divider absolute bottom-0 left-0 right-0" />
           <button
             onClick={handleToggleCompleted}
             className={`mt-1 rounded-full p-1 transition-colors ${
-              completed ? 'text-emerald-600' : 'text-slate-400 hover:text-emerald-600'
+              completed ? 'text-emerald-500' : 'text-app-muted hover:text-emerald-500'
             }`}
             title={completed ? 'Снять отметку выполнения' : 'Отметить выполненной'}
           >
             {completed ? <CheckCircle2 size={26} /> : <Circle size={26} />}
           </button>
           <div className="min-w-0 flex-1">
-            <div className="text-[11px] font-semibold uppercase tracking-[0.16em] text-indigo-500/80">
+            <div
+              className="text-[11px] font-semibold uppercase tracking-[0.16em]"
+              style={{ color: 'var(--color-primary)' }}
+            >
               Карточка задачи
             </div>
             <input
@@ -216,12 +220,13 @@ export const CardModal: React.FC<CardModalProps> = ({ card, columns, onClose }) 
               value={title}
               onChange={(event) => setTitle(event.target.value)}
               placeholder="Заголовок карточки"
-              className="mt-1 w-full min-w-0 border-b border-transparent bg-transparent px-0.5 py-1 text-xl font-semibold tracking-tight text-slate-900 placeholder:text-slate-400 focus:border-indigo-300/70 focus:outline-none"
+              className="mt-1 w-full min-w-0 border-b border-transparent bg-transparent px-0.5 py-1 text-xl font-semibold tracking-tight text-app placeholder:text-app-muted focus:outline-none"
+              style={{ borderColor: 'transparent' }}
             />
           </div>
           <button
             onClick={onClose}
-            className="rounded-xl p-2 text-slate-500 transition-colors hover:bg-white/60 hover:text-slate-700"
+            className="btn-icon"
             aria-label="Закрыть"
           >
             <X size={18} />
@@ -230,7 +235,14 @@ export const CardModal: React.FC<CardModalProps> = ({ card, columns, onClose }) 
 
         <div className="tasks-scroll flex-1 space-y-4 overflow-y-auto px-6 py-5">
           {errorMessage && (
-            <div className="rounded-2xl border border-red-200/70 bg-red-50/80 px-4 py-2.5 text-sm text-red-700 backdrop-blur-sm">
+            <div
+              className="rounded-2xl px-4 py-2.5 text-sm"
+              style={{
+                color: 'rgb(248, 113, 113)',
+                background: 'rgba(239, 68, 68, 0.10)',
+                border: '1px solid rgba(239, 68, 68, 0.30)',
+              }}
+            >
               {errorMessage}
             </div>
           )}
@@ -243,7 +255,7 @@ export const CardModal: React.FC<CardModalProps> = ({ card, columns, onClose }) 
               <select
                 value={columnId}
                 onChange={(event) => setColumnId(event.target.value)}
-                className={fieldClass}
+                className={`${fieldClass} glass-select`}
               >
                 {columns.map((column) => (
                   <option key={column.id} value={column.id}>
@@ -292,39 +304,57 @@ export const CardModal: React.FC<CardModalProps> = ({ card, columns, onClose }) 
                 <ListChecks size={12} /> Подпункты
               </span>
               {totalSubtasks > 0 && (
-                <span className="rounded-full bg-white/70 px-2 py-[1px] text-[11px] font-semibold text-slate-500 ring-1 ring-slate-200/60">
+                <span
+                  className="rounded-full px-2 py-[1px] text-[11px] font-semibold text-app-muted"
+                  style={{
+                    background: 'var(--surface-2)',
+                    border: '1px solid var(--border-app)',
+                  }}
+                >
                   {completedSubtasks}/{totalSubtasks}
                 </span>
               )}
             </div>
 
             {totalSubtasks > 0 && (
-              <div className="mb-3 h-1.5 w-full overflow-hidden rounded-full bg-slate-100/80">
+              <div
+                className="mb-3 h-1.5 w-full overflow-hidden rounded-full"
+                style={{ background: 'var(--surface-2)' }}
+              >
                 <div
-                  className="h-full rounded-full bg-gradient-to-r from-indigo-400 to-violet-500 transition-[width] duration-300"
-                  style={{ width: `${(completedSubtasks / totalSubtasks) * 100}%` }}
+                  className="h-full rounded-full transition-[width] duration-300"
+                  style={{
+                    width: `${(completedSubtasks / totalSubtasks) * 100}%`,
+                    background: 'linear-gradient(90deg, var(--gradient-from), var(--gradient-to))',
+                  }}
                 />
               </div>
             )}
 
             <div className="tasks-scroll max-h-60 space-y-1.5 overflow-y-auto pr-1">
               {totalSubtasks === 0 ? (
-                <div className="rounded-xl border border-dashed border-slate-200/70 bg-white/40 px-3 py-3 text-center text-[12.5px] text-slate-500">
+                <div
+                  className="rounded-xl px-3 py-3 text-center text-[12.5px] text-app-muted"
+                  style={{
+                    border: '1px dashed var(--border-app)',
+                    background: 'var(--surface-1)',
+                  }}
+                >
                   Подпунктов пока нет — разбейте задачу на шаги.
                 </div>
               ) : (
                 subtasks.map((subtask) => (
                   <div
                     key={subtask.id}
-                    className="flex items-center gap-2 rounded-xl border border-white/60 bg-white/70 px-2.5 py-1.5 backdrop-blur-sm"
+                    className="glass-mid flex items-center gap-2 rounded-xl px-2.5 py-1.5"
                   >
                     <button
                       type="button"
                       onClick={() => handleToggleSubtask(subtask.id, !subtask.completed)}
                       className={`flex-shrink-0 rounded-full p-0.5 transition-colors ${
                         subtask.completed
-                          ? 'text-emerald-600'
-                          : 'text-slate-400 hover:text-emerald-600'
+                          ? 'text-emerald-500'
+                          : 'text-app-muted hover:text-emerald-500'
                       }`}
                       aria-label={
                         subtask.completed
@@ -339,8 +369,8 @@ export const CardModal: React.FC<CardModalProps> = ({ card, columns, onClose }) 
                       )}
                     </button>
                     <span
-                      className={`min-w-0 flex-1 text-[13px] leading-snug text-slate-700 break-words ${
-                        subtask.completed ? 'text-slate-400 line-through' : ''
+                      className={`min-w-0 flex-1 text-[13px] leading-snug text-app break-words ${
+                        subtask.completed ? 'line-through text-app-muted' : ''
                       }`}
                     >
                       {subtask.title}
@@ -348,7 +378,7 @@ export const CardModal: React.FC<CardModalProps> = ({ card, columns, onClose }) 
                     <button
                       type="button"
                       onClick={() => handleDeleteSubtask(subtask.id)}
-                      className="flex-shrink-0 rounded-md p-1 text-slate-400 transition-colors hover:bg-rose-100/60 hover:text-rose-600"
+                      className="flex-shrink-0 rounded-md p-1 text-app-muted transition-colors hover:text-red-500"
                       aria-label="Удалить подпункт"
                     >
                       <Trash2 size={13} />
@@ -385,7 +415,8 @@ export const CardModal: React.FC<CardModalProps> = ({ card, columns, onClose }) 
           </div>
         </div>
 
-        <div className="flex flex-wrap items-center justify-between gap-3 border-t border-white/40 px-6 py-4">
+        <div className="flex flex-wrap items-center justify-between gap-3 px-6 py-4 relative">
+          <div className="divider absolute top-0 left-0 right-0" />
           <button
             onClick={handleDeleteCard}
             className="btn-glass-danger inline-flex items-center gap-2 rounded-xl px-4 py-2 text-sm font-semibold"
@@ -395,13 +426,13 @@ export const CardModal: React.FC<CardModalProps> = ({ card, columns, onClose }) 
           </button>
           <div className="flex items-center gap-3">
             {savingState === 'saving' && (
-              <span className="text-[12.5px] font-medium text-slate-500">Сохранение...</span>
+              <span className="text-[12.5px] font-medium text-app-muted">Сохранение...</span>
             )}
             {savingState === 'saved' && (
-              <span className="text-[12.5px] font-semibold text-emerald-600">Сохранено</span>
+              <span className="text-[12.5px] font-semibold text-emerald-500">Сохранено</span>
             )}
             {savingState === 'error' && (
-              <span className="text-[12.5px] font-semibold text-red-600">Ошибка сохранения</span>
+              <span className="text-[12.5px] font-semibold text-red-500">Ошибка сохранения</span>
             )}
             <button
               onClick={onClose}

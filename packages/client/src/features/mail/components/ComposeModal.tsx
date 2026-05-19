@@ -425,9 +425,10 @@ export const ComposeModal: React.FC<ComposeModalProps> = ({ onClose, replyTo }) 
   }, [onClose]);
 
   return (
-    <div className="fixed inset-0 bg-black/30 backdrop-blur-sm flex items-center justify-center z-50 fade-in">
+    <div className="fixed inset-0 modal-backdrop flex items-center justify-center z-50 fade-in p-4">
       <div
-        className="glass-top scale-in w-full max-w-4xl max-h-[95vh] m-4 flex flex-col"
+        className="glass-top scale-in w-full max-w-3xl flex flex-col"
+        style={{ maxHeight: 'calc(100vh - 64px)' }}
         onKeyDown={handleKeyDown}
       >
         {/* Header */}
@@ -445,18 +446,23 @@ export const ComposeModal: React.FC<ComposeModalProps> = ({ onClose, replyTo }) 
         <div className="p-6 space-y-3 flex-shrink-0">
           {/* To */}
           <div>
-            <label className="block text-sm font-medium text-gray-700 mb-2">Кому:</label>
+            <label className="block text-sm font-medium text-app-secondary mb-2">Кому:</label>
             <div className="space-y-2">
               <div className="flex flex-wrap gap-2">
                 {email.to.map((recipient, index) => (
                   <div
                     key={recipient}
-                    className="inline-flex items-center gap-2 px-3 py-1 bg-blue-100/60 text-blue-700 rounded-full text-sm"
+                    className="inline-flex items-center gap-2 px-3 py-1 rounded-full text-sm"
+                    style={{
+                      background: 'rgba(var(--color-primary-rgb), 0.16)',
+                      color: 'var(--color-primary)',
+                    }}
                   >
                     <span>{recipient}</span>
                     <button
                       onClick={() => handleRemoveRecipient('to', recipient)}
-                      className="ml-1 text-blue-600 hover:text-blue-800"
+                      className="ml-1 hover:opacity-80"
+                      style={{ color: 'var(--color-primary)' }}
                     >
                       ×
                     </button>
@@ -490,12 +496,17 @@ export const ComposeModal: React.FC<ComposeModalProps> = ({ onClose, replyTo }) 
                 {email.cc?.map((recipient) => (
                   <div
                     key={`cc-${recipient}`}
-                    className="inline-flex items-center gap-2 px-3 py-1 bg-blue-100/60 text-blue-700 rounded-full text-sm"
+                    className="inline-flex items-center gap-2 px-3 py-1 rounded-full text-sm"
+                    style={{
+                      background: 'rgba(var(--color-primary-rgb), 0.16)',
+                      color: 'var(--color-primary)',
+                    }}
                   >
                     <span>{recipient}</span>
                     <button
                       onClick={() => handleRemoveRecipient('cc', recipient)}
-                      className="ml-1 text-blue-600 hover:text-blue-800"
+                      className="ml-1 hover:opacity-80"
+                      style={{ color: 'var(--color-primary)' }}
                     >
                       ×
                     </button>
@@ -528,12 +539,17 @@ export const ComposeModal: React.FC<ComposeModalProps> = ({ onClose, replyTo }) 
                 {email.bcc?.map((recipient) => (
                   <div
                     key={`bcc-${recipient}`}
-                    className="inline-flex items-center gap-2 px-3 py-1 bg-blue-100/60 text-blue-700 rounded-full text-sm"
+                    className="inline-flex items-center gap-2 px-3 py-1 rounded-full text-sm"
+                    style={{
+                      background: 'rgba(var(--color-primary-rgb), 0.16)',
+                      color: 'var(--color-primary)',
+                    }}
                   >
                     <span>{recipient}</span>
                     <button
                       onClick={() => handleRemoveRecipient('bcc', recipient)}
-                      className="ml-1 text-blue-600 hover:text-blue-800"
+                      className="ml-1 hover:opacity-80"
+                      style={{ color: 'var(--color-primary)' }}
                     >
                       ×
                     </button>
@@ -573,13 +589,13 @@ export const ComposeModal: React.FC<ComposeModalProps> = ({ onClose, replyTo }) 
         </div>
 
         {/* Body */}
-        <div className="flex-1 p-6 pt-3 flex flex-col min-h-0">
+        <div className="flex-1 px-6 pt-3 pb-2 flex flex-col min-h-0">
           <label className="block text-sm font-medium text-app-secondary mb-2">Текст письма:</label>
           <textarea
             value={email.body}
             onChange={(e) => setEmail(prev => ({ ...prev, body: e.target.value }))}
             placeholder="Введите текст письма..."
-            className="glass-input flex-1 w-full min-h-[150px] px-3 py-2 resize-none"
+            className="glass-input flex-1 w-full min-h-[260px] px-3 py-3 resize-none text-sm leading-relaxed"
           />
         </div>
 

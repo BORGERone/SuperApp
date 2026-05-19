@@ -75,15 +75,15 @@ export const LoginView: React.FC = () => {
 
   return (
     <div className="min-h-screen flex items-center justify-center">
-      <div className="glass rounded-2xl p-12 w-full max-w-md">
+      <div className="glass-deep rounded-2xl p-12 w-full max-w-md">
         <div className="text-center mb-8">
           <h1 className="text-4xl font-bold mb-2 text-gradient">SuperApp</h1>
-          <h2 className="text-sm text-gray-600">Сетевой диск</h2>
+          <h2 className="text-sm text-app-secondary">Сетевой диск</h2>
         </div>
 
         <form onSubmit={handleSubmit} className="space-y-6">
           <div>
-            <label htmlFor="username" className="block text-sm font-medium text-gray-700 mb-2">
+            <label htmlFor="username" className="block text-sm font-medium text-app-secondary mb-2">
               Логин
             </label>
             <input
@@ -98,7 +98,7 @@ export const LoginView: React.FC = () => {
           </div>
 
           <div>
-            <label htmlFor="password" className="block text-sm font-medium text-gray-700 mb-2">
+            <label htmlFor="password" className="block text-sm font-medium text-app-secondary mb-2">
               Пароль
             </label>
             <input
@@ -120,16 +120,16 @@ export const LoginView: React.FC = () => {
               onChange={(e) => setRememberPassword(e.target.checked)}
               className="w-4 h-4 rounded accent-indigo-500"
             />
-            <label htmlFor="remember-password" className="ml-2 text-sm text-gray-700">
+            <label htmlFor="remember-password" className="ml-2 text-sm text-app-secondary">
               Запомнить пароль
             </label>
           </div>
 
           <div>
-            <label className="block text-sm font-medium text-gray-700 mb-2">
+            <label className="block text-sm font-medium text-app-secondary mb-2">
               PIN-код
             </label>
-            <div className="glass-card rounded-xl p-6">
+            <div className="glass-mid rounded-xl p-6">
               <PinInput
                 value={pinCode}
                 onChange={setPinCode}
@@ -146,7 +146,14 @@ export const LoginView: React.FC = () => {
           </div>
 
           {error && (
-            <div className="text-red-500 text-sm text-center bg-red-50 p-3 rounded-lg border border-red-200 error-message">
+            <div
+              className="text-sm text-center p-3 rounded-lg error-message"
+              style={{
+                color: 'rgb(248, 113, 113)',
+                background: 'rgba(239, 68, 68, 0.10)',
+                border: '1px solid rgba(239, 68, 68, 0.30)',
+              }}
+            >
               {error}
             </div>
           )}

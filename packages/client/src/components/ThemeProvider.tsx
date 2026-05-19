@@ -91,6 +91,8 @@ export const ThemeProvider = ({ children }: { children: React.ReactNode }): Reac
     colorScheme,
     backgroundImage,
     backgroundImageEnabled,
+    backgroundImageBlur,
+    backgroundImageDarkness,
     fontSize,
     animationsEnabled,
   } = useAppearanceStore();
@@ -132,10 +134,20 @@ export const ThemeProvider = ({ children }: { children: React.ReactNode }): Reac
       root.style.setProperty('--bg-image-opacity', '1');
       // Гасим декоративный градиент, чтобы картинка читалась
       root.style.setProperty('--bg-gradient-opacity', '0.18');
+      // Размытие 0…100 → 0…40px, затемнение 0…100 → 0…0.65 альфы
+      const blurPx = Math.max(0, Math.min(100, backgroundImageBlur)) * 0.4;
+      const darkAlpha = (Math.max(0, Math.min(100, backgroundImageDarkness)) / 100) * 0.65;
+      root.style.setProperty('--bg-image-blur', `${blurPx}px`);
+      root.style.setProperty('--bg-image-darkness', String(darkAlpha));
+      // Маркер для CSS, чтобы островки добавляли контраст под фоновым изображением
+      document.body.classList.add('has-bg-image');
     } else {
       root.style.setProperty('--bg-image', 'none');
       root.style.setProperty('--bg-image-opacity', '0');
       root.style.setProperty('--bg-gradient-opacity', isDark ? '0.8' : '0.7');
+      root.style.setProperty('--bg-image-blur', '0px');
+      root.style.setProperty('--bg-image-darkness', '0');
+      document.body.classList.remove('has-bg-image');
     }
 
     // Размер шрифта
@@ -155,7 +167,7 @@ export const ThemeProvider = ({ children }: { children: React.ReactNode }): Reac
       root.style.setProperty('--transition-duration', '200ms');
       document.body.classList.remove('no-animations');
     }
-  }, [themeMode, colorScheme, backgroundImage, backgroundImageEnabled, fontSize, animationsEnabled]);
+  }, [themeMode, colorScheme, backgroundImage, backgroundImageEnabled, backgroundImageBlur, backgroundImageDarkness, fontSize, animationsEnabled]);
 
   // Реакция на смену системной темы при режиме «auto»
   useEffect(() => {

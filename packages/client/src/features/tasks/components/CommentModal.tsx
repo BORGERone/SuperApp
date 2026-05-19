@@ -96,34 +96,36 @@ export const CommentModal: React.FC<CommentModalProps> = ({ card, currentUserId,
     }
   };
 
-  const sectionClass =
-    'rounded-2xl border border-white/60 bg-white/55 p-4 backdrop-blur-md shadow-[0_1px_2px_rgba(15,23,42,0.04),0_4px_18px_-12px_rgba(15,23,42,0.18)]';
+  const sectionClass = 'glass-mid p-4';
   const labelClass =
-    'mb-2 flex items-center gap-1.5 text-[11px] font-semibold uppercase tracking-wide text-slate-500';
-  const fieldClass =
-    'w-full rounded-xl border border-white/70 bg-white/70 px-3 py-2 text-sm text-slate-900 shadow-inner placeholder:text-slate-400 focus:border-indigo-300/70 focus:bg-white/90 focus:outline-none focus:ring-2 focus:ring-indigo-200/60';
+    'mb-2 flex items-center gap-1.5 text-[11px] font-semibold uppercase tracking-wide text-app-muted';
+  const fieldClass = 'glass-input w-full rounded-xl px-3 py-2 text-sm';
 
   return (
     <div
-      className="fixed inset-0 z-50 flex items-center justify-center bg-slate-900/40 p-4 backdrop-blur-sm"
+      className="fixed inset-0 z-50 modal-backdrop flex items-center justify-center p-4 fade-in"
       onClick={onClose}
     >
       <div
-        className="glass-card relative flex max-h-[80vh] w-full max-w-2xl flex-col overflow-hidden rounded-3xl"
+        className="glass-top scale-in relative flex max-h-[80vh] w-full max-w-2xl flex-col overflow-hidden rounded-3xl"
         onClick={(event) => event.stopPropagation()}
       >
-        <div className="flex items-center gap-3 border-b border-white/40 px-6 py-5">
+        <div className="flex items-center gap-3 px-6 py-5 relative">
+          <div className="divider absolute bottom-0 left-0 right-0" />
           <div className="min-w-0 flex-1">
-            <div className="text-[11px] font-semibold uppercase tracking-[0.16em] text-indigo-500/80">
+            <div
+              className="text-[11px] font-semibold uppercase tracking-[0.16em]"
+              style={{ color: 'var(--color-primary)' }}
+            >
               Комментарии к задаче
             </div>
-            <div className="mt-1 truncate text-lg font-semibold tracking-tight text-slate-900">
+            <div className="mt-1 truncate text-lg font-semibold tracking-tight text-app">
               {card.title}
             </div>
           </div>
           <button
             onClick={onClose}
-            className="rounded-xl p-2 text-slate-500 transition-colors hover:bg-white/60 hover:text-slate-700"
+            className="btn-icon"
             aria-label="Закрыть"
           >
             <X size={18} />
@@ -132,7 +134,14 @@ export const CommentModal: React.FC<CommentModalProps> = ({ card, currentUserId,
 
         <div className="tasks-scroll flex-1 space-y-4 overflow-y-auto px-6 py-5">
           {errorMessage && (
-            <div className="rounded-2xl border border-red-200/70 bg-red-50/80 px-4 py-2.5 text-sm text-red-700 backdrop-blur-sm">
+            <div
+              className="rounded-2xl px-4 py-2.5 text-sm"
+              style={{
+                color: 'rgb(248, 113, 113)',
+                background: 'rgba(239, 68, 68, 0.10)',
+                border: '1px solid rgba(239, 68, 68, 0.30)',
+              }}
+            >
               {errorMessage}
             </div>
           )}
@@ -142,15 +151,24 @@ export const CommentModal: React.FC<CommentModalProps> = ({ card, currentUserId,
               <span className={`${labelClass} !mb-0`}>
                 <MessageSquare size={12} /> Комментарии
               </span>
-              <span className="rounded-full bg-white/70 px-2 py-[1px] text-[11px] font-semibold text-slate-500 ring-1 ring-slate-200/60">
+              <span
+                className="rounded-full px-2 py-[1px] text-[11px] font-semibold text-app-muted"
+                style={{
+                  background: 'var(--surface-2)',
+                  border: '1px solid var(--border-app)',
+                }}
+              >
                 {comments.length}
               </span>
             </div>
 
             <div className="tasks-scroll max-h-80 space-y-2 overflow-y-auto pr-1">
-              {commentsLoading && <div className="text-sm text-slate-500">Загрузка комментариев...</div>}
+              {commentsLoading && <div className="text-sm text-app-muted">Загрузка комментариев...</div>}
               {!commentsLoading && comments.length === 0 && (
-                <div className="rounded-xl border border-dashed border-slate-200/70 bg-white/40 px-3 py-4 text-center text-[12.5px] text-slate-500">
+                <div
+                  className="rounded-xl px-3 py-4 text-center text-[12.5px] text-app-muted"
+                  style={{ border: '1px dashed var(--border-app)', background: 'var(--surface-1)' }}
+                >
                   Комментариев пока нет — добавьте первый.
                 </div>
               )}
@@ -162,31 +180,31 @@ export const CommentModal: React.FC<CommentModalProps> = ({ card, currentUserId,
                 return (
                   <div
                     key={comment.id}
-                    className="rounded-xl border border-white/60 bg-white/70 px-3 py-2 backdrop-blur-sm"
+                    className="glass-mid rounded-xl px-3 py-2"
                   >
                     <div className="mb-1 flex items-center justify-between gap-2">
-                      <div className="flex items-center gap-2 text-[12.5px] font-semibold text-slate-700">
+                      <div className="flex items-center gap-2 text-[12.5px] font-semibold text-app">
                         {author?.avatarUrl ? (
                           <img src={author.avatarUrl} alt={authorLabel} className="w-4 h-4 rounded-full object-cover" />
                         ) : (
-                          <UserIcon size={13} className="text-indigo-500" />
+                          <UserIcon size={13} style={{ color: 'var(--color-primary)' }} />
                         )}
                         <span className="max-w-[200px] truncate">{authorLabel}</span>
-                        <span className="text-[11px] font-normal text-slate-400">
+                        <span className="text-[11px] font-normal text-app-muted">
                           {formatDateTime(comment.createdAt)}
                         </span>
                       </div>
                       {canDelete && (
                         <button
                           onClick={() => handleDeleteComment(comment.id)}
-                          className="rounded-md p-1 text-rose-500 transition-colors hover:bg-rose-100/60"
+                          className="rounded-md p-1 text-app-muted transition-colors hover:text-red-500"
                           aria-label="Удалить комментарий"
                         >
                           <Trash2 size={13} />
                         </button>
                       )}
                     </div>
-                    <div className="whitespace-pre-wrap break-words text-[13px] leading-snug text-slate-700">
+                    <div className="whitespace-pre-wrap break-words text-[13px] leading-snug text-app">
                       {comment.body}
                     </div>
                   </div>

@@ -290,11 +290,13 @@ export const Sidebar: React.FC = () => {
                     <div
                       className="glass-top overflow-hidden"
                       style={{
+                        // Островок подпунктов теперь стоит отдельным блоком
+                        // под островком почты, не наезжая на него (как titlebar↔sidebar).
                         maxHeight: expandedItems.includes(item.id) && isMailActive ? '320px' : '0px',
                         opacity: expandedItems.includes(item.id) && isMailActive ? 1 : 0,
-                        paddingTop: expandedItems.includes(item.id) && isMailActive ? '12px' : '0px',
+                        paddingTop: expandedItems.includes(item.id) && isMailActive ? '8px' : '0px',
                         paddingBottom: expandedItems.includes(item.id) && isMailActive ? '8px' : '0px',
-                        marginTop: expandedItems.includes(item.id) && isMailActive ? '-6px' : '0px',
+                        marginTop: expandedItems.includes(item.id) && isMailActive ? '6px' : '0px',
                         transition:
                           'max-height 380ms cubic-bezier(0.16, 1, 0.3, 1), opacity 280ms cubic-bezier(0.16, 1, 0.3, 1), padding 380ms cubic-bezier(0.16, 1, 0.3, 1), margin 380ms cubic-bezier(0.16, 1, 0.3, 1)',
                       }}

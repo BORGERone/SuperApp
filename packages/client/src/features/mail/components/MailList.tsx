@@ -72,19 +72,19 @@ export const MailList: React.FC<MailListProps> = ({
                 onEmailSelect(email);
               }
             }}
-            className="glass-mid group relative p-4 cursor-pointer max-h-32 overflow-hidden"
+            className="glass-mid select-shimmer group relative p-4 cursor-pointer max-h-32 overflow-hidden"
+            data-selected={picked || isOpen ? 'true' : 'false'}
             style={{
-              background: isOpen
-                ? 'rgba(var(--color-primary-rgb), 0.18)'
-                : picked
-                  ? 'rgba(var(--color-primary-rgb), 0.10)'
-                  : email.isRead
-                    ? undefined
-                    : 'rgba(var(--glass-bg-mid), calc(var(--glass-tint-mid) + 0.14))',
-              borderColor: isOpen || picked ? 'rgba(var(--color-primary-rgb), 0.45)' : undefined,
-              transform: picked || isOpen ? 'translateX(2px)' : undefined,
-              transition:
-                'background 220ms ease-out, border-color 220ms ease-out, transform 220ms cubic-bezier(0.16,1,0.3,1), box-shadow 220ms ease-out',
+              // Непрочитанное сообщение слегка ярче на нейтральной подложке.
+              // Выделение/открытие управляются классом .select-shimmer (см. index.css):
+              // подложка не темнеет, а радужный обвод прокатывается один раз
+              // и замирает тонкой рамкой. Никакого translateX, чтобы правый
+              // край больше не обрезался родителем.
+              background:
+                !picked && !isOpen && !email.isRead
+                  ? 'rgba(var(--glass-bg-mid), calc(var(--glass-tint-mid) + 0.14))'
+                  : undefined,
+              transition: 'background 220ms ease-out, box-shadow 220ms ease-out',
             }}
           >
             <div className="flex items-start gap-3">

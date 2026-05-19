@@ -84,12 +84,16 @@ export const AppearanceSettings: React.FC = () => {
     colorScheme,
     backgroundImage,
     backgroundImageEnabled,
+    backgroundImageBlur,
+    backgroundImageDarkness,
     fontSize,
     animationsEnabled,
     setThemeMode,
     setColorScheme,
     setBackgroundImage,
     setBackgroundImageEnabled,
+    setBackgroundImageBlur,
+    setBackgroundImageDarkness,
     setFontSize,
     setAnimationsEnabled,
   } = useAppearanceStore();
@@ -342,6 +346,49 @@ export const AppearanceSettings: React.FC = () => {
                 <p className="text-xs text-app-muted text-center">
                   Поддерживаемые форматы: JPG, PNG, GIF. Рекомендуемый размер до 5 МБ.
                 </p>
+
+                {/* Ползунки управления фоновым изображением */}
+                <div className="glass-mid p-4 space-y-4">
+                  <div>
+                    <div className="flex items-center justify-between mb-2">
+                      <label className="text-sm font-medium text-app">
+                        Размытие фонового изображения
+                      </label>
+                      <span className="text-xs text-app-muted tabular-nums">
+                        {backgroundImageBlur}%
+                      </span>
+                    </div>
+                    <input
+                      type="range"
+                      min={0}
+                      max={100}
+                      step={1}
+                      value={backgroundImageBlur}
+                      onChange={(e) => setBackgroundImageBlur(Number(e.target.value))}
+                      className="glass-range w-full"
+                    />
+                  </div>
+
+                  <div>
+                    <div className="flex items-center justify-between mb-2">
+                      <label className="text-sm font-medium text-app">
+                        Затемнение фонового изображения
+                      </label>
+                      <span className="text-xs text-app-muted tabular-nums">
+                        {backgroundImageDarkness}%
+                      </span>
+                    </div>
+                    <input
+                      type="range"
+                      min={0}
+                      max={100}
+                      step={1}
+                      value={backgroundImageDarkness}
+                      onChange={(e) => setBackgroundImageDarkness(Number(e.target.value))}
+                      className="glass-range w-full"
+                    />
+                  </div>
+                </div>
               </div>
             )}
           </div>

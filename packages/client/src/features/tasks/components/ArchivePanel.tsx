@@ -46,20 +46,23 @@ export const ArchivePanel: React.FC<ArchivePanelProps> = ({ onClose }) => {
   };
 
   return (
-    <div className="fixed inset-0 z-50 flex items-start justify-center bg-gray-900/40 p-4 pt-16 backdrop-blur-sm">
-      <div className="glass-card w-full max-w-2xl rounded-3xl p-6 shadow-2xl">
+    <div className="fixed inset-0 z-50 modal-backdrop flex items-start justify-center p-4 pt-16 fade-in">
+      <div className="glass-top scale-in w-full max-w-2xl rounded-3xl p-6">
         <header className="mb-4 flex items-center justify-between gap-2">
           <div>
-            <p className="text-xs font-bold uppercase tracking-[0.3em] text-amber-600">Архив</p>
-            <h2 className="mt-1 text-2xl font-black text-gray-900">Архив колонок</h2>
-            <p className="mt-1 text-sm text-gray-500">
+            <p
+              className="text-xs font-bold uppercase tracking-[0.3em]"
+              style={{ color: 'var(--color-primary)' }}
+            >Архив</p>
+            <h2 className="mt-1 text-2xl font-black text-app">Архив колонок</h2>
+            <p className="mt-1 text-sm text-app-muted">
               Колонки в архиве не отображаются на доске. Их можно восстановить или удалить безвозвратно.
             </p>
           </div>
           <button
             type="button"
             onClick={onClose}
-            className="rounded-full p-2 text-gray-400 transition-colors hover:bg-white/80 hover:text-gray-700"
+            className="btn-icon"
             aria-label="Закрыть архив"
           >
             <X size={20} />
@@ -68,22 +71,28 @@ export const ArchivePanel: React.FC<ArchivePanelProps> = ({ onClose }) => {
 
         <div className="tasks-scroll max-h-[60vh] space-y-2 overflow-y-auto pr-2">
           {isLoading ? (
-            <div className="flex items-center justify-center rounded-2xl border border-dashed border-gray-200 bg-white/40 p-6 text-sm text-gray-500">
+            <div
+              className="flex items-center justify-center rounded-2xl p-6 text-sm text-app-muted"
+              style={{ border: '1px dashed var(--border-app)', background: 'var(--surface-1)' }}
+            >
               Загрузка архива...
             </div>
           ) : archived.length === 0 ? (
-            <div className="flex items-center justify-center rounded-2xl border border-dashed border-gray-200 bg-white/40 p-6 text-sm text-gray-500">
+            <div
+              className="flex items-center justify-center rounded-2xl p-6 text-sm text-app-muted"
+              style={{ border: '1px dashed var(--border-app)', background: 'var(--surface-1)' }}
+            >
               В архиве пока пусто.
             </div>
           ) : (
             archived.map((column) => (
               <div
                 key={column.id}
-                className="flex flex-col gap-2 rounded-2xl border border-amber-100 bg-white/80 p-4 shadow-sm sm:flex-row sm:items-center sm:justify-between"
+                className="glass-mid flex flex-col gap-2 rounded-2xl p-4 sm:flex-row sm:items-center sm:justify-between"
               >
                 <div className="min-w-0 flex-1">
-                  <h3 className="truncate text-base font-bold text-gray-900">{column.title}</h3>
-                  <p className="mt-1 inline-flex items-center gap-1 text-xs text-gray-500">
+                  <h3 className="truncate text-base font-bold text-app">{column.title}</h3>
+                  <p className="mt-1 inline-flex items-center gap-1 text-xs text-app-muted">
                     <Calendar size={12} />
                     Архивирована: {formatDate(column.archivedAt)}
                   </p>
@@ -93,7 +102,8 @@ export const ArchivePanel: React.FC<ArchivePanelProps> = ({ onClose }) => {
                     type="button"
                     onClick={() => handleRestore(column.id)}
                     disabled={unarchive.isPending}
-                    className="inline-flex items-center gap-1.5 rounded-xl bg-emerald-50 px-3 py-1.5 text-xs font-semibold text-emerald-700 transition-colors hover:bg-emerald-100 disabled:cursor-not-allowed disabled:opacity-50"
+                    className="btn-glass-secondary inline-flex items-center gap-1.5 rounded-xl px-3 py-1.5 text-xs font-semibold disabled:cursor-not-allowed disabled:opacity-50"
+                    style={{ color: 'rgb(52, 211, 153)' }}
                   >
                     <ArchiveRestore size={14} />
                     Восстановить
@@ -102,7 +112,8 @@ export const ArchivePanel: React.FC<ArchivePanelProps> = ({ onClose }) => {
                     type="button"
                     onClick={() => handlePurge(column.id, column.title)}
                     disabled={deleteColumn.isPending}
-                    className="inline-flex items-center gap-1.5 rounded-xl bg-rose-50 px-3 py-1.5 text-xs font-semibold text-rose-700 transition-colors hover:bg-rose-100 disabled:cursor-not-allowed disabled:opacity-50"
+                    className="btn-glass-secondary inline-flex items-center gap-1.5 rounded-xl px-3 py-1.5 text-xs font-semibold disabled:cursor-not-allowed disabled:opacity-50"
+                    style={{ color: 'rgb(248, 113, 113)' }}
                   >
                     <Trash2 size={14} />
                     Удалить навсегда

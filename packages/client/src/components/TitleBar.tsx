@@ -85,7 +85,9 @@ export const TitleBar: React.FC<TitleBarProps> = ({
         )}
       </div>
 
-      <div className="titlebar__spacer" />
+      {/* Bridge — тонкий стеклянный мост поверх верхней границы экрана,
+          соединяющий brand-зону слева с зоной системных кнопок справа. */}
+      <div className="titlebar__bridge" aria-hidden="true" />
 
       {isElectron && (
         <div className="titlebar__controls">

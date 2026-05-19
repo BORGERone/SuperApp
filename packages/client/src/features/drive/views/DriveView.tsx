@@ -403,7 +403,10 @@ export const DriveView: React.FC = () => {
           <div className="text-sm font-medium text-app mb-2">
             Загрузка: {uploadFileName}
           </div>
-          <div className="w-full bg-slate-200/50 rounded-full h-2 mb-2 overflow-hidden">
+          <div
+            className="w-full rounded-full h-2 mb-2 overflow-hidden"
+            style={{ background: 'var(--surface-2)' }}
+          >
             <div
               className="h-2 rounded-full"
               style={{ width: `${uploadProgress}%`, background: 'linear-gradient(90deg, var(--gradient-from), var(--gradient-to))', transition: 'width 300ms ease-out' }}
@@ -421,7 +424,10 @@ export const DriveView: React.FC = () => {
           <div className="text-sm font-medium text-app mb-2">
             Скачивание: {downloadFileName}
           </div>
-          <div className="w-full bg-slate-200/50 rounded-full h-2 mb-2 overflow-hidden">
+          <div
+            className="w-full rounded-full h-2 mb-2 overflow-hidden"
+            style={{ background: 'var(--surface-2)' }}
+          >
             <div
               className="h-2 rounded-full"
               style={{ width: `${downloadProgress}%`, background: 'linear-gradient(90deg, var(--gradient-from), var(--gradient-to))', transition: 'width 300ms ease-out' }}
@@ -435,13 +441,13 @@ export const DriveView: React.FC = () => {
 
       {/* Permissions Modal */}
       {showPermissionsModal && (
-        <div className="fixed inset-0 bg-black/30 backdrop-blur-sm flex items-center justify-center z-50 fade-in">
+        <div className="fixed inset-0 modal-backdrop flex items-center justify-center z-50 fade-in p-4">
           <div className="glass-top scale-in p-6 w-full max-w-md">
             <div className="flex items-center justify-between mb-4">
               <h3 className="text-lg font-semibold text-gradient">Права доступа</h3>
               <button
                 onClick={() => setShowPermissionsModal(false)}
-                className="text-gray-500 hover:text-gray-700"
+                className="btn-icon"
               >
                 <X size={20} />
               </button>
@@ -500,13 +506,13 @@ export const DriveView: React.FC = () => {
 
       {/* Create Folder Modal */}
       {showCreateFolderModal && (
-        <div className="fixed inset-0 bg-black/30 backdrop-blur-sm flex items-center justify-center z-50 fade-in">
+        <div className="fixed inset-0 modal-backdrop flex items-center justify-center z-50 fade-in p-4">
           <div className="glass-top scale-in p-6 w-full max-w-md">
             <div className="flex items-center justify-between mb-4">
               <h3 className="text-lg font-semibold text-gradient">Создать папку</h3>
               <button
                 onClick={() => setShowCreateFolderModal(false)}
-                className="text-gray-500 hover:text-gray-700"
+                className="btn-icon"
               >
                 <X size={20} />
               </button>

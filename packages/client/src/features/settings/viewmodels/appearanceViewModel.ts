@@ -22,6 +22,9 @@ interface AppearanceSettings {
   // Фоновое изображение
   backgroundImage: string | null;
   backgroundImageEnabled: boolean;
+  // Размытие и затемнение фонового изображения (0…100, % UI -> px/альфа)
+  backgroundImageBlur: number;
+  backgroundImageDarkness: number;
   
   // Размер шрифта
   fontSize: 'small' | 'medium' | 'large';
@@ -34,6 +37,8 @@ interface AppearanceSettings {
   setColorScheme: (scheme: ColorScheme) => void;
   setBackgroundImage: (url: string | null) => void;
   setBackgroundImageEnabled: (enabled: boolean) => void;
+  setBackgroundImageBlur: (value: number) => void;
+  setBackgroundImageDarkness: (value: number) => void;
   setFontSize: (size: 'small' | 'medium' | 'large') => void;
   setAnimationsEnabled: (enabled: boolean) => void;
 }
@@ -46,6 +51,8 @@ export const useAppearanceStore = create<AppearanceSettings>()(
       colorScheme: 'blue',
       backgroundImage: null,
       backgroundImageEnabled: false,
+      backgroundImageBlur: 0,
+      backgroundImageDarkness: 0,
       fontSize: 'medium',
       animationsEnabled: true,
       
@@ -54,6 +61,8 @@ export const useAppearanceStore = create<AppearanceSettings>()(
       setColorScheme: (scheme) => set({ colorScheme: scheme }),
       setBackgroundImage: (url) => set({ backgroundImage: url }),
       setBackgroundImageEnabled: (enabled) => set({ backgroundImageEnabled: enabled }),
+      setBackgroundImageBlur: (value) => set({ backgroundImageBlur: Math.max(0, Math.min(100, value)) }),
+      setBackgroundImageDarkness: (value) => set({ backgroundImageDarkness: Math.max(0, Math.min(100, value)) }),
       setFontSize: (size) => set({ fontSize: size }),
       setAnimationsEnabled: (enabled) => set({ animationsEnabled: enabled }),
     }),

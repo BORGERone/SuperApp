@@ -159,21 +159,16 @@ export const FileList: React.FC<FileListProps> = ({
       {sortedFiles.map((file) => (
         <div
           key={file.id}
-          className={`glass-mid relative group cursor-pointer ${
+          className={`glass-mid select-shimmer relative group cursor-pointer ${
             viewMode === 'list' ? 'px-4 py-3 pl-12' : 'p-4'
           }`}
+          data-selected={file.isSelected ? 'true' : 'false'}
           style={{
-            transform: file.isSelected
-              ? viewMode === 'list'
-                ? 'translateX(2px)'
-                : 'scale(1.02)'
-              : undefined,
-            background: file.isSelected
-              ? 'rgba(var(--color-primary-rgb), 0.12)'
-              : undefined,
-            borderColor: file.isSelected ? 'rgba(var(--color-primary-rgb), 0.45)' : undefined,
-            transition:
-              'transform 220ms cubic-bezier(0.16, 1, 0.3, 1), background 220ms ease-out, border-color 220ms ease-out, box-shadow 220ms ease-out',
+            // Никаких translateX/scale при выделении — это вызывало
+            // обрезку справа и визуальное «размытие» текста плитки.
+            // Подсветка идёт через класс .select-shimmer (см. index.css):
+            // светлеющая подложка + бегущая радужная рамка, без блюра.
+            transition: 'background 220ms ease-out, box-shadow 220ms ease-out',
           }}
           onClick={() => handleFileClick(file)}
         >
