@@ -4,19 +4,12 @@ import archiver from 'archiver';
 import { db } from '../../../db';
 import { emails, users, emailAttachments, files } from '../../../db/schema';
 import { eq, and, desc, like, inArray } from 'drizzle-orm';
-import { authMiddleware } from '../../../shared/middleware/authMiddleware';
+import { authMiddleware } from '../../../shared/middleware/auth';
 
 // @ts-ignore
 const Archiver = archiver;
 
 const mail = new Hono();
-
-// Middleware для логирования всех запросов к mail routes
-mail.use('*', async (c, next) => {
-  console.log('[Mail Routes] Request:', c.req.method, c.req.path);
-  console.log('[Mail Routes] URL:', c.req.url);
-  await next();
-});
 
 // Схемы валидации
 const sendEmailSchema = z.object({
@@ -42,16 +35,6 @@ mail.get('/', authMiddleware, async (c) => {
     const search = c.req.query('search') as string || '';
     const isUnreadOnly = c.req.query('isUnreadOnly') === 'true';
     const isStarredOnly = c.req.query('isStarredOnly') === 'true';
-
-    // Логируем запрос в файл
-    const logEntry = {
-      timestamp: new Date().toISOString(),
-      action: 'GET_EMAILS',
-      userId: user.id,
-      params: { folder, search, isUnreadOnly, isStarredOnly }
-    };
-    console.log('MAIL_LOG:', JSON.stringify(logEntry));
-
     // Формируем условия фильтрации — and() объединяет их через AND
     const conditions = [eq(emails.ownerId, user.id)];
 
@@ -77,10 +60,6 @@ mail.get('/', authMiddleware, async (c) => {
     let query = db.select().from(emails).where(and(...conditions));
 
     // Логируем SQL для диагностики
-    const sqlDebug = query.toSQL();
-    console.log('Generated SQL:', sqlDebug.sql);
-    console.log('SQL Params:', sqlDebug.params);
-
     const emailList = await query
       .orderBy(desc(emails.createdAt))
       .limit(50)
@@ -115,54 +94,9 @@ mail.get('/', authMiddleware, async (c) => {
       ...email,
       attachments: attachmentsByEmail[email.id] || [],
     }));
-
-    const resultLog = {
-      timestamp: new Date().toISOString(),
-      action: 'GET_EMAILS_SUCCESS',
-      userId: user.id,
-      params: { folder, search, isUnreadOnly, isStarredOnly },
-      result: {
-        totalEmails: emailList.length,
-        sql: sqlDebug.sql,
-        sqlParams: sqlDebug.params
-      }
-    };
-    console.log('MAIL_LOG:', JSON.stringify(resultLog));
-
-    console.log('Mail API - Returning emails:', {
-      userId: user.id,
-      folder: folder,
-      search: search,
-      isUnreadOnly: isUnreadOnly,
-      isStarredOnly: isStarredOnly,
-      totalEmails: emailsWithAttachments.length,
-      emails: emailsWithAttachments.map(e => ({
-        id: e.id,
-        folder: e.folder,
-        subject: e.subject,
-        from: e.from,
-        to: e.to
-      }))
-    });
-
     return c.json({ emails: emailsWithAttachments });
   } catch (error) {
     const user = c.get('user');
-    const errorLog = {
-      timestamp: new Date().toISOString(),
-      action: 'GET_EMAILS_ERROR',
-      userId: user?.id || 'unknown',
-      params: { 
-        folder: c.req.query('folder') || 'inbox',
-        search: c.req.query('search') || '',
-        isUnreadOnly: c.req.query('isUnreadOnly') === 'true',
-        isStarredOnly: c.req.query('isStarredOnly') === 'true'
-      },
-      error: error instanceof Error ? error.message : 'Unknown error',
-      stack: error instanceof Error ? error.stack : undefined
-    };
-    console.log('MAIL_LOG:', JSON.stringify(errorLog));
-    
     console.error('Error fetching emails:', error);
     return c.json({ error: 'Failed to fetch emails' }, 500);
   }
@@ -178,7 +112,6 @@ mail.get('/:id', authMiddleware, async (c) => {
     const timestamp = new Date().toISOString();
     const logMessage = `[${timestamp}] ${message}\n`;
     fs.appendFileSync(logFile, logMessage);
-    console.log(message);
   };
   
   log('[Mail Route /:id] Called');
@@ -393,7 +326,6 @@ mail.post('/send', authMiddleware, async (c) => {
     const user = c.get('user');
     const body = await c.req.json();
 
-    console.log('Send email request body:', JSON.stringify(body, null, 2));
 
     const validatedData = sendEmailSchema.parse(body);
 
@@ -405,7 +337,6 @@ mail.post('/send', authMiddleware, async (c) => {
     ];
 
     // Создаем письмо в отправленных
-    console.log('Creating sent email for user:', user.email);
     const sentEmailId = crypto.randomUUID();
     const sentEmail = {
       id: sentEmailId,
@@ -424,13 +355,10 @@ mail.post('/send', authMiddleware, async (c) => {
       ownerId: user.id,
     };
 
-    console.log('Inserting sent email:', sentEmail);
     await db.insert(emails).values(sentEmail).execute();
-    console.log('Sent email inserted successfully');
 
     // Связываем вложения с письмом отправителя
     if (validatedData.attachmentIds && validatedData.attachmentIds.length > 0) {
-      console.log('Linking attachments to sent email:', validatedData.attachmentIds);
       for (const attachmentId of validatedData.attachmentIds) {
         await db
           .update(emailAttachments)
@@ -440,11 +368,9 @@ mail.post('/send', authMiddleware, async (c) => {
       }
     }
 
-    console.log('Starting email delivery to recipients:', recipients);
 
     for (const recipientEmail of recipients) {
       try {
-        console.log('Processing recipient:', recipientEmail);
 
         // Ищем пользователя-получателя
         const recipientUser = await db
@@ -453,10 +379,8 @@ mail.post('/send', authMiddleware, async (c) => {
           .where(eq(users.email, recipientEmail))
           .execute();
 
-        console.log('Found recipient user:', recipientUser.length > 0 ? 'yes' : 'no');
 
         if (recipientUser.length === 0) {
-          console.log(`User ${recipientEmail} not found, skipping delivery`);
           continue;
         }
 
@@ -478,11 +402,9 @@ mail.post('/send', authMiddleware, async (c) => {
         };
 
         await db.insert(emails).values(inboxEmail).execute();
-        console.log(`Email delivered to ${recipientEmail}:`, inboxEmail);
 
         // Копируем вложения для получателя
         if (validatedData.attachmentIds && validatedData.attachmentIds.length > 0) {
-          console.log('Copying attachments for recipient:', validatedData.attachmentIds);
           for (const attachmentId of validatedData.attachmentIds) {
             const originalAttachment = await db
               .select()
@@ -513,7 +435,6 @@ mail.post('/send', authMiddleware, async (c) => {
     }
 
     // TODO: Отправка через SMTP сервер для внешних email адресов
-    console.log('Email sent from', user.email, 'to:', recipients);
 
     // Возвращаем sentEmail только если он существует (не отправляли себе)
     const response: any = { success: true };
@@ -538,11 +459,6 @@ mail.put('/:id', authMiddleware, async (c) => {
     const emailId = c.req.param('id');
     const body = await c.req.json();
 
-    console.log('PUT email request:', {
-      emailId,
-      userId: user.id,
-      requestBody: body
-    });
 
     const validatedData = updateEmailSchema.parse(body);
 
@@ -571,11 +487,6 @@ mail.put('/:id', authMiddleware, async (c) => {
       updateData.isStarred = validatedData.isStarred;
     }
     
-    console.log('Email update data:', {
-      emailId,
-      updateData,
-      existingEmailFound: existingEmail.length > 0
-    });
     
     await db
       .update(emails)
@@ -583,7 +494,6 @@ mail.put('/:id', authMiddleware, async (c) => {
       .where(eq(emails.id, emailId))
       .execute();
 
-    console.log('Email updated successfully');
     return c.json({ success: true });
   } catch (error) {
     if (error instanceof z.ZodError) {
@@ -608,45 +518,12 @@ mail.delete('/:id', authMiddleware, async (c) => {
     const user = c.get('user');
     const emailId = c.req.param('id');
 
-    const logData = {
-      timestamp: new Date().toISOString(),
-      emailId,
-      userId: user.id,
-      action: 'DELETE_REQUEST'
-    };
-    
-    console.log('DELETE email request:', logData);
-    
-    // Записываем в файл
-    const fs = require('fs');
-    fs.appendFileSync('debug.log', JSON.stringify(logData) + '\n');
-
     // Проверяем, что письмо принадлежит пользователю
     const existingEmail = await db
       .select()
       .from(emails)
       .where(and(eq(emails.id, emailId), eq(emails.ownerId, user.id)))
       .execute();
-
-    const foundLogData = {
-      timestamp: new Date().toISOString(),
-      emailId,
-      userId: user.id,
-      existingEmailFound: existingEmail.length > 0,
-      emailDetails: existingEmail.length > 0 ? {
-        id: existingEmail[0].id,
-        folder: existingEmail[0].folder,
-        subject: existingEmail[0].subject,
-        from: existingEmail[0].from,
-        to: existingEmail[0].to
-      } : null,
-      action: 'EMAIL_SEARCH_RESULT'
-    };
-    
-    console.log('Email found for deletion:', foundLogData);
-    
-    // Записываем результат поиска в файл
-    fs.appendFileSync('debug.log', JSON.stringify(foundLogData) + '\n');
 
     if (!existingEmail.length) {
       return c.json({ error: 'Email not found' }, 404);
@@ -662,7 +539,6 @@ mail.delete('/:id', authMiddleware, async (c) => {
       .where(eq(emails.id, emailId))
       .execute();
 
-    console.log('Email moved to trash successfully');
     return c.json({ success: true });
   } catch (error) {
     console.error('Error deleting email:', {
@@ -738,7 +614,6 @@ mail.post('/attachments/upload', authMiddleware, async (c) => {
       storageType = (body.storageType as string) || 'local';
       driveFileId = (body.driveFileId as string) || null;
 
-      console.log('Upload attachment request (FormData):', { fileName: file?.name, fileSize: file?.size, storageType, driveFileId });
 
       if (!file) {
         return c.json({ error: 'No file provided' }, 400);
@@ -756,7 +631,6 @@ mail.post('/attachments/upload', authMiddleware, async (c) => {
       storageType = body.storageType;
       driveFileId = body.driveFileId;
 
-      console.log('Upload attachment request (JSON):', { filename, size, mimeType, storageType, driveFileId });
 
       if (!filename || storageType !== 'drive' || !driveFileId) {
         return c.json({ error: 'Invalid request for drive attachment' }, 400);
@@ -797,7 +671,6 @@ mail.post('/attachments/upload', authMiddleware, async (c) => {
       createdAt: now,
     });
 
-    console.log('Attachment uploaded successfully:', { attachmentId, fileName: filename });
     return c.json({ message: 'Attachment uploaded successfully', id: attachmentId });
   } catch (error) {
     console.error('Upload attachment error:', error);

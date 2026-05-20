@@ -46,7 +46,6 @@ driveRouter.get('/list', async (c) => {
   const path = c.req.query('path') || '/';
 
   try {
-    console.log('List files request:', { userId: user.userId, role: user.role, path });
 
     // Получаем файлы, к которым у пользователя есть доступ
     let fileList;
@@ -54,23 +53,19 @@ driveRouter.get('/list', async (c) => {
     if (user.role === 'admin') {
       // Админ видит все файлы в текущей директории
       fileList = await db.select().from(files).where(eq(files.path, path));
-      console.log('Admin files:', fileList.length);
     } else {
       // Обычный пользователь видит свои файлы и файлы с правами доступа
       const ownFiles = await db.select().from(files).where(
         and(eq(files.path, path), eq(files.ownerId, user.userId))
       );
-      console.log('Own files:', ownFiles.length);
 
       // Получаем файлы с правами доступа
       const permissions = await db.select({ fileId: filePermissions.fileId })
         .from(filePermissions)
         .where(eq(filePermissions.userId, user.userId));
 
-      console.log('Permissions for user:', permissions);
 
       const fileIdsWithAccess = permissions.map((p: any) => p.fileId);
-      console.log('File IDs with access:', fileIdsWithAccess);
 
       let sharedFiles: any[] = [];
       if (fileIdsWithAccess.length > 0) {
@@ -80,7 +75,6 @@ driveRouter.get('/list', async (c) => {
             inArray(files.id, fileIdsWithAccess)
           )
         );
-        console.log('Shared files:', sharedFiles.length);
       }
 
       // Объединяем файлы, удаляя дубликаты
@@ -88,7 +82,6 @@ driveRouter.get('/list', async (c) => {
       ownFiles.forEach((file: any) => fileMap.set(file.id, file));
       sharedFiles.forEach((file: any) => fileMap.set(file.id, file));
       fileList = Array.from(fileMap.values());
-      console.log('Total files for user:', fileList.length);
     }
 
     return c.json({ files: fileList });
@@ -135,7 +128,6 @@ driveRouter.post('/upload', async (c) => {
   const file = formData.get('file') as File;
   const path = formData.get('path') as string;
 
-  console.log('Upload request:', { fileName: file?.name, fileSize: file?.size, path });
 
   if (!file) {
     return c.json({ error: 'No file provided' }, 400);
@@ -153,7 +145,6 @@ driveRouter.post('/upload', async (c) => {
     }
     const filePath = `${uploadsDir}/${fileId}-${file.name}`;
     const buffer = await file.arrayBuffer();
-    console.log('File buffer size:', buffer.byteLength);
     fs.writeFileSync(filePath, Buffer.from(buffer));
 
     // Создаем запись в базе данных
@@ -168,7 +159,6 @@ driveRouter.post('/upload', async (c) => {
       updatedAt: now,
     });
 
-    console.log('File uploaded successfully:', { fileId, fileName: file.name });
     return c.json({ message: 'File uploaded successfully', id: fileId });
   } catch (error) {
     console.error('Upload file error:', error);
@@ -510,7 +500,6 @@ driveRouter.post('/grant-access-batch', zValidator('json', z.object({
   const { fileIds, userIds } = c.req.valid('json');
 
   try {
-    console.log('Grant batch access:', { fileIds, userIds, requestingUser: user.userId });
 
     // Проверяем права для каждого файла
     const fileRecords = await db.select().from(files).where(inArray(files.id, fileIds));
@@ -553,7 +542,6 @@ driveRouter.post('/grant-access-batch', zValidator('json', z.object({
       }
     }
 
-    console.log('Batch access granted:', grantedCount);
     return c.json({ message: `Permissions granted successfully`, count: grantedCount });
   } catch (error) {
     console.error('Grant batch access error:', error);
