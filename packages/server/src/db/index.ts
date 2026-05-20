@@ -5,7 +5,6 @@ import { users } from './schema';
 import bcrypt from 'bcryptjs';
 import { fileURLToPath } from 'url';
 import { dirname, join } from 'path';
-import { migrate } from 'drizzle-orm/bun-sqlite/migrator';
 import { eq } from 'drizzle-orm';
 
 // Получаем путь к директории базы данных
@@ -153,64 +152,67 @@ ensureColumn('task_columns', 'archived_at', 'INTEGER');
 ensureColumn('users', 'avatar_url', 'TEXT');
 ensureColumn('users', 'pin_code', 'TEXT');
 
-// Инициализация базы данных с начальными пользователями
+// Сидинг начальных пользователей.
+//
+// Никаких хардкоженных паролей: admin/user создаются ТОЛЬКО когда заданы
+// переменные окружения SEED_ADMIN_PASSWORD / SEED_USER_PASSWORD /
+// SEED_ADMIN_PIN / SEED_USER_PIN. По умолчанию (продакшен) сид выключен,
+// в dev можно включить флагом SEED_TEST_USERS=true.
 async function initDatabase() {
+  const allowSeed =
+    process.env.SEED_TEST_USERS === 'true' || process.env.NODE_ENV !== 'production';
+  if (!allowSeed) return;
+
+  const adminPassword = process.env.SEED_ADMIN_PASSWORD;
+  const userPassword = process.env.SEED_USER_PASSWORD;
+  const adminPin = process.env.SEED_ADMIN_PIN;
+  const userPin = process.env.SEED_USER_PIN;
+
+  if (!adminPassword || !userPassword || !adminPin || !userPin) {
+    return;
+  }
+
   try {
-    // Проверяем, есть ли пользователи admin и user
-    const existingAdmin = await db.select().from(users).where(eq(users.email, 'admin')).limit(1);
-    const existingUser = await db.select().from(users).where(eq(users.email, 'user')).limit(1);
+    const existingAdmin = await db
+      .select()
+      .from(users)
+      .where(eq(users.email, 'admin'))
+      .limit(1);
+    const existingUser = await db
+      .select()
+      .from(users)
+      .where(eq(users.email, 'user'))
+      .limit(1);
 
     if (existingAdmin.length === 0 && existingUser.length === 0) {
-      console.log('Creating initial users...');
-
       const now = new Date();
 
-      // Создаем admin пользователя
-      const adminPassword = await bcrypt.hash('admin123', 10);
-      const adminPinCode = await bcrypt.hash('1234', 10);
       await db.insert(users).values({
         id: crypto.randomUUID(),
         email: 'admin',
         username: 'admin',
-        password: adminPassword,
-        pinCode: adminPinCode,
+        password: await bcrypt.hash(adminPassword, 10),
+        pinCode: await bcrypt.hash(adminPin, 10),
         role: 'admin',
         createdAt: now,
         updatedAt: now,
       } as any);
 
-      // Создаем обычного пользователя
-      const userPassword = await bcrypt.hash('user123', 10);
-      const userPinCode = await bcrypt.hash('1234', 10);
       await db.insert(users).values({
         id: crypto.randomUUID(),
         email: 'user',
         username: 'user',
-        password: userPassword,
-        pinCode: userPinCode,
+        password: await bcrypt.hash(userPassword, 10),
+        pinCode: await bcrypt.hash(userPin, 10),
         role: 'user',
         createdAt: now,
         updatedAt: now,
       } as any);
 
-      console.log('Initial users created:');
-      console.log('  - admin / admin123 / PIN: 1234 (admin role)');
-      console.log('  - user / user123 / PIN: 1234 (user role)');
-    } else {
-      // Если пользователи существуют, но без пин-кода, добавляем им пин-код
-      if (existingAdmin.length > 0 && !existingAdmin[0].pinCode) {
-        const adminPinCode = await bcrypt.hash('1234', 10);
-        await db.update(users).set({ pinCode: adminPinCode, updatedAt: new Date() }).where(eq(users.email, 'admin'));
-        console.log('Added PIN code to admin user');
-      }
-      if (existingUser.length > 0 && !existingUser[0].pinCode) {
-        const userPinCode = await bcrypt.hash('1234', 10);
-        await db.update(users).set({ pinCode: userPinCode, updatedAt: new Date() }).where(eq(users.email, 'user'));
-        console.log('Added PIN code to user user');
-      }
+      console.log('[DB init] Seeded admin and user accounts from environment variables.');
     }
   } catch (error) {
-    console.error('Database initialization error:', error);
+    console.error('[DB init] Error');
   }
 }
 
