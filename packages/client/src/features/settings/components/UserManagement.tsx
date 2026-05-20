@@ -254,11 +254,11 @@ export const UserManagement: React.FC = () => {
   return (
     <div>
       <div className="flex items-center justify-between mb-6">
-        <h3 className="text-lg font-semibold text-gray-800">Управление пользователями</h3>
+        <h3 className="text-lg font-semibold text-app">Управление пользователями</h3>
         <div className="flex gap-2">
           <button
             onClick={() => refetch()}
-            className="px-4 py-2 border border-gray-300 text-gray-700 rounded-lg hover:bg-gray-50 transition-colors"
+            className="px-4 py-2 border border-app-border text-app rounded-lg hover:bg-surface-2 transition-colors"
           >
             Обновить
           </button>
@@ -272,34 +272,34 @@ export const UserManagement: React.FC = () => {
       </div>
 
       {isLoading ? (
-        <div className="text-center py-8 text-gray-600">Загрузка пользователей...</div>
+        <div className="text-center py-8 text-app-muted">Загрузка пользователей...</div>
       ) : (
         <div className="glass-card rounded-lg overflow-hidden">
           <table className="w-full">
-            <thead className="bg-gray-50">
+            <thead className="bg-surface-2">
               <tr>
-                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                <th className="px-6 py-3 text-left text-xs font-medium text-app-muted uppercase tracking-wider">
                   Имя пользователя
                 </th>
-                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                <th className="px-6 py-3 text-left text-xs font-medium text-app-muted uppercase tracking-wider">
                   Роль
                 </th>
-                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                <th className="px-6 py-3 text-left text-xs font-medium text-app-muted uppercase tracking-wider">
                   Дата создания
                 </th>
-                <th className="px-6 py-3 text-right text-xs font-medium text-gray-500 uppercase tracking-wider">
+                <th className="px-6 py-3 text-right text-xs font-medium text-app-muted uppercase tracking-wider">
                   Действия
                 </th>
               </tr>
             </thead>
-            <tbody className="bg-white divide-y divide-gray-200">
+            <tbody className="bg-transparent divide-y divide-app-border">
               {users.map((user: User) => (
                 <tr
                   key={user.id}
                   onClick={() => handleEditUser(user)}
-                  className="hover:bg-gray-50 cursor-pointer"
+                  className="hover:bg-surface-2 cursor-pointer"
                 >
-                  <td className="px-6 py-4 whitespace-nowrap text-sm font-medium text-gray-900">
+                  <td className="px-6 py-4 whitespace-nowrap text-sm font-medium text-app">
                     {user.username}
                   </td>
                   <td className="px-6 py-4 whitespace-nowrap">
@@ -307,17 +307,17 @@ export const UserManagement: React.FC = () => {
                       className={`px-2 py-1 text-xs font-medium rounded-full ${
                         user.role === 'admin'
                           ? 'bg-purple-100 text-purple-800'
-                          : 'bg-gray-100 text-gray-800'
+                          : 'bg-surface-2 text-app'
                       }`}
                     >
                       {user.role === 'admin' ? 'Администратор' : 'Пользователь'}
                     </span>
                   </td>
-                  <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
+                  <td className="px-6 py-4 whitespace-nowrap text-sm text-app-muted">
                     {new Date(user.createdAt).toLocaleDateString('ru-RU')}
                   </td>
                   <td className="px-6 py-4 whitespace-nowrap text-right text-sm font-medium">
-                    <span className="text-gray-400">Нажмите для редактирования</span>
+                    <span className="text-app-muted">Нажмите для редактирования</span>
                   </td>
                 </tr>
               ))}
@@ -329,39 +329,39 @@ export const UserManagement: React.FC = () => {
       {showAddUserModal && createPortal(
         <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-[10000] p-4">
           <div className="glass-card rounded-2xl p-6 w-full max-w-md">
-            <h2 className="text-2xl font-bold text-gray-800 mb-6">Добавить пользователя</h2>
+            <h2 className="text-2xl font-bold text-app mb-6">Добавить пользователя</h2>
 
             <form onSubmit={handleAddUser} className="space-y-4">
               <div>
-                <label className="block text-sm font-medium text-gray-700 mb-2">
+                <label className="block text-sm font-medium text-app-secondary mb-2">
                   Имя пользователя
                 </label>
                 <input
                   type="text"
                   value={newUsername}
                   onChange={(e) => setNewUsername(e.target.value)}
-                  className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-indigo-500 focus:border-transparent"
+                  className="w-full px-4 py-2 border border-app-border rounded-lg bg-surface-2 focus:ring-2 focus:ring-indigo-500 focus:border-transparent"
                   placeholder="Введите имя пользователя"
                   required
                 />
               </div>
 
               <div>
-                <label className="block text-sm font-medium text-gray-700 mb-2">
+                <label className="block text-sm font-medium text-app-secondary mb-2">
                   Пароль
                 </label>
                 <input
                   type="password"
                   value={newPassword}
                   onChange={(e) => setNewPassword(e.target.value)}
-                  className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-indigo-500 focus:border-transparent"
+                  className="w-full px-4 py-2 border border-app-border rounded-lg bg-surface-2 focus:ring-2 focus:ring-indigo-500 focus:border-transparent"
                   placeholder="Введите пароль"
                   required
                 />
               </div>
 
               <div>
-                <label className="block text-sm font-medium text-gray-700 mb-2">
+                <label className="block text-sm font-medium text-app-secondary mb-2">
                   PIN-код
                 </label>
                 <input
@@ -370,7 +370,7 @@ export const UserManagement: React.FC = () => {
                   maxLength={4}
                   value={newPinCode}
                   onChange={(e) => setNewPinCode(e.target.value.replace(/\D/g, ''))}
-                  className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-indigo-500 focus:border-transparent"
+                  className="w-full px-4 py-2 border border-app-border rounded-lg bg-surface-2 focus:ring-2 focus:ring-indigo-500 focus:border-transparent"
                   placeholder="Введите 4-значный PIN-код"
                   required
                 />
@@ -380,7 +380,7 @@ export const UserManagement: React.FC = () => {
                 <button
                   type="button"
                   onClick={() => setShowAddUserModal(false)}
-                  className="flex-1 px-4 py-2 border border-gray-300 text-gray-700 rounded-lg hover:bg-gray-50 transition-colors"
+                  className="flex-1 px-4 py-2 border border-app-border text-app rounded-lg hover:bg-surface-2 transition-colors"
                 >
                   Отмена
                 </button>
@@ -400,40 +400,40 @@ export const UserManagement: React.FC = () => {
       {showEditUserModal && selectedUser && createPortal(
         <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-[10000] p-4">
           <div className="glass-card rounded-2xl p-6 w-full max-w-3xl">
-            <h2 className="text-2xl font-bold text-gray-800 mb-6">Редактировать пользователя</h2>
+            <h2 className="text-2xl font-bold text-app mb-6">Редактировать пользователя</h2>
 
             <form onSubmit={handleUpdateUser} className="space-y-4">
               <div className="grid grid-cols-2 gap-6">
                 <div className="space-y-4">
                   <div>
-                    <label className="block text-sm font-medium text-gray-700 mb-2">
+                    <label className="block text-sm font-medium text-app-secondary mb-2">
                       Имя пользователя
                     </label>
                     <input
                       type="text"
                       value={editUsername}
                       onChange={(e) => setEditUsername(e.target.value)}
-                      className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-indigo-500 focus:border-transparent"
+                      className="w-full px-4 py-2 border border-app-border rounded-lg bg-surface-2 focus:ring-2 focus:ring-indigo-500 focus:border-transparent"
                       placeholder="Введите новое имя пользователя"
                       required
                     />
                   </div>
 
                   <div>
-                    <label className="block text-sm font-medium text-gray-700 mb-2">
+                    <label className="block text-sm font-medium text-app-secondary mb-2">
                       Новый пароль (оставьте пустым, чтобы не менять)
                     </label>
                     <input
                       type="password"
                       value={editPassword}
                       onChange={(e) => setEditPassword(e.target.value)}
-                      className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-indigo-500 focus:border-transparent"
+                      className="w-full px-4 py-2 border border-app-border rounded-lg bg-surface-2 focus:ring-2 focus:ring-indigo-500 focus:border-transparent"
                       placeholder="Введите новый пароль"
                     />
                   </div>
 
                   <div>
-                    <label className="block text-sm font-medium text-gray-700 mb-2">
+                    <label className="block text-sm font-medium text-app-secondary mb-2">
                       Новый PIN-код (оставьте пустым, чтобы не менять)
                     </label>
                     <input
@@ -442,7 +442,7 @@ export const UserManagement: React.FC = () => {
                       maxLength={4}
                       value={editPinCode}
                       onChange={(e) => setEditPinCode(e.target.value.replace(/\D/g, ''))}
-                      className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-indigo-500 focus:border-transparent"
+                      className="w-full px-4 py-2 border border-app-border rounded-lg bg-surface-2 focus:ring-2 focus:ring-indigo-500 focus:border-transparent"
                       placeholder="Введите новый 4-значный PIN-код"
                     />
                   </div>
@@ -464,7 +464,7 @@ export const UserManagement: React.FC = () => {
 
                 <div className="space-y-4">
                   <div className="flex items-center justify-between">
-                    <label className="block text-sm font-medium text-gray-700">
+                    <label className="block text-sm font-medium text-app-secondary">
                       Администратор
                     </label>
                     <button
@@ -487,7 +487,7 @@ export const UserManagement: React.FC = () => {
                       />
                     </button>
                   </div>
-                  <p className="text-xs text-gray-500">
+                  <p className="text-xs text-app-muted">
                     {selectedUser.role === 'admin' ? 'Да' : 'Нет'}
                   </p>
                 </div>
@@ -501,7 +501,7 @@ export const UserManagement: React.FC = () => {
                       setShowEditUserModal(false);
                       setSelectedUser(null);
                     }}
-                    className="px-4 py-2 border border-gray-300 text-gray-700 rounded-lg hover:bg-gray-50 transition-colors"
+                    className="px-4 py-2 border border-app-border text-app rounded-lg hover:bg-surface-2 transition-colors"
                   >
                     Отмена
                   </button>

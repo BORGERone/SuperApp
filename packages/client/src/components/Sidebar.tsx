@@ -18,7 +18,7 @@ import { computeDeadlineState } from '../features/tasks/models/tasksModel';
 // Layout/TitleBar могли выровнять brand-зону строго по верху сайдбара.
 export const SIDEBAR_WIDTH_COLLAPSED = 64; // tailwind w-16
 export const SIDEBAR_WIDTH_EXPANDED = 256; // tailwind w-64
-export const SIDEBAR_LEFT_MARGIN = 12; // tailwind m-3
+export const SIDEBAR_LEFT_MARGIN = 0; // Прижата к левой грани экрана
 export const TITLEBAR_HEIGHT = 36;
 
 function readCurrentUserId(): string | null {
@@ -205,20 +205,21 @@ export const Sidebar: React.FC = () => {
 
   return (
     <div
-      className={`glass-deep sidebar-anim mx-3 mb-3 flex flex-col ${
+      className={`glass-deep sidebar-anim flex flex-col ${
         isCollapsed ? 'w-16' : 'w-64'
       }`}
       style={{
-        // Сайдбар визуально прижат к нижней границе титлбара и продолжает его
-        // brand-зону: нет верхнего радиуса, верх вровень с паддингом Layout (= TITLEBAR_HEIGHT).
-        height: `calc(100vh - ${TITLEBAR_HEIGHT}px - 12px)`,
+        // Сайдбар занимает всю высоту экрана
+        height: '100vh',
         borderTopLeftRadius: 0,
         borderTopRightRadius: 0,
+        borderBottomLeftRadius: 0,
+        borderBottomRightRadius: 0,
         transition: 'width 360ms cubic-bezier(0.16, 1, 0.3, 1)',
       }}
     >
       {/* Кнопка сворачивания/разворачивания */}
-      <div className="p-3 flex justify-start">
+      <div className="p-3 flex justify-start" style={{ paddingTop: `${TITLEBAR_HEIGHT + 12}px` }}>
         <button
           onClick={() => setIsCollapsed(!isCollapsed)}
           className="btn-icon"
@@ -251,14 +252,14 @@ export const Sidebar: React.FC = () => {
       </div>
 
       {/* Основные кнопки навигации */}
-      <div className="flex-1 px-2 space-y-2 overflow-hidden">
+      <div className="flex-1 px-2 space-y-2 overflow-visible">
         {menuItems.map((item) => (
           <div key={item.id}>
             {!isCollapsed ? (
               <>
                 <button
                   onClick={() => handleItemClick(item.path)}
-                  className={`relative glass-mid sidebar-anim w-full flex items-center gap-3 px-3 py-2.5 z-10`}
+                  className={`relative glass-mid blur-smooth sidebar-anim w-full flex items-center gap-3 px-3 py-2.5 z-10`}
                   style={{
                     transition:
                       'background 220ms cubic-bezier(0.16, 1, 0.3, 1), color 220ms cubic-bezier(0.16, 1, 0.3, 1), transform 220ms cubic-bezier(0.16, 1, 0.3, 1)',
@@ -288,7 +289,7 @@ export const Sidebar: React.FC = () => {
                   
                   {item.subItems && (
                     <div
-                      className="glass-top overflow-hidden"
+                      className="glass-top blur-smooth-top applied overflow-hidden"
                       style={{
                         // Островок подпунктов теперь стоит отдельным блоком
                         // под островком почты, не наезжая на него (как titlebar↔sidebar).

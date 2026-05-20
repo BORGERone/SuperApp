@@ -69,84 +69,18 @@ export const TitleBar: React.FC<TitleBarProps> = ({
 
   return (
     <div className="titlebar" role="presentation">
-      {/* Brand zone — визуально вкладывается в верх сайдбара */}
+      {/* Единый островок titlebar */}
       <div
-        className="titlebar__brand-zone"
+        className="titlebar__container"
         style={{
-          marginLeft: sidebarLeftMargin,
           width: brandZoneWidth,
           transition: 'width 320ms cubic-bezier(0.16, 1, 0.3, 1)',
         }}
       >
-        {!collapsed && (
-          <span className="titlebar__brand" aria-hidden="true">
-            SuperApp
-          </span>
-        )}
-      </div>
-
-      {/* Bridge — тонкий стеклянный мост поверх верхней границы экрана,
-          соединяющий brand-зону слева с зоной системных кнопок справа. */}
-      <div className="titlebar__bridge" aria-hidden="true" />
-
-      {isElectron && (
-        <div className="titlebar__controls">
+        {isElectron && collapsed && (
           <button
             type="button"
-            className="titlebar__btn"
-            onClick={handleMinimize}
-            aria-label="Свернуть окно"
-            title="Свернуть"
-          >
-            <svg width="12" height="12" viewBox="0 0 12 12" aria-hidden="true">
-              <rect x="2" y="5.5" width="8" height="1" fill="currentColor" />
-            </svg>
-          </button>
-          <button
-            type="button"
-            className="titlebar__btn"
-            onClick={handleToggleMaximize}
-            aria-label={isMaximized ? 'Свернуть в окно' : 'Развернуть на весь экран'}
-            title={isMaximized ? 'Свернуть в окно' : 'Развернуть'}
-          >
-            {isMaximized ? (
-              <svg width="12" height="12" viewBox="0 0 12 12" aria-hidden="true">
-                <rect
-                  x="2.5"
-                  y="3.5"
-                  width="6"
-                  height="6"
-                  fill="none"
-                  stroke="currentColor"
-                  strokeWidth="1"
-                />
-                <rect
-                  x="4"
-                  y="2"
-                  width="6"
-                  height="6"
-                  fill="none"
-                  stroke="currentColor"
-                  strokeWidth="1"
-                />
-              </svg>
-            ) : (
-              <svg width="12" height="12" viewBox="0 0 12 12" aria-hidden="true">
-                <rect
-                  x="2.5"
-                  y="2.5"
-                  width="7"
-                  height="7"
-                  fill="none"
-                  stroke="currentColor"
-                  strokeWidth="1"
-                />
-              </svg>
-            )}
-          </button>
-          <button
-            type="button"
-            className="titlebar__btn titlebar__btn--close"
+            className="titlebar__btn titlebar__btn--close titlebar__btn--collapsed-full"
             onClick={handleClose}
             aria-label="Закрыть окно"
             title="Закрыть"
@@ -160,8 +94,89 @@ export const TitleBar: React.FC<TitleBarProps> = ({
               />
             </svg>
           </button>
+        )}
+        <div className="titlebar__content" style={{ paddingLeft: collapsed ? '0' : '18px' }}>
+          {!collapsed && (
+            <span className="titlebar__brand" aria-hidden="true">
+              SuperApp
+            </span>
+          )}
+          <div className="flex-1" />
+          {isElectron && !collapsed && (
+            <div className="titlebar__controls" style={{ padding: '0 4px 0 8px' }}>
+              <button
+                type="button"
+                className="titlebar__btn"
+                onClick={handleMinimize}
+                aria-label="Свернуть окно"
+                title="Свернуть"
+              >
+                <svg width="12" height="12" viewBox="0 0 12 12" aria-hidden="true">
+                  <rect x="2" y="5.5" width="8" height="1" fill="currentColor" />
+                </svg>
+              </button>
+              <button
+                type="button"
+                className="titlebar__btn"
+                onClick={handleToggleMaximize}
+                aria-label={isMaximized ? 'Свернуть в окно' : 'Развернуть на весь экран'}
+                title={isMaximized ? 'Свернуть в окно' : 'Развернуть'}
+              >
+                {isMaximized ? (
+                  <svg width="12" height="12" viewBox="0 0 12 12" aria-hidden="true">
+                    <rect
+                      x="2.5"
+                      y="3.5"
+                      width="6"
+                      height="6"
+                      fill="none"
+                      stroke="currentColor"
+                      strokeWidth="1"
+                    />
+                    <rect
+                      x="4"
+                      y="2"
+                      width="6"
+                      height="6"
+                      fill="none"
+                      stroke="currentColor"
+                      strokeWidth="1"
+                    />
+                  </svg>
+                ) : (
+                  <svg width="12" height="12" viewBox="0 0 12 12" aria-hidden="true">
+                    <rect
+                      x="2.5"
+                      y="2.5"
+                      width="7"
+                      height="7"
+                      fill="none"
+                      stroke="currentColor"
+                      strokeWidth="1"
+                    />
+                  </svg>
+                )}
+              </button>
+              <button
+                type="button"
+                className="titlebar__btn titlebar__btn--close"
+                onClick={handleClose}
+                aria-label="Закрыть окно"
+                title="Закрыть"
+              >
+                <svg width="12" height="12" viewBox="0 0 12 12" aria-hidden="true">
+                  <path
+                    d="M2.5 2.5 L9.5 9.5 M9.5 2.5 L2.5 9.5"
+                    stroke="currentColor"
+                    strokeWidth="1.2"
+                    strokeLinecap="round"
+                  />
+                </svg>
+              </button>
+            </div>
+          )}
         </div>
-      )}
+      </div>
     </div>
   );
 };

@@ -14,6 +14,7 @@ import { TaskCard, computeDeadlineState } from '../models/tasksModel';
 import { useDeleteCard, useUpdateCard, useUpdateSubtask } from '../api/tasksApi';
 import { useUsers } from '../../auth/api/usersApi';
 import { CARD_DRAG_MIME, useCardDrag } from '../dnd/CardDragContext';
+import { useAppearanceStore } from '../../settings/viewmodels/appearanceViewModel';
 
 // Определяем, работаем ли в Electron
 const isElectron = typeof window !== 'undefined' && (window as any).electron !== undefined;
@@ -55,6 +56,9 @@ export const CardItem: React.FC<CardItemProps> = ({
   const drag = useCardDrag();
   const cardRef = useRef<HTMLElement>(null);
   const [showSubtasks, setShowSubtasks] = useState(!card.completed);
+  const { themeMode } = useAppearanceStore();
+
+  const isDarkTheme = themeMode === 'dark' || (themeMode === 'auto' && typeof window !== 'undefined' && window.matchMedia('(prefers-color-scheme: dark)').matches);
 
   useEffect(() => {
     if (card.completed) {
@@ -140,11 +144,11 @@ export const CardItem: React.FC<CardItemProps> = ({
   // чтобы в тёмной теме карточки не оставались белыми.
   const isSemanticVariant = card.completed || deadlineState === 'overdue' || deadlineState === 'today';
   const cardSurfaceClasses = card.completed
-    ? 'border-emerald-200/70 bg-emerald-50/65 hover:bg-emerald-50/80'
+    ? (isDarkTheme ? 'border-emerald-500/50 bg-emerald-900/30 hover:bg-emerald-900/40' : 'border-emerald-200/70 bg-emerald-50/65 hover:bg-emerald-50/80')
     : deadlineState === 'overdue'
-      ? 'border-red-200/70 bg-red-50/65 hover:bg-red-50/80'
+      ? (isDarkTheme ? 'border-red-500/50 bg-red-900/30 hover:bg-red-900/40' : 'border-red-200/70 bg-red-50/65 hover:bg-red-50/80')
       : deadlineState === 'today'
-        ? 'border-amber-200/70 bg-amber-50/65 hover:bg-amber-50/80'
+        ? (isDarkTheme ? 'border-amber-500/50 bg-amber-900/30 hover:bg-amber-900/40' : 'border-amber-200/70 bg-amber-50/65 hover:bg-amber-50/80')
         : '';
   const cardSurfaceStyle: React.CSSProperties | undefined = isSemanticVariant
     ? undefined
@@ -156,12 +160,22 @@ export const CardItem: React.FC<CardItemProps> = ({
 
   const deadlineLabel = formatDeadline(card.deadline);
   const deadlineBadgeClasses = card.completed
-    ? 'bg-emerald-100/80 text-emerald-700 ring-1 ring-emerald-200/60'
+    ? (isDarkTheme ? 'bg-emerald-950/30 text-emerald-300 ring-emerald-800/30' : 'bg-emerald-100/80 text-emerald-700 ring-emerald-200/60')
     : deadlineState === 'overdue'
-      ? 'bg-red-100/80 text-red-700 ring-1 ring-red-200/60'
+      ? (isDarkTheme ? 'bg-red-950/30 text-red-300 ring-red-800/30' : 'bg-red-100/80 text-red-700 ring-red-200/60')
       : deadlineState === 'today'
-        ? 'bg-amber-100/80 text-amber-700 ring-1 ring-amber-200/60'
-        : 'bg-slate-100/80 text-slate-600 ring-1 ring-slate-200/60';
+        ? (isDarkTheme ? 'bg-amber-950/30 text-amber-300 ring-amber-800/30' : 'bg-amber-100/80 text-amber-700 ring-amber-200/60')
+        : (isDarkTheme ? 'bg-slate-800/30 text-slate-300 ring-slate-700/30' : 'bg-slate-100/80 text-slate-600 ring-slate-200/60');
+
+  // Стили для блока комментария (нейтральный темный цвет)
+  const commentBlockClasses = isDarkTheme
+    ? 'border-slate-700/40 bg-slate-800/25 hover:bg-slate-800/35'
+    : 'border-white/60 bg-white/55 hover:bg-indigo-50/70';
+
+  // Стили для кнопки комментариев (нейтральный темный цвет)
+  const commentButtonClasses = isDarkTheme
+    ? 'bg-slate-800/25 text-slate-300 ring-slate-700/30 hover:bg-slate-800/35 hover:text-slate-200'
+    : 'bg-white/70 text-slate-500 ring-slate-200/60 hover:bg-indigo-50/70 hover:text-indigo-600';
 
   const handleToggleCompleted = async (event: React.MouseEvent) => {
     event.stopPropagation();
@@ -295,7 +309,7 @@ export const CardItem: React.FC<CardItemProps> = ({
           </span>
         )}
         {card.completed && (
-          <span className="inline-flex items-center gap-1 rounded-full bg-emerald-100/80 px-2 py-[2px] font-semibold text-emerald-700 ring-1 ring-emerald-200/60">
+          <span className={`inline-flex items-center gap-1 rounded-full bg-emerald-100/80 px-2 py-[2px] font-semibold text-emerald-700 ring-1 ring-emerald-200/60 ${isDarkTheme ? 'bg-emerald-950/50 text-emerald-300 ring-emerald-800/50' : ''}`}>
             <CheckCircle2 size={11} />
             Выполнено
           </span>
@@ -308,7 +322,7 @@ export const CardItem: React.FC<CardItemProps> = ({
               return (
                 <span
                   key={userId}
-                  className="inline-flex max-w-[120px] items-center gap-1 rounded-full bg-indigo-50/80 px-2 py-[2px] font-semibold text-indigo-600 ring-1 ring-indigo-200/60"
+                  className={`inline-flex max-w-[120px] items-center gap-1 rounded-full px-2 py-[2px] font-semibold ring-1 ${isDarkTheme ? 'bg-slate-800/25 text-slate-300 ring-slate-700/30' : 'bg-indigo-50/80 text-indigo-600 ring-indigo-200/60'}`}
                   title={user?.email || label}
                 >
                   {user?.avatarUrl ? (
@@ -333,8 +347,8 @@ export const CardItem: React.FC<CardItemProps> = ({
             onClick={handleToggleSubtasks}
             className={`inline-flex items-center gap-1 rounded-full px-2 py-[2px] font-semibold ring-1 transition-colors ${
               showSubtasks
-                ? 'bg-indigo-100/80 text-indigo-700 ring-indigo-200/60'
-                : 'bg-white/70 text-slate-500 ring-slate-200/60 hover:bg-indigo-50/70 hover:text-indigo-600'
+                ? (isDarkTheme ? 'bg-slate-800/35 text-slate-300 ring-slate-700/30' : 'bg-indigo-100/80 text-indigo-700 ring-indigo-200/60')
+                : (isDarkTheme ? 'bg-slate-800/25 text-slate-300 ring-slate-700/30 hover:bg-slate-800/35 hover:text-slate-200' : 'bg-white/70 text-slate-500 ring-slate-200/60 hover:bg-indigo-50/70 hover:text-indigo-600')
             }`}
             title="Подпункты"
           >
@@ -348,7 +362,7 @@ export const CardItem: React.FC<CardItemProps> = ({
             e.stopPropagation();
             onOpenComments(card);
           }}
-          className={`ml-auto inline-flex items-center gap-1 rounded-full bg-white/70 px-2 py-[2px] font-semibold text-slate-500 ring-1 ring-slate-200/60 transition-colors hover:bg-indigo-50/70 hover:text-indigo-600 ${
+          className={`ml-auto inline-flex items-center gap-1 rounded-full px-2 py-[2px] font-semibold ring-1 transition-colors ${commentButtonClasses} ${
             commentsCount === 0 ? 'opacity-0 group-hover:opacity-100' : ''
           }`}
           title="Комментарии"
@@ -360,26 +374,26 @@ export const CardItem: React.FC<CardItemProps> = ({
 
       {card.lastComment && (
         <div
-          className="mt-2 rounded-xl border border-white/60 bg-white/55 px-2.5 py-1.5 text-[11px] backdrop-blur-sm cursor-pointer transition-colors hover:bg-indigo-50/70"
+          className={`mt-2 rounded-xl border px-2.5 py-1.5 text-[11px] backdrop-blur-sm cursor-pointer transition-colors ${commentBlockClasses}`}
           onClick={(e) => {
             e.stopPropagation();
             onOpenComments(card);
           }}
         >
-          <div className="flex items-center gap-1 text-[10px] font-semibold uppercase tracking-wide text-slate-400">
+          <div className={`flex items-center gap-1 text-[10px] font-semibold uppercase tracking-wide ${isDarkTheme ? 'text-slate-500' : 'text-slate-400'}`}>
             <MessageSquare size={10} />
             <span className="truncate">
               {card.lastComment.authorName || card.lastComment.authorEmail || 'Комментарий'}
             </span>
           </div>
-          <p className="line-clamp-2 text-[11.5px] leading-[1.45] text-slate-600 break-words whitespace-pre-wrap">
+          <p className={`line-clamp-2 text-[11.5px] leading-[1.45] break-words whitespace-pre-wrap ${isDarkTheme ? 'text-slate-300' : 'text-slate-600'}`}>
             {card.lastComment.body}
           </p>
         </div>
       )}
 
       {showSubtasks && (card.subtasks?.length ?? 0) > 0 && (
-        <div className="mt-2.5 rounded-xl border border-white/60 bg-white/55 px-2.5 py-2 backdrop-blur-sm">
+        <div className={`mt-2.5 rounded-xl border px-2.5 py-2 backdrop-blur-sm ${isDarkTheme ? 'border-slate-700/40 bg-slate-800/30' : 'border-white/60 bg-white/55'}`}>
           <div className="space-y-1.5">
             {card.subtasks.map((subtask) => (
               <div

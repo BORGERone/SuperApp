@@ -207,7 +207,7 @@ export const AssigneeFilter: React.FC<AssigneeFilterProps> = ({
           />
           <span
             className={`flex-1 truncate ${
-              activeCount > 0 ? 'font-semibold text-indigo-700' : 'text-gray-600'
+              activeCount > 0 ? 'font-semibold text-indigo-700' : ''
             }`}
           >
             {labelText}

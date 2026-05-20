@@ -56,56 +56,59 @@ export const PasswordSettings: React.FC = () => {
 
   return (
     <div>
-      <h2 className="text-2xl font-bold text-gray-800 mb-6">Безопасность</h2>
+      <h2 className="text-2xl font-bold text-app mb-6">Безопасность</h2>
 
       <div className="space-y-8">
         {/* Изменение пароля */}
         <div>
-          <h3 className="text-lg font-semibold text-gray-800 mb-4">Изменение пароля</h3>
+          <h3 className="text-lg font-semibold text-app mb-4">Изменение пароля</h3>
           <form onSubmit={handleSubmit} className="space-y-4">
             <div>
-              <label className="block text-sm font-medium text-gray-700 mb-2">
+              <label className="block text-sm font-medium text-app-secondary mb-2">
                 Текущий пароль
               </label>
               <input
                 type="password"
                 value={currentPassword}
                 onChange={(e) => setCurrentPassword(e.target.value)}
-                className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                className="w-full px-4 py-2 border border-app-border rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                style={{ backgroundColor: 'var(--surface-3)' }}
                 placeholder="Введите текущий пароль"
                 required
               />
             </div>
 
             <div>
-              <label className="block text-sm font-medium text-gray-700 mb-2">
+              <label className="block text-sm font-medium text-app-secondary mb-2">
                 Новый пароль
               </label>
               <input
                 type="password"
                 value={newPassword}
                 onChange={(e) => setNewPassword(e.target.value)}
-                className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                className="w-full px-4 py-2 border border-app-border rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                style={{ backgroundColor: 'var(--surface-3)' }}
                 placeholder="Введите новый пароль"
                 required
               />
             </div>
 
             <div>
-              <label className="block text-sm font-medium text-gray-700 mb-2">
+              <label className="block text-sm font-medium text-app-secondary mb-2">
                 Подтвердите новый пароль
               </label>
               <input
                 type="password"
                 value={confirmPassword}
                 onChange={(e) => setConfirmPassword(e.target.value)}
-                className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                className="w-full px-4 py-2 border border-app-border rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                style={{ backgroundColor: 'var(--surface-3)' }}
                 placeholder="Подтвердите новый пароль"
                 required
               />
             </div>
 
-            <div className="text-sm text-gray-600">
+            <div className="text-sm text-app-muted">
               <p>Требования к паролю:</p>
               <ul className="list-disc list-inside mt-1">
                 <li>Минимум 6 символов</li>
@@ -133,8 +136,8 @@ export const PasswordSettings: React.FC = () => {
 
         {/* Смена PIN-кода */}
         <div>
-          <h3 className="text-lg font-semibold text-gray-800 mb-4">PIN-код</h3>
-          <p className="text-gray-600 mb-4">
+          <h3 className="text-lg font-semibold text-app mb-4">PIN-код</h3>
+          <p className="text-app-muted mb-4">
             PIN-код используется для быстрого входа в приложение. Он должен состоять из 4 цифр.
           </p>
           <button

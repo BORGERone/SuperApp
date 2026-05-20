@@ -234,8 +234,8 @@ export const TasksView: React.FC = () => {
 
   return (
     <CardDragProvider>
-    <div className="flex flex-col h-full overflow-hidden p-3 gap-3 page-fade-in">
-      <div className="glass-deep px-6 py-4 flex flex-col gap-3">
+    <div className="flex flex-col h-full overflow-hidden p-3 gap-3">
+      <div className="glass-deep blur-smooth-deep px-6 py-4 flex flex-col gap-3">
         <div className="flex items-center justify-between">
           <h1 className="text-2xl font-semibold text-gradient flex items-center gap-2">Задачи</h1>
           <div className="flex items-center gap-3">

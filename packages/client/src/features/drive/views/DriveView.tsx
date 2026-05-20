@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useDriveStore } from '../viewmodels/driveViewModel';
 import { useAuthStore } from '../../../store';
@@ -33,6 +33,14 @@ export const DriveView: React.FC = () => {
   const [showPermissionsModal, setShowPermissionsModal] = useState(false);
   const [allUsers, setAllUsers] = useState<Array<{id: string, username: string, role: string}>>([]);
   const [allowedUsers, setAllowedUsers] = useState<Set<string>>(new Set());
+
+  useEffect(() => {
+    if (showCreateFolderModal || showPermissionsModal) {
+      document.body.classList.add('has-modal-open');
+    } else {
+      document.body.classList.remove('has-modal-open');
+    }
+  }, [showCreateFolderModal, showPermissionsModal]);
 
   const handleLogout = () => {
     logout();
@@ -287,9 +295,9 @@ export const DriveView: React.FC = () => {
   }, [currentPath, refetch]);
 
   return (
-    <div className="min-h-screen p-3 space-y-3 page-fade-in">
+    <div className="min-h-screen p-3 space-y-3">
       {/* Header */}
-      <div className="glass-deep px-6 py-4 flex flex-col gap-3">
+      <div className="glass-deep blur-smooth-deep px-6 py-4 flex flex-col gap-3">
         <div className="flex items-center justify-between">
           <h1 className="text-2xl font-semibold text-gradient flex items-center gap-2">
             <span aria-hidden="true">☁️</span>Сетевой диск

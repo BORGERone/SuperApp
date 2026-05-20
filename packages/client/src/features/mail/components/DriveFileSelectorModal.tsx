@@ -14,6 +14,13 @@ export const DriveFileSelectorModal: React.FC<DriveFileSelectorModalProps> = ({ 
   const [localCurrentPath, setLocalCurrentPath] = useState('');
 
   useEffect(() => {
+    document.body.classList.add('has-modal-open');
+    return () => {
+      document.body.classList.remove('has-modal-open');
+    };
+  }, []);
+
+  useEffect(() => {
     // Загружаем файлы для текущей папки
     const loadFiles = async () => {
       try {

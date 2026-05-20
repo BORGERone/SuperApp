@@ -85,6 +85,19 @@ function rgba(hex: string, alpha: number): string {
   return `rgba(${r}, ${g}, ${b}, ${alpha})`;
 }
 
+function rgbToHex(r: number, g: number, b: number): string {
+  return '#' + [r, g, b].map(x => {
+    const hex = Math.min(255, Math.max(0, Math.round(x))).toString(16);
+    return hex.length === 1 ? '0' + hex : hex;
+  }).join('');
+}
+
+function lightenColor(hex: string, percent: number): string {
+  const { r, g, b } = hexToRgb(hex);
+  const amount = Math.round(2.55 * percent);
+  return rgbToHex(r + amount, g + amount, b + amount);
+}
+
 export const ThemeProvider = ({ children }: { children: React.ReactNode }): React.ReactElement => {
   const {
     themeMode,
@@ -101,18 +114,22 @@ export const ThemeProvider = ({ children }: { children: React.ReactNode }): Reac
     const root = document.documentElement;
     const scheme = colorSchemes[colorScheme] || colorSchemes.blue;
 
-    // Цветовая схема
-    root.style.setProperty('--color-primary', scheme.primary);
-    root.style.setProperty('--color-secondary', scheme.secondary);
-    root.style.setProperty('--color-accent', scheme.accent);
-    root.style.setProperty('--gradient-from', scheme.gradientFrom);
-    root.style.setProperty('--gradient-to', scheme.gradientTo);
+    // Цветовая схема - увеличиваем яркость когда включен фон
+    const hasBackground = backgroundImageEnabled && backgroundImage;
+    const brightnessBoost = hasBackground ? 25 : 0;
 
-    const rgb = hexToRgb(scheme.primary);
+    root.style.setProperty('--color-primary', lightenColor(scheme.primary, brightnessBoost));
+    root.style.setProperty('--color-secondary', lightenColor(scheme.secondary, brightnessBoost));
+    root.style.setProperty('--color-accent', lightenColor(scheme.accent, brightnessBoost));
+    root.style.setProperty('--gradient-from', lightenColor(scheme.gradientFrom, brightnessBoost));
+    root.style.setProperty('--gradient-to', lightenColor(scheme.gradientTo, brightnessBoost));
+
+    const primaryColor = lightenColor(scheme.primary, brightnessBoost);
+    const rgb = hexToRgb(primaryColor);
     root.style.setProperty('--color-primary-rgb', `${rgb.r} ${rgb.g} ${rgb.b}`);
-    root.style.setProperty('--color-primary-alpha', rgba(scheme.primary, 0.1));
-    root.style.setProperty('--color-primary-alpha-15', rgba(scheme.primary, 0.15));
-    root.style.setProperty('--ring', rgba(scheme.primary, 0.35));
+    root.style.setProperty('--color-primary-alpha', rgba(primaryColor, 0.1));
+    root.style.setProperty('--color-primary-alpha-15', rgba(primaryColor, 0.15));
+    root.style.setProperty('--ring', rgba(primaryColor, 0.35));
 
     // Тема
     const isDark =

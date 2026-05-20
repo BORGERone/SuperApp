@@ -10,14 +10,14 @@ interface FileListProps {
   setDownloadFileName: (name: string) => void;
 }
 
-export const FileList: React.FC<FileListProps> = ({ 
-  files, 
+export const FileList: React.FC<FileListProps> = ({
+  files,
   currentPath,
   setDownloading,
   setDownloadProgress,
   setDownloadFileName,
 }) => {
-  const { viewMode, toggleFileSelection, navigateToDirectory } = useDriveStore();
+  const { viewMode, toggleFileSelection, selectFile, navigateToDirectory, selectedFiles } = useDriveStore();
 
   const getFileIcon = (filename: string): string => {
     const ext = filename.split('.').pop()?.toLowerCase() || '';
@@ -50,6 +50,19 @@ export const FileList: React.FC<FileListProps> = ({
   };
 
   const handleFileClick = async (file: FileItem) => {
+    // Если файл уже выделен, снимаем выделение
+    if (selectedFiles.has(file.name)) {
+      toggleFileSelection(file.name);
+      return;
+    }
+
+    // Если есть выделенные файлы, клик выделяет этот файл
+    if (selectedFiles.size > 0) {
+      selectFile(file.name);
+      return;
+    }
+
+    // Если нет выделенных файлов, клик открывает папку или скачивает файл
     if (file.type === 'directory') {
       navigateToDirectory(file.name);
     } else {
@@ -64,7 +77,7 @@ export const FileList: React.FC<FileListProps> = ({
         // В Electron используем абсолютный URL, в браузере - относительный (через proxy)
         const isElectron = typeof window !== 'undefined' && (window as any).electronAPI !== undefined;
         const apiUrl = isElectron ? 'http://localhost:3002' : '';
-        
+
         const response = await fetch(`${apiUrl}/api/drive/download?path=${encodeURIComponent(filePath)}`, {
           headers: {
             'Authorization': `Bearer ${localStorage.getItem('accessToken')}`,

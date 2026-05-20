@@ -13,7 +13,6 @@ export const Layout: React.FC<LayoutProps> = ({ children }) => {
     const saved = localStorage.getItem('sidebarCollapsed');
     return saved === 'true';
   });
-
   // Подписываемся на изменения localStorage от Sidebar — Sidebar при
   // переключении сохраняет состояние в localStorage и шлёт CustomEvent,
   // чтобы TitleBar знал ширину brand-зоны.
@@ -104,7 +103,6 @@ export const Layout: React.FC<LayoutProps> = ({ children }) => {
 
       <div
         className="flex h-screen"
-        style={{ paddingTop: TITLEBAR_HEIGHT }}
       >
         <Sidebar />
         <main className="flex-1 overflow-hidden">

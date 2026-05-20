@@ -47,6 +47,13 @@ function formatDateTime(value: string): string {
 
 export const CommentModal: React.FC<CommentModalProps> = ({ card, currentUserId, onClose }) => {
   const { data: users = [], refetch } = useUsers();
+
+  useEffect(() => {
+    document.body.classList.add('has-modal-open');
+    return () => {
+      document.body.classList.remove('has-modal-open');
+    };
+  }, []);
   
   // Принудительный сброс кэша при открытии модального окна
   useEffect(() => {

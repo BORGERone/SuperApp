@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import ReactDOM from 'react-dom';
 import { useChangePin } from '../../../features/auth/api/authApi';
 import { PinInput } from '../../../features/auth/components/PinInput';
@@ -17,6 +17,15 @@ export const ChangePinModal: React.FC<ChangePinModalProps> = ({ isOpen, onClose 
   const [loading, setLoading] = useState(false);
 
   const changePinMutation = useChangePin();
+
+  useEffect(() => {
+    if (isOpen) {
+      document.body.classList.add('has-modal-open');
+      return () => {
+        document.body.classList.remove('has-modal-open');
+      };
+    }
+  }, [isOpen]);
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -60,25 +69,25 @@ export const ChangePinModal: React.FC<ChangePinModalProps> = ({ isOpen, onClose 
   return ReactDOM.createPortal(
     <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4">
       <div className="glass-card rounded-2xl p-4 sm:p-6 w-full max-w-md max-h-[90vh] overflow-y-auto">
-        <h2 className="text-xl sm:text-2xl font-bold text-gray-800 mb-4 sm:mb-6">Смена PIN-кода</h2>
+        <h2 className="text-xl sm:text-2xl font-bold text-app mb-4 sm:mb-6">Смена PIN-кода</h2>
 
         <form onSubmit={handleSubmit} className="space-y-3 sm:space-y-4">
           <div>
-            <label className="block text-sm font-medium text-gray-700 mb-2">
+            <label className="block text-sm font-medium text-app-secondary mb-2">
               Пароль от аккаунта
             </label>
             <input
               type="password"
               value={password}
               onChange={(e) => setPassword(e.target.value)}
-              className="w-full px-3 sm:px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-indigo-500 focus:border-transparent text-sm"
+              className="w-full px-3 sm:px-4 py-2 border border-app-border rounded-lg bg-surface-2 focus:ring-2 focus:ring-indigo-500 focus:border-transparent text-sm"
               placeholder="Введите пароль"
               required
             />
           </div>
 
           <div>
-            <label className="block text-sm font-medium text-gray-700 mb-2">
+            <label className="block text-sm font-medium text-app-secondary mb-2">
               Текущий PIN-код
             </label>
             <div className="glass-card rounded-xl p-3 sm:p-4 overflow-x-auto">
@@ -91,7 +100,7 @@ export const ChangePinModal: React.FC<ChangePinModalProps> = ({ isOpen, onClose 
 
           <div className="glass-card rounded-xl p-3 sm:p-4 space-y-3 sm:space-y-4 overflow-x-auto">
             <div>
-              <label className="block text-sm font-medium text-gray-700 mb-2">
+              <label className="block text-sm font-medium text-app-secondary mb-2">
                 Новый PIN-код
               </label>
               <PinInput
@@ -101,7 +110,7 @@ export const ChangePinModal: React.FC<ChangePinModalProps> = ({ isOpen, onClose 
             </div>
 
             <div>
-              <label className="block text-sm font-medium text-gray-700 mb-2">
+              <label className="block text-sm font-medium text-app-secondary mb-2">
                 Подтвердите новый PIN-код
               </label>
               <PinInput
@@ -122,7 +131,7 @@ export const ChangePinModal: React.FC<ChangePinModalProps> = ({ isOpen, onClose 
               type="button"
               onClick={onClose}
               disabled={loading}
-              className="flex-1 px-3 sm:px-4 py-2 border border-gray-300 text-gray-700 rounded-lg hover:bg-gray-50 transition-colors disabled:opacity-50 text-sm"
+              className="flex-1 px-3 sm:px-4 py-2 border border-app-border text-app rounded-lg hover:bg-surface-2 transition-colors disabled:opacity-50 text-sm"
             >
               Отмена
             </button>

@@ -48,6 +48,13 @@ export const CardModal: React.FC<CardModalProps> = ({ card, columns, onClose }) 
   const updateCard = useUpdateCard();
   const deleteCard = useDeleteCard();
   const createSubtask = useCreateSubtask();
+
+  useEffect(() => {
+    document.body.classList.add('has-modal-open');
+    return () => {
+      document.body.classList.remove('has-modal-open');
+    };
+  }, []);
   const updateSubtask = useUpdateSubtask();
   const deleteSubtask = useDeleteSubtask();
 

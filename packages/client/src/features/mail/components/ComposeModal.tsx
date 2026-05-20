@@ -16,6 +16,13 @@ export const ComposeModal: React.FC<ComposeModalProps> = ({ onClose, replyTo }) 
   const sendEmailMutation = useSendEmail();
   const { closeCompose } = useMailStore();
 
+  useEffect(() => {
+    document.body.classList.add('has-modal-open');
+    return () => {
+      document.body.classList.remove('has-modal-open');
+    };
+  }, []);
+
   const [email, setEmail] = useState<ComposeEmail>({
     to: replyTo ? [replyTo.from] : [],
     cc: [],
@@ -432,18 +439,18 @@ export const ComposeModal: React.FC<ComposeModalProps> = ({ onClose, replyTo }) 
         onKeyDown={handleKeyDown}
       >
         {/* Header */}
-        <div className="flex items-center justify-between p-6 relative">
+        <div className="flex items-center justify-between p-4 relative">
           <div className="divider absolute bottom-0 left-0 right-0" />
-          <h2 className="text-xl font-semibold text-app">
+          <h2 className="text-base font-semibold text-app">
             {replyTo ? 'Ответ на письмо' : 'Новое письмо'}
           </h2>
           <button onClick={onClose} className="btn-icon">
-            <X size={20} />
+            <X size={18} />
           </button>
         </div>
 
         {/* Recipients */}
-        <div className="p-6 space-y-3 flex-shrink-0">
+        <div className="px-4 py-3 space-y-2 flex-shrink-0">
           {/* To */}
           <div>
             <label className="block text-sm font-medium text-app-secondary mb-2">Кому:</label>
@@ -452,10 +459,11 @@ export const ComposeModal: React.FC<ComposeModalProps> = ({ onClose, replyTo }) 
                 {email.to.map((recipient, index) => (
                   <div
                     key={recipient}
-                    className="inline-flex items-center gap-2 px-3 py-1 rounded-full text-sm"
+                    className="inline-flex items-center gap-2 px-3 py-1.5 rounded-full text-sm ring-1"
                     style={{
-                      background: 'rgba(var(--color-primary-rgb), 0.16)',
+                      background: `linear-gradient(135deg, rgba(var(--color-primary-rgb), 0.25) 0%, rgba(var(--color-primary-rgb), 0.15) 100%)`,
                       color: 'var(--color-primary)',
+                      borderColor: 'rgba(var(--color-primary-rgb), 0.4)',
                     }}
                   >
                     <span>{recipient}</span>
@@ -496,10 +504,11 @@ export const ComposeModal: React.FC<ComposeModalProps> = ({ onClose, replyTo }) 
                 {email.cc?.map((recipient) => (
                   <div
                     key={`cc-${recipient}`}
-                    className="inline-flex items-center gap-2 px-3 py-1 rounded-full text-sm"
+                    className="inline-flex items-center gap-2 px-3 py-1.5 rounded-full text-sm ring-1"
                     style={{
-                      background: 'rgba(var(--color-primary-rgb), 0.16)',
+                      background: `linear-gradient(135deg, rgba(var(--color-primary-rgb), 0.25) 0%, rgba(var(--color-primary-rgb), 0.15) 100%)`,
                       color: 'var(--color-primary)',
+                      borderColor: 'rgba(var(--color-primary-rgb), 0.4)',
                     }}
                   >
                     <span>{recipient}</span>
@@ -539,10 +548,11 @@ export const ComposeModal: React.FC<ComposeModalProps> = ({ onClose, replyTo }) 
                 {email.bcc?.map((recipient) => (
                   <div
                     key={`bcc-${recipient}`}
-                    className="inline-flex items-center gap-2 px-3 py-1 rounded-full text-sm"
+                    className="inline-flex items-center gap-2 px-3 py-1.5 rounded-full text-sm ring-1"
                     style={{
-                      background: 'rgba(var(--color-primary-rgb), 0.16)',
+                      background: `linear-gradient(135deg, rgba(var(--color-primary-rgb), 0.25) 0%, rgba(var(--color-primary-rgb), 0.15) 100%)`,
                       color: 'var(--color-primary)',
+                      borderColor: 'rgba(var(--color-primary-rgb), 0.4)',
                     }}
                   >
                     <span>{recipient}</span>
@@ -577,8 +587,8 @@ export const ComposeModal: React.FC<ComposeModalProps> = ({ onClose, replyTo }) 
         </div>
 
         {/* Subject */}
-        <div className="px-6 flex-shrink-0">
-          <label className="block text-sm font-medium text-app-secondary mb-2">Тема:</label>
+        <div className="px-4 pb-3 flex-shrink-0">
+          <label className="block text-sm font-medium text-app-secondary mb-1.5">Тема:</label>
           <input
             type="text"
             value={email.subject}
@@ -589,8 +599,8 @@ export const ComposeModal: React.FC<ComposeModalProps> = ({ onClose, replyTo }) 
         </div>
 
         {/* Body */}
-        <div className="flex-1 px-6 pt-3 pb-2 flex flex-col min-h-0">
-          <label className="block text-sm font-medium text-app-secondary mb-2">Текст письма:</label>
+        <div className="flex-1 px-4 pt-2 pb-4 flex flex-col min-h-0">
+          <label className="block text-sm font-medium text-app-secondary mb-1.5">Текст письма:</label>
           <textarea
             value={email.body}
             onChange={(e) => setEmail(prev => ({ ...prev, body: e.target.value }))}

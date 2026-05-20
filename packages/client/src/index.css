@@ -103,7 +103,7 @@
   --text-primary: #f3f4f6;
   --text-secondary: #d1d5db;
   --text-tertiary: #9ca3af;
-  --text-muted: #6b7280;
+  --text-muted: rgba(243, 244, 246, 0.6);
 
   --surface-1: rgba(255, 255, 255, 0.06);
   --surface-2: rgba(255, 255, 255, 0.04);
@@ -559,7 +559,9 @@ html.dark body.has-bg-image {
   from { opacity: 0; }
   to { opacity: 1; }
 }
-.page-fade-in { animation: pageFadeIn 280ms var(--ease-spring); }
+.page-fade-in {
+  animation: pageFadeIn 280ms var(--ease-spring);
+}
 
 /* =====================================================================
    Универсальная подсветка выделения «select-shimmer»
@@ -882,20 +884,15 @@ button, a, input, select, textarea, label {
   user-select: none;
 }
 
-.titlebar__brand-zone {
-  /* Блок, визуально вкладывающийся в боковую панель (слева).
-     Использует ту же стеклянную подложку, что и .glass-deep сайдбара,
-     но без нижнего скругления, чтобы стыковка с сайдбаром выглядела как
-     один сплошной элемент. */
+.titlebar__container {
+  /* Единый стеклянный островок для всего titlebar */
   position: relative;
   height: 100%;
   display: flex;
   align-items: center;
-  gap: 8px;
-  padding-left: 18px;
   color: var(--text-primary);
   pointer-events: auto;
-  flex-shrink: 0;
+  box-sizing: border-box;
   background:
     linear-gradient(135deg,
       rgba(var(--glass-bg-deep), calc(var(--glass-tint-deep) + 0.06)) 0%,
@@ -911,8 +908,20 @@ button, a, input, select, textarea, label {
   box-shadow:
     inset 0 1px 0 var(--glass-highlight),
     0 1px 2px var(--glass-shadow-color);
-  /* Стыковочный «выступ» вправо: дотянуться до моста без видимого шва. */
-  margin-right: -1px;
+}
+
+/* Скрываем titlebar когда открыто модальное окно */
+body.has-modal-open .titlebar {
+  display: none;
+}
+
+.titlebar__content {
+  display: flex;
+  align-items: center;
+  width: 100%;
+  height: 100%;
+  padding-left: 18px;
+  gap: 8px;
 }
 
 .titlebar__brand {
@@ -925,24 +934,6 @@ button, a, input, select, textarea, label {
   text-overflow: ellipsis;
 }
 
-/* Стеклянный мост между brand-зоной и зоной системных кнопок.
-   Это центральная часть «тайтлбара», за счёт которой полоса визуально
-   тянется от сайдбара до правого края, образуя плавный угол (L). */
-.titlebar__bridge {
-  flex: 1;
-  height: 100%;
-  background:
-    linear-gradient(180deg,
-      rgba(var(--glass-bg-deep), calc(var(--glass-tint-deep) + 0.06)) 0%,
-      rgba(var(--glass-bg-deep), var(--glass-tint-deep)) 100%);
-  backdrop-filter: blur(28px) saturate(170%);
-  -webkit-backdrop-filter: blur(28px) saturate(170%);
-  border-top: 1px solid var(--glass-border-soft);
-  border-bottom: 1px solid var(--glass-border-soft);
-  box-shadow: inset 0 1px 0 var(--glass-highlight);
-  pointer-events: none;
-}
-
 .titlebar__controls {
   display: flex;
   align-items: center;
@@ -950,27 +941,10 @@ button, a, input, select, textarea, label {
   padding: 0 4px 0 8px;
   -webkit-app-region: no-drag;
   pointer-events: auto;
-  /* Та же стеклянная подложка, что и у brand-зоны, но со скруглением
-     внизу-слева — формирует «угол» (L-форма) к области контента справа. */
-  background:
-    linear-gradient(135deg,
-      rgba(var(--glass-bg-deep), calc(var(--glass-tint-deep) + 0.06)) 0%,
-      rgba(var(--glass-bg-deep), var(--glass-tint-deep)) 100%);
-  backdrop-filter: blur(28px) saturate(170%);
-  -webkit-backdrop-filter: blur(28px) saturate(170%);
-  border: 1px solid var(--glass-border-soft);
-  border-top: 0;
-  border-right: 0;
-  border-top-left-radius: 0;
-  border-top-right-radius: 0;
-  border-bottom-left-radius: var(--radius-xl);
-  border-bottom-right-radius: 0;
-  box-shadow: inset 0 1px 0 var(--glass-highlight);
-  margin-left: -1px;
 }
 
 .titlebar__btn {
-  width: 44px;
+  width: 32px;
   height: 100%;
   display: inline-flex;
   align-items: center;
@@ -988,8 +962,33 @@ button, a, input, select, textarea, label {
 }
 
 .titlebar__btn--close:hover {
-  background: #e81123;
-  color: #ffffff;
+  background: var(--surface-2);
+  color: var(--text-primary);
+}
+
+.titlebar__btn--collapsed {
+  width: 100%;
+  height: 100%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.titlebar__btn--collapsed-full {
+  width: 100%;
+  height: 100%;
+  padding: 0;
+  margin: 0;
+  position: absolute;
+  left: 0;
+  top: 0;
+  z-index: 10;
+  -webkit-app-region: no-drag;
+  pointer-events: auto;
+}
+
+.no-drag {
+  -webkit-app-region: no-drag;
 }
 
 /* =====================================================================

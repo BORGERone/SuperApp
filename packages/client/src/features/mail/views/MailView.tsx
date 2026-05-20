@@ -255,7 +255,7 @@ export const MailView: React.FC = () => {
   });
 
   return (
-    <div className="flex h-full page-fade-in">
+    <div className="flex h-full">
       
       {/* Main Content */}
       <div className="flex-1 flex flex-col m-3 gap-3">
@@ -263,7 +263,7 @@ export const MailView: React.FC = () => {
         {!selectedEmail && (
           <div className="glass-deep p-3 slide-in-left">
             <div className="flex items-center gap-2">
-              <div className="flex-1 relative">
+              <div className="flex-1 relative no-drag">
                 <Search
                   className="absolute left-3 top-1/2 transform -translate-y-1/2 text-app-muted"
                   size={18}

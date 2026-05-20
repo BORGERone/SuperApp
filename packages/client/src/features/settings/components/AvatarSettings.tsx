@@ -92,7 +92,7 @@ export const AvatarSettings: React.FC = () => {
 
   return (
     <div>
-      <h2 className="text-2xl font-bold text-gray-800 mb-6">Настройка аватара</h2>
+      <h2 className="text-2xl font-bold text-app mb-6">Настройка аватара</h2>
       
       <div className="space-y-6">
         {/* Текущий аватар */}
@@ -132,7 +132,7 @@ export const AvatarSettings: React.FC = () => {
           )}
         </div>
 
-        <div className="text-sm text-gray-600 text-center">
+        <div className="text-sm text-app-muted text-center">
           <p>Нажмите на аватарку, чтобы загрузить новый</p>
           <p>Поддерживаемые форматы: JPG, PNG, GIF</p>
           <p>Максимальный размер: 5 МБ</p>

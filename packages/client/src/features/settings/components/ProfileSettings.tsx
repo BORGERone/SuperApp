@@ -57,18 +57,19 @@ export const ProfileSettings: React.FC = () => {
 
   return (
     <div>
-      <h2 className="text-2xl font-bold text-gray-800 mb-6">Редактирование профиля</h2>
+      <h2 className="text-2xl font-bold text-app mb-6">Редактирование профиля</h2>
       
       <form onSubmit={handleSubmit} className="space-y-6">
         <div>
-          <label className="block text-sm font-medium text-gray-700 mb-2">
+          <label className="block text-sm font-medium text-app-secondary mb-2">
             Имя пользователя
           </label>
           <input
             type="text"
             value={username}
             onChange={(e) => setUsername(e.target.value)}
-            className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+            className="w-full px-4 py-2 border border-app-border rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+            style={{ backgroundColor: 'var(--surface-3)' }}
             placeholder="Введите имя пользователя"
           />
         </div>

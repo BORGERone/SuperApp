@@ -1,4 +1,4 @@
-import React from 'react';
+import React, { useEffect } from 'react';
 import { X } from 'lucide-react';
 
 interface GrantAccessModalProps {
@@ -14,6 +14,15 @@ export const GrantAccessModal: React.FC<GrantAccessModalProps> = ({
   onConfirm,
   filesWithoutAccess,
 }) => {
+  useEffect(() => {
+    if (isOpen) {
+      document.body.classList.add('has-modal-open');
+      return () => {
+        document.body.classList.remove('has-modal-open');
+      };
+    }
+  }, [isOpen]);
+
   if (!isOpen) return null;
 
   return (

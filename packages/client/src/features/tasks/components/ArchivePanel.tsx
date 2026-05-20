@@ -1,4 +1,4 @@
-import React from 'react';
+import React, { useEffect } from 'react';
 import { ArchiveRestore, Calendar, Trash2, X } from 'lucide-react';
 import {
   useArchivedTaskColumns,
@@ -27,6 +27,13 @@ export const ArchivePanel: React.FC<ArchivePanelProps> = ({ onClose }) => {
   const { data: archived = [], isLoading } = useArchivedTaskColumns(true);
   const unarchive = useUnarchiveColumn();
   const deleteColumn = useDeleteColumn();
+
+  useEffect(() => {
+    document.body.classList.add('has-modal-open');
+    return () => {
+      document.body.classList.remove('has-modal-open');
+    };
+  }, []);
 
   const handleRestore = async (id: string) => {
     try {

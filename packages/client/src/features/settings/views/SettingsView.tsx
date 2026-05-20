@@ -52,11 +52,11 @@ export const SettingsView: React.FC = () => {
 
   return (
     <div className="p-4 sm:p-8 h-[calc(100vh-2rem)] flex flex-col">
-      <h1 className="text-2xl sm:text-3xl font-bold text-gray-800 mb-4 sm:mb-6 flex-shrink-0">Настройки</h1>
+      <h1 className="text-2xl sm:text-3xl font-bold text-app mb-4 sm:mb-6 flex-shrink-0">Настройки</h1>
 
       <div className="glass-card rounded-lg p-4 sm:p-6 flex flex-col flex-1 min-h-0">
         {/* Вкладки сверху */}
-        <div className="flex gap-2 mb-4 sm:mb-6 border-b border-gray-200 pb-4 flex-shrink-0 overflow-x-auto">
+        <div className="flex gap-2 mb-4 sm:mb-6 border-b border-app-border pb-4 flex-shrink-0 overflow-x-auto">
           {tabs.map((tab) => (
             <button
               key={tab.id}
@@ -64,7 +64,7 @@ export const SettingsView: React.FC = () => {
               className={`flex items-center gap-2 px-3 sm:px-4 py-2 rounded-lg transition-colors whitespace-nowrap ${
                 activeTab === tab.id
                   ? 'bg-blue-500 text-white'
-                  : 'text-gray-700 hover:bg-gray-100'
+                  : 'text-app hover:bg-surface-2'
               }`}
             >
               {tab.icon}
