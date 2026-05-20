@@ -8,9 +8,11 @@ export const LoginView: React.FC = () => {
   const [username, setUsername] = useState('');
   const [password, setPassword] = useState('');
   const [pinCode, setPinCode] = useState('');
-  const [rememberPassword, setRememberPassword] = useState(() => {
-    const saved = localStorage.getItem('rememberPassword');
-    return saved === 'true';
+  // Чекбокс «Запомнить» сохраняет ТОЛЬКО логин, но НЕ пароль и НЕ PIN.
+  // Прежнее поведение (savedPassword в localStorage) являлось серьёзной
+  // утечкой: Electron-профиль с паролями в открытом виде.
+  const [rememberUsername, setRememberUsername] = useState(() => {
+    return localStorage.getItem('rememberUsername') === 'true';
   });
   const [error, setError] = useState('');
   const [isLoading, setIsLoading] = useState(false);
@@ -26,8 +28,6 @@ export const LoginView: React.FC = () => {
     setIsLoading(true);
 
     try {
-      console.log('Attempting login with:', { username, password, pinCode });
-
       const result = await loginMutation.mutateAsync({ email: username, password, pinCode });
 
       // Обновляем состояние авторизации
@@ -38,17 +38,15 @@ export const LoginView: React.FC = () => {
         // Перенаправляем на drive после успешного входа
         navigate('/drive');
 
-        if (rememberPassword) {
+        if (rememberUsername) {
           localStorage.setItem('savedUsername', username);
-          localStorage.setItem('savedPassword', password);
-          // Пин-код НЕ сохраняем
         } else {
           localStorage.removeItem('savedUsername');
-          localStorage.removeItem('savedPassword');
         }
+        // Никогда не сохраняем пароль и PIN в открытом виде.
+        localStorage.removeItem('savedPassword');
       }
     } catch (err) {
-      console.error('Login error:', err);
       setError('Неверный логин, пароль или пин-код');
       setIsShaking(true);
       setTimeout(() => {
@@ -62,15 +60,17 @@ export const LoginView: React.FC = () => {
 
   // Сохраняем состояние чекбокса в localStorage
   React.useEffect(() => {
-    localStorage.setItem('rememberPassword', rememberPassword.toString());
-  }, [rememberPassword]);
+    localStorage.setItem('rememberUsername', rememberUsername.toString());
+  }, [rememberUsername]);
 
-  // Загружаем сохраненные данные при монтировании
+  // Загружаем сохранённый логин при монтировании.
+  // Старый ключ savedPassword принудительно удаляем — он могбы остаться
+  // от предыдущих сборок, где пароль сохранялся в открытом виде.
   React.useEffect(() => {
+    localStorage.removeItem('savedPassword');
+    localStorage.removeItem('rememberPassword');
     const savedUsername = localStorage.getItem('savedUsername');
-    const savedPassword = localStorage.getItem('savedPassword');
     if (savedUsername) setUsername(savedUsername);
-    if (savedPassword) setPassword(savedPassword);
   }, []);
 
   return (
@@ -115,13 +115,13 @@ export const LoginView: React.FC = () => {
           <div className="flex items-center">
             <input
               type="checkbox"
-              id="remember-password"
-              checked={rememberPassword}
-              onChange={(e) => setRememberPassword(e.target.checked)}
+              id="remember-username"
+              checked={rememberUsername}
+              onChange={(e) => setRememberUsername(e.target.checked)}
               className="w-4 h-4 rounded accent-indigo-500"
             />
-            <label htmlFor="remember-password" className="ml-2 text-sm text-app-secondary">
-              Запомнить пароль
+            <label htmlFor="remember-username" className="ml-2 text-sm text-app-secondary">
+              Запомнить логин
             </label>
           </div>
 

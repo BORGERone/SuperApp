@@ -210,8 +210,6 @@ export const UserManagement: React.FC = () => {
         pinCode: newPinCode,
       };
 
-      console.log('Creating user with payload:', payload);
-
       const response = await fetch('/api/auth/register', {
         method: 'POST',
         headers: {
@@ -221,7 +219,6 @@ export const UserManagement: React.FC = () => {
       });
 
       const responseText = await response.text();
-      console.log('Register response:', response.status, responseText);
 
       if (!response.ok) {
         let errorMessage = 'Не удалось создать пользователя';

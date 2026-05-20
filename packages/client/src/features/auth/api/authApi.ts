@@ -72,11 +72,9 @@ const authApi = {
 
   // Сохранение токенов
   saveTokens(accessToken: string, refreshToken: string, user: any) {
-    console.log('Auth API - Saving tokens:', { accessToken: accessToken.substring(0, 20) + '...', user: user.username });
     localStorage.setItem('accessToken', accessToken);
     localStorage.setItem('refreshToken', refreshToken);
     localStorage.setItem('user', JSON.stringify(user));
-    console.log('Auth API - Tokens saved successfully');
   },
 
   // Получение сохраненного пользователя
