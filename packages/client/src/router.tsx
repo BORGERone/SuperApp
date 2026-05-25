@@ -1,4 +1,4 @@
-import { createBrowserRouter, Navigate } from 'react-router-dom';
+import { createHashRouter, Navigate } from 'react-router-dom';
 import App from './App';
 import { LoginView, PinView } from './features/auth';
 import { DriveView } from './features/drive';
@@ -6,7 +6,7 @@ import { MailView } from './features/mail';
 import { TasksView } from './features/tasks';
 import { SettingsView } from './features/settings';
 
-export const router = createBrowserRouter([
+export const router = createHashRouter([
   {
     path: '/login',
     element: <LoginView />,
