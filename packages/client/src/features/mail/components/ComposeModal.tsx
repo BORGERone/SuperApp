@@ -377,15 +377,32 @@ export const ComposeModal: React.FC<ComposeModalProps> = ({ onClose, replyTo }) 
       animation: slideIn 0.3s ease-out;
     `;
     
-    alertDiv.innerHTML = `
-      <div style="display: flex; align-items: center; gap: 12px;">
-        <div style="width: 24px; height: 24px; background: rgba(255,255,255,0.2); border-radius: 50%; display: flex; align-items: center; justify-content: center;">
-          ⚠️
-        </div>
-        <div>${message}</div>
-        <button onclick="this.parentElement.remove()" style="background: rgba(255,255,255,0.2); border: none; color: white; padding: 4px 8px; border-radius: 4px; cursor: pointer; font-size: 12px;">×</button>
-      </div>
-    `;
+    // Собираем всплывающее алерт-окно без innerHTML и inline-обработчиков:
+    // прежний код с `innerHTML = ${message}` был XSS-вектором, если message
+    // приходил с сервера или из имён файлов. CSP блокирует inline-скрипты,
+    // но всё равно не вставляем сырой HTML.
+    const wrapper = document.createElement('div');
+    wrapper.style.cssText = 'display:flex;align-items:center;gap:12px;';
+
+    const icon = document.createElement('div');
+    icon.style.cssText =
+      'width:24px;height:24px;background:rgba(255,255,255,0.2);border-radius:50%;display:flex;align-items:center;justify-content:center;';
+    icon.textContent = '⚠';
+
+    const text = document.createElement('div');
+    text.textContent = message;
+
+    const closeBtn = document.createElement('button');
+    closeBtn.type = 'button';
+    closeBtn.textContent = '×';
+    closeBtn.style.cssText =
+      'background:rgba(255,255,255,0.2);border:none;color:white;padding:4px 8px;border-radius:4px;cursor:pointer;font-size:12px;';
+    closeBtn.addEventListener('click', () => alertDiv.remove());
+
+    wrapper.appendChild(icon);
+    wrapper.appendChild(text);
+    wrapper.appendChild(closeBtn);
+    alertDiv.appendChild(wrapper);
     
     // Добавляем анимацию
     const style = document.createElement('style');

@@ -1,6 +1,17 @@
 import React from 'react';
+import DOMPurify from 'dompurify';
 import { Email, MailFolder } from '../models/mailModel';
 import { Reply, Forward, Trash2, Star, Mail, Paperclip, User, Download } from 'lucide-react';
+
+// Санитайзер для HTML-тела писем. Отключаем все способы выполнения кода
+// (scripts, on*, javascript: URL), фреймы и svg-векторы XSS.
+const sanitizeHtml = (raw: string): string =>
+  DOMPurify.sanitize(raw, {
+    USE_PROFILES: { html: true },
+    FORBID_TAGS: ['style', 'script', 'iframe', 'object', 'embed', 'form', 'meta', 'link'],
+    FORBID_ATTR: ['style', 'onerror', 'onload', 'onclick', 'onmouseover', 'srcdoc', 'formaction'],
+    ALLOWED_URI_REGEXP: /^(?:(?:https?|mailto|tel|cid):|[^a-z]|[a-z+.-]+(?:[^a-z+.\-:]|$))/i,
+  });
 
 interface MailItemProps {
   email: Email;
@@ -201,7 +212,11 @@ export const MailItem: React.FC<MailItemProps> = ({
       <div className="flex-1 overflow-y-auto">
         <div className="prose prose-sm max-w-none text-app">
           {email.htmlBody ? (
-            <div dangerouslySetInnerHTML={{ __html: email.htmlBody }} />
+            <div
+              // Безопасный рендер HTML: сначала прогоняем через DOMPurify, иначе присланный
+              // извне <script>/onerror выполнится в Electron-рендерере.
+              dangerouslySetInnerHTML={{ __html: sanitizeHtml(email.htmlBody) }}
+            />
           ) : (
             <div className="whitespace-pre-wrap text-app">{email.body}</div>
           )}

@@ -3,6 +3,7 @@ import react from '@vitejs/plugin-react'
 
 export default defineConfig({
   clearScreen: false,
+  base: './',
   plugins: [react()],
   css: {
     postcss: './postcss.config.js',

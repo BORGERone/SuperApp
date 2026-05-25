@@ -28,9 +28,23 @@ target/
 .DS_Store
 Thumbs.db
 
-# Uploads
+# Uploads (пользовательские файлы/вложения/аватары)
+uploads/
 uploads/*
 !uploads/.gitkeep
+packages/server/uploads/
+packages/server/uploads/**
+
+# SQLite database — никогда не коммитим реальные базы с данными
+*.db
+*.db-journal
+*.db-wal
+*.db-shm
+packages/server/src/db/superapp.db
+
+# Debug-утилиты, не должны лежать в репо
+debug-users.html
+debug-*.html
 
 # Test files
 test*.txt

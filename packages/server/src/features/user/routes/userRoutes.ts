@@ -1,17 +1,34 @@
 import { Hono } from 'hono';
-import { authMiddleware } from '../../../shared/middleware/authMiddleware';
+import { zValidator } from '@hono/zod-validator';
+import { z } from 'zod';
+import { authMiddleware, type AuthUser } from '../../../shared/middleware/auth';
 import { db } from '../../../db';
 import { users } from '../../../db/schema';
-import { eq } from 'drizzle-orm';
-import { hash } from 'bcryptjs';
+import { eq, and, ne } from 'drizzle-orm';
+import bcrypt from 'bcryptjs';
+import { promises as fs, existsSync, mkdirSync } from 'node:fs';
+import path from 'node:path';
 
 const user = new Hono();
 
-// Получение профиля пользователя
+// ===== Схемы =====
+
+const updateProfileSchema = z
+  .object({
+    username: z.string().min(3).max(50).optional(),
+    email: z.string().email().optional(),
+  })
+  .refine((d) => d.username || d.email, { message: 'Не указано ни одно поле для обновления' });
+
+const changePasswordSchema = z.object({
+  currentPassword: z.string().min(1),
+  newPassword: z.string().min(8).max(200),
+});
+
+// ===== Профиль =====
 user.get('/profile', authMiddleware, async (c) => {
   try {
-    const userObj = c.get('user') as { id: string };
-    
+    const userObj = c.get('user') as AuthUser;
     const userProfile = await db
       .select({
         id: users.id,
@@ -28,57 +45,41 @@ user.get('/profile', authMiddleware, async (c) => {
     if (!userProfile.length) {
       return c.json({ error: 'User not found' }, 404);
     }
-
     return c.json(userProfile[0]);
   } catch (error) {
-    console.error('Error getting user profile:', error);
+    console.error('[User /profile GET] Error');
     return c.json({ error: 'Failed to get user profile' }, 500);
   }
 });
 
-// Обновление профиля пользователя
-user.put('/profile', authMiddleware, async (c) => {
+user.put('/profile', authMiddleware, zValidator('json', updateProfileSchema), async (c) => {
   try {
-    const userObj = c.get('user') as { id: string };
-    const { username, email } = await c.req.json();
+    const userObj = c.get('user') as AuthUser;
+    const { username, email } = c.req.valid('json');
 
-    // Проверка на существование email у другого пользователя
     if (email) {
-      const existingEmail = await db
+      const existing = await db
         .select()
         .from(users)
-        .where(eq(users.email, email))
+        .where(and(eq(users.email, email), ne(users.id, userObj.id)))
         .limit(1);
-
-      if (existingEmail.length && existingEmail[0].id !== userObj.id) {
-        return c.json({ error: 'Email already in use' }, 400);
-      }
+      if (existing.length) return c.json({ error: 'Email already in use' }, 400);
     }
-
-    // Проверка на существование username у другого пользователя
     if (username) {
-      const existingUsername = await db
+      const existing = await db
         .select()
         .from(users)
-        .where(eq(users.username, username))
+        .where(and(eq(users.username, username), ne(users.id, userObj.id)))
         .limit(1);
-
-      if (existingUsername.length && existingUsername[0].id !== userObj.id) {
-        return c.json({ error: 'Username already in use' }, 400);
-      }
+      if (existing.length) return c.json({ error: 'Username already in use' }, 400);
     }
 
-    const updateData: any = {};
+    const updateData: Partial<typeof users.$inferInsert> = { updatedAt: new Date() };
     if (username) updateData.username = username;
     if (email) updateData.email = email;
-    updateData.updatedAt = new Date();
 
-    await db
-      .update(users)
-      .set(updateData)
-      .where(eq(users.id, userObj.id));
+    await db.update(users).set(updateData).where(eq(users.id, userObj.id));
 
-    // Возвращаем обновленный профиль
     const updatedProfile = await db
       .select({
         id: users.id,
@@ -94,82 +95,126 @@ user.put('/profile', authMiddleware, async (c) => {
 
     return c.json(updatedProfile[0]);
   } catch (error) {
-    console.error('Error updating user profile:', error);
+    console.error('[User /profile PUT] Error');
     return c.json({ error: 'Failed to update user profile' }, 500);
   }
 });
 
-// Загрузка аватарки
+// ===== Аватары =====
+
+const AVATAR_MAX_BYTES = 5 * 1024 * 1024;
+const ALLOWED_AVATAR_EXTENSIONS = new Set(['png', 'jpg', 'jpeg', 'webp', 'gif']);
+const ALLOWED_AVATAR_MIME_TYPES = new Set([
+  'image/png',
+  'image/jpeg',
+  'image/webp',
+  'image/gif',
+]);
+
+// Магические байты для проверки реального типа файла (а не client-supplied
+// MIME). Защищает от загрузки .html/.svg/.exe под видом изображения.
+function detectImageMimeFromMagic(buf: Buffer): string | null {
+  if (buf.length >= 8 && buf[0] === 0x89 && buf[1] === 0x50 && buf[2] === 0x4e && buf[3] === 0x47) {
+    return 'image/png';
+  }
+  if (buf.length >= 3 && buf[0] === 0xff && buf[1] === 0xd8 && buf[2] === 0xff) {
+    return 'image/jpeg';
+  }
+  if (
+    buf.length >= 12 &&
+    buf[0] === 0x52 && buf[1] === 0x49 && buf[2] === 0x46 && buf[3] === 0x46 &&
+    buf[8] === 0x57 && buf[9] === 0x45 && buf[10] === 0x42 && buf[11] === 0x50
+  ) {
+    return 'image/webp';
+  }
+  if (
+    buf.length >= 6 &&
+    buf[0] === 0x47 && buf[1] === 0x49 && buf[2] === 0x46 && buf[3] === 0x38 &&
+    (buf[4] === 0x37 || buf[4] === 0x39) && buf[5] === 0x61
+  ) {
+    return 'image/gif';
+  }
+  return null;
+}
+
+function mimeToExt(mime: string): string | null {
+  switch (mime) {
+    case 'image/png':
+      return 'png';
+    case 'image/jpeg':
+      return 'jpg';
+    case 'image/webp':
+      return 'webp';
+    case 'image/gif':
+      return 'gif';
+    default:
+      return null;
+  }
+}
+
+const uploadsRoot = path.resolve(process.cwd(), 'uploads');
+const avatarsDir = path.join(uploadsRoot, 'avatars');
+
 user.post('/avatar', authMiddleware, async (c) => {
   try {
-    const userObj = c.get('user') as { id: string };
+    const userObj = c.get('user') as AuthUser;
     const formData = await c.req.formData();
-    const avatar = formData.get('avatar') as File;
+    const avatar = formData.get('avatar');
 
-    console.log('[Avatar Upload] User ID:', userObj.id);
-    console.log('[Avatar Upload] Avatar file:', avatar);
-    console.log('[Avatar Upload] Avatar name:', avatar?.name);
-    console.log('[Avatar Upload] Avatar type:', avatar?.type);
-    console.log('[Avatar Upload] Avatar size:', avatar?.size);
-
-    if (!avatar) {
-      console.log('[Avatar Upload] ERROR: No avatar file provided');
+    if (!avatar || !(avatar instanceof File)) {
       return c.json({ error: 'No avatar file provided' }, 400);
     }
-
-    // Проверка типа файла
-    if (!avatar.type.startsWith('image/')) {
-      console.log('[Avatar Upload] ERROR: File must be an image, got:', avatar.type);
-      return c.json({ error: 'File must be an image' }, 400);
-    }
-
-    // Проверка размера файла (5 МБ)
-    if (avatar.size > 5 * 1024 * 1024) {
-      console.log('[Avatar Upload] ERROR: File size too large:', avatar.size);
+    if (avatar.size > AVATAR_MAX_BYTES) {
       return c.json({ error: 'File size must be less than 5 MB' }, 400);
     }
-
-    // Сохранение файла
-    const fs = require('fs');
-    const path = require('path');
-    const uploadsDir = path.join(__dirname, '../../../../uploads/avatars');
-    
-    console.log('[Avatar Upload] Uploads directory:', uploadsDir);
-    
-    // Создание папки для аватарок, если не существует
-    if (!fs.existsSync(uploadsDir)) {
-      console.log('[Avatar Upload] Creating uploads directory');
-      fs.mkdirSync(uploadsDir, { recursive: true });
+    if (!ALLOWED_AVATAR_MIME_TYPES.has(avatar.type)) {
+      return c.json({ error: 'Allowed image types: png, jpeg, webp, gif' }, 400);
     }
 
-    const fileExtension = avatar.name.split('.').pop();
-    const fileName = `${userObj.id}.${fileExtension}`;
-    const filePath = path.join(uploadsDir, fileName);
+    const buffer = Buffer.from(await avatar.arrayBuffer());
+    const detected = detectImageMimeFromMagic(buffer);
+    if (!detected) {
+      return c.json({ error: 'File content is not a supported image' }, 400);
+    }
+    const ext = mimeToExt(detected)!;
+    if (!ALLOWED_AVATAR_EXTENSIONS.has(ext)) {
+      return c.json({ error: 'Allowed image types: png, jpeg, webp, gif' }, 400);
+    }
 
-    console.log('[Avatar Upload] File extension:', fileExtension);
-    console.log('[Avatar Upload] File name:', fileName);
-    console.log('[Avatar Upload] File path:', filePath);
+    if (!existsSync(avatarsDir)) {
+      mkdirSync(avatarsDir, { recursive: true });
+    }
+    const fileName = `${userObj.id}.${ext}`;
+    const filePath = path.join(avatarsDir, fileName);
+    // path.join + детерминированное имя по userId исключают traversal —
+    // userId это UUID/значение из БД, без слешей; для надёжности убедимся,
+    // что итоговый путь лежит внутри avatarsDir.
+    if (!filePath.startsWith(avatarsDir + path.sep)) {
+      return c.json({ error: 'Invalid file path' }, 400);
+    }
 
-    const arrayBuffer = await avatar.arrayBuffer();
-    const buffer = Buffer.from(arrayBuffer);
-    
-    console.log('[Avatar Upload] Buffer size:', buffer.length);
-    fs.writeFileSync(filePath, buffer);
-    
-    console.log('[Avatar Upload] File written successfully');
+    // Удаляем прежние аватары других расширений, чтобы не оставлять "мусор"
+    // от старых форматов.
+    for (const oldExt of ALLOWED_AVATAR_EXTENSIONS) {
+      if (oldExt === ext) continue;
+      const old = path.join(avatarsDir, `${userObj.id}.${oldExt}`);
+      if (existsSync(old)) {
+        try {
+          await fs.unlink(old);
+        } catch {
+          // ignore
+        }
+      }
+    }
+
+    await fs.writeFile(filePath, buffer);
 
     const avatarUrl = `/uploads/avatars/${fileName}`;
-    console.log('[Avatar Upload] Avatar URL:', avatarUrl);
-
-    // Обновление пользователя
     await db
       .update(users)
       .set({ avatarUrl, updatedAt: new Date() })
       .where(eq(users.id, userObj.id));
 
-    console.log('[Avatar Upload] Database updated');
-
-    // Возвращаем обновленный профиль
     const updatedProfile = await db
       .select({
         id: users.id,
@@ -183,22 +228,16 @@ user.post('/avatar', authMiddleware, async (c) => {
       .where(eq(users.id, userObj.id))
       .limit(1);
 
-    console.log('[Avatar Upload] Returning updated profile');
     return c.json(updatedProfile[0]);
   } catch (error) {
-    console.error('[Avatar Upload] Error:', error);
+    console.error('[User /avatar POST] Error');
     return c.json({ error: 'Failed to upload avatar' }, 500);
   }
 });
 
-// Удаление аватарки
 user.delete('/avatar', authMiddleware, async (c) => {
   try {
-    const userObj = c.get('user') as { id: string };
-    const fs = require('fs');
-    const path = require('path');
-
-    // Получение текущего аватара
+    const userObj = c.get('user') as AuthUser;
     const currentUser = await db
       .select({ avatarUrl: users.avatarUrl })
       .from(users)
@@ -206,14 +245,19 @@ user.delete('/avatar', authMiddleware, async (c) => {
       .limit(1);
 
     if (currentUser.length && currentUser[0].avatarUrl) {
-      // Удаление файла
-      const filePath = path.join(__dirname, '../../../../', currentUser[0].avatarUrl);
-      if (fs.existsSync(filePath)) {
-        fs.unlinkSync(filePath);
+      // Аватар URL имеет вид "/uploads/avatars/<userId>.<ext>"; имя файла
+      // берём из БД и проверяем, что итоговый путь лежит в avatarsDir.
+      const rel = currentUser[0].avatarUrl.replace(/^\/+/, '');
+      const candidate = path.resolve(process.cwd(), rel);
+      if (candidate.startsWith(avatarsDir + path.sep) && existsSync(candidate)) {
+        try {
+          await fs.unlink(candidate);
+        } catch {
+          // ignore filesystem races
+        }
       }
     }
 
-    // Обновление пользователя
     await db
       .update(users)
       .set({ avatarUrl: null, updatedAt: new Date() })
@@ -221,26 +265,17 @@ user.delete('/avatar', authMiddleware, async (c) => {
 
     return c.json({ message: 'Avatar deleted successfully' });
   } catch (error) {
-    console.error('Error deleting avatar:', error);
+    console.error('[User /avatar DELETE] Error');
     return c.json({ error: 'Failed to delete avatar' }, 500);
   }
 });
 
-// Изменение пароля
-user.put('/password', authMiddleware, async (c) => {
+// ===== Пароль =====
+user.put('/password', authMiddleware, zValidator('json', changePasswordSchema), async (c) => {
   try {
-    const userObj = c.get('user') as { id: string };
-    const { currentPassword, newPassword } = await c.req.json();
+    const userObj = c.get('user') as AuthUser;
+    const { currentPassword, newPassword } = c.req.valid('json');
 
-    if (!currentPassword || !newPassword) {
-      return c.json({ error: 'Current password and new password are required' }, 400);
-    }
-
-    if (newPassword.length < 6) {
-      return c.json({ error: 'New password must be at least 6 characters' }, 400);
-    }
-
-    // Получение текущего пароля пользователя
     const currentUser = await db
       .select({ password: users.password })
       .from(users)
@@ -251,26 +286,20 @@ user.put('/password', authMiddleware, async (c) => {
       return c.json({ error: 'User not found' }, 404);
     }
 
-    // Проверка текущего пароля
-    const bcrypt = require('bcryptjs');
-    const isPasswordValid = await bcrypt.compare(currentPassword, currentUser[0].password);
-
-    if (!isPasswordValid) {
+    const ok = await bcrypt.compare(currentPassword, currentUser[0].password);
+    if (!ok) {
       return c.json({ error: 'Current password is incorrect' }, 400);
     }
 
-    // Хеширование нового пароля
-    const hashedPassword = await hash(newPassword, 10);
-
-    // Обновление пароля
+    const hashed = await bcrypt.hash(newPassword, 10);
     await db
       .update(users)
-      .set({ password: hashedPassword, updatedAt: new Date() })
+      .set({ password: hashed, updatedAt: new Date() })
       .where(eq(users.id, userObj.id));
 
     return c.json({ message: 'Password changed successfully' });
   } catch (error) {
-    console.error('Error changing password:', error);
+    console.error('[User /password PUT] Error');
     return c.json({ error: 'Failed to change password' }, 500);
   }
 });

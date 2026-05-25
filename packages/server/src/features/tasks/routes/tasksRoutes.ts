@@ -3,7 +3,7 @@ import { z } from 'zod';
 import { db } from '../../../db';
 import { taskColumns, taskCards, taskComments, taskCardSubtasks, users } from '../../../db/schema';
 import { eq, asc, inArray, sql } from 'drizzle-orm';
-import { authMiddleware } from '../../../shared/middleware/authMiddleware';
+import { authMiddleware, type AuthUser } from '../../../shared/middleware/auth';
 
 const tasks = new Hono();
 
@@ -73,6 +73,51 @@ const reorderCardsSchema = z.object({
 });
 
 // ===== Утилиты =====
+
+// Права на изменение колонки: владелец либо админ.
+function canEditColumn(user: AuthUser, column: typeof taskColumns.$inferSelect): boolean {
+  return user.role === 'admin' || column.ownerId === user.id;
+}
+
+// Права на изменение карточки: владелец карточки/колонки, в которой
+// она лежит, ассайн либо админ.
+function canEditCard(
+  user: AuthUser,
+  card: typeof taskCards.$inferSelect,
+  column?: typeof taskColumns.$inferSelect | null,
+): boolean {
+  if (user.role === 'admin') return true;
+  if (card.ownerId === user.id) return true;
+  if (column && column.ownerId === user.id) return true;
+  const assignees = parseAssignees(card.assignees);
+  return assignees.includes(user.id);
+}
+
+// Удалять карточку может только владелец карточки/колонки либо админ
+function canDeleteCard(
+  user: AuthUser,
+  card: typeof taskCards.$inferSelect,
+  column?: typeof taskColumns.$inferSelect | null,
+): boolean {
+  if (user.role === 'admin') return true;
+  if (card.ownerId === user.id) return true;
+  if (column && column.ownerId === user.id) return true;
+  return false;
+}
+
+async function loadColumn(columnId: string) {
+  const rows = await db
+    .select()
+    .from(taskColumns)
+    .where(eq(taskColumns.id, columnId))
+    .execute();
+  return rows[0] ?? null;
+}
+
+async function loadCard(cardId: string) {
+  const rows = await db.select().from(taskCards).where(eq(taskCards.id, cardId)).execute();
+  return rows[0] ?? null;
+}
 
 function parseAssignees(value: string | null): string[] {
   if (!value) return [];
@@ -219,6 +264,7 @@ tasks.post('/columns', async (c) => {
 // Обновление колонки
 tasks.put('/columns/:id', async (c) => {
   try {
+    const user = c.get('user') as AuthUser;
     const columnId = c.req.param('id');
     const body = await c.req.json();
     const data = updateColumnSchema.parse(body);
@@ -231,6 +277,10 @@ tasks.put('/columns/:id', async (c) => {
 
     if (!existing.length) {
       return c.json({ error: 'Колонка не найдена' }, 404);
+    }
+
+    if (!canEditColumn(user, existing[0])) {
+      return c.json({ error: 'Недостаточно прав для изменения колонки' }, 403);
     }
 
     const updateData: Partial<typeof taskColumns.$inferInsert> = {
@@ -272,6 +322,7 @@ tasks.put('/columns/:id', async (c) => {
 // Удаление колонки (и всех её карточек/комментариев)
 tasks.delete('/columns/:id', async (c) => {
   try {
+    const user = c.get('user') as AuthUser;
     const columnId = c.req.param('id');
 
     const existing = await db
@@ -282,6 +333,10 @@ tasks.delete('/columns/:id', async (c) => {
 
     if (!existing.length) {
       return c.json({ error: 'Колонка не найдена' }, 404);
+    }
+
+    if (!canEditColumn(user, existing[0])) {
+      return c.json({ error: 'Недостаточно прав для удаления колонки' }, 403);
     }
 
     // Получаем карточки и удаляем их комментарии
@@ -457,6 +512,7 @@ tasks.post('/cards', async (c) => {
 // Обновление карточки
 tasks.put('/cards/:id', async (c) => {
   try {
+    const user = c.get('user') as AuthUser;
     const cardId = c.req.param('id');
     const body = await c.req.json();
     const data = updateCardSchema.parse(body);
@@ -469,6 +525,37 @@ tasks.put('/cards/:id', async (c) => {
 
     if (!existing.length) {
       return c.json({ error: 'Карточка не найдена' }, 404);
+    }
+
+    const sourceColumn = await loadColumn(existing[0].columnId);
+    if (!canEditCard(user, existing[0], sourceColumn)) {
+      return c.json({ error: 'Недостаточно прав для изменения карточки' }, 403);
+    }
+
+    // Дополнительные ограничения для ассайнов (не владельцев):
+    // переносить карточку в другую колонку и менять список ассайнов может только
+    // владелец карточки/колонки либо админ.
+    const isOwnerOrAdmin =
+      user.role === 'admin' ||
+      existing[0].ownerId === user.id ||
+      (sourceColumn && sourceColumn.ownerId === user.id);
+    if (!isOwnerOrAdmin && (data.columnId !== undefined || data.assignees !== undefined)) {
+      return c.json(
+        { error: 'Перемещение карточки или изменение ассайнов доступны только владельцу и админу' },
+        403,
+      );
+    }
+
+    // Проверяем, что целевая колонка принадлежит тому же владельцу (или админу),
+    // иначе можно было бы перекидывать свои карточки в чужую колонку.
+    if (data.columnId !== undefined && data.columnId !== existing[0].columnId) {
+      const targetColumn = await loadColumn(data.columnId);
+      if (!targetColumn) {
+        return c.json({ error: 'Целевая колонка не найдена' }, 404);
+      }
+      if (user.role !== 'admin' && targetColumn.ownerId !== user.id) {
+        return c.json({ error: 'Нельзя перемещать карточку в чужую колонку' }, 403);
+      }
     }
 
     const updateData: Partial<typeof taskCards.$inferInsert> = {
@@ -524,11 +611,58 @@ tasks.put('/cards/:id', async (c) => {
 // Пакетное переупорядочивание карточек (drag-and-drop)
 tasks.post('/cards/reorder', async (c) => {
   try {
+    const user = c.get('user') as AuthUser;
     const body = await c.req.json();
     const data = reorderCardsSchema.parse(body);
 
+    // Предварительно выбираем все затрагиваемые карточки и колонки,
+    // чтобы проверить права до любых изменений.
+    const cardIds = data.updates.map((u) => u.id);
+    const columnIds = Array.from(new Set(data.updates.map((u) => u.columnId)));
+
+    const existingCards = await db
+      .select()
+      .from(taskCards)
+      .where(inArray(taskCards.id, cardIds))
+      .execute();
+    const existingColumns = await db
+      .select()
+      .from(taskColumns)
+      .where(inArray(taskColumns.id, columnIds))
+      .execute();
+    const cardMap = new Map(existingCards.map((c2) => [c2.id, c2]));
+    const columnMap = new Map(existingColumns.map((c2) => [c2.id, c2]));
+
+    for (const update of data.updates) {
+      const card = cardMap.get(update.id);
+      if (!card) {
+        return c.json({ error: 'Карточка не найдена', id: update.id }, 404);
+      }
+      const sourceColumn = columnMap.get(card.columnId) ?? null;
+      const targetColumn = columnMap.get(update.columnId) ?? null;
+      if (!targetColumn) {
+        return c.json({ error: 'Целевая колонка не найдена', columnId: update.columnId }, 404);
+      }
+      if (!canEditCard(user, card, sourceColumn)) {
+        return c.json(
+          { error: 'Недостаточно прав для изменения карточки', id: update.id },
+          403,
+        );
+      }
+      // Для переноса в другую колонку требуется владельец исходной/целевой колонки
+      // (ассайн может реордерить внутри той же колонки, но не перекидывать в чужую).
+      if (update.columnId !== card.columnId) {
+        const ownsTarget = user.role === 'admin' || targetColumn.ownerId === user.id;
+        if (!ownsTarget) {
+          return c.json(
+            { error: 'Нельзя перемещать карточку в чужую колонку', id: update.id },
+            403,
+          );
+        }
+      }
+    }
+
     const now = new Date();
-    // Используем последовательные апдейты, чтобы изменения применились атомарно для клиента
     for (const update of data.updates) {
       await db
         .update(taskCards)
@@ -554,6 +688,7 @@ tasks.post('/cards/reorder', async (c) => {
 // Удаление карточки
 tasks.delete('/cards/:id', async (c) => {
   try {
+    const user = c.get('user') as AuthUser;
     const cardId = c.req.param('id');
 
     const existing = await db
@@ -564,6 +699,11 @@ tasks.delete('/cards/:id', async (c) => {
 
     if (!existing.length) {
       return c.json({ error: 'Карточка не найдена' }, 404);
+    }
+
+    const column = await loadColumn(existing[0].columnId);
+    if (!canDeleteCard(user, existing[0], column)) {
+      return c.json({ error: 'Недостаточно прав для удаления карточки' }, 403);
     }
 
     await db.delete(taskComments).where(eq(taskComments.cardId, cardId)).execute();
@@ -706,6 +846,7 @@ tasks.get('/cards/:id/subtasks', async (c) => {
 // Создание подпункта
 tasks.post('/cards/:id/subtasks', async (c) => {
   try {
+    const user = c.get('user') as AuthUser;
     const cardId = c.req.param('id');
     const body = await c.req.json();
     const data = createSubtaskSchema.parse(body);
@@ -717,6 +858,11 @@ tasks.post('/cards/:id/subtasks', async (c) => {
       .execute();
     if (!card.length) {
       return c.json({ error: 'Карточка не найдена' }, 404);
+    }
+
+    const column = await loadColumn(card[0].columnId);
+    if (!canEditCard(user, card[0], column)) {
+      return c.json({ error: 'Недостаточно прав для изменения карточки' }, 403);
     }
 
     const existing = await db
@@ -762,6 +908,7 @@ tasks.post('/cards/:id/subtasks', async (c) => {
 // если все подпункты выполнены — карточка completed=true; если есть невыполненные — completed=false.
 tasks.put('/subtasks/:id', async (c) => {
   try {
+    const user = c.get('user') as AuthUser;
     const subtaskId = c.req.param('id');
     const body = await c.req.json();
     const data = updateSubtaskSchema.parse(body);
@@ -773,6 +920,12 @@ tasks.put('/subtasks/:id', async (c) => {
       .execute();
     if (!existing.length) {
       return c.json({ error: 'Подпункт не найден' }, 404);
+    }
+
+    const card = await loadCard(existing[0].cardId);
+    const column = card ? await loadColumn(card.columnId) : null;
+    if (!card || !canEditCard(user, card, column)) {
+      return c.json({ error: 'Недостаточно прав для изменения подпункта' }, 403);
     }
 
     const now = new Date();
@@ -830,6 +983,7 @@ tasks.put('/subtasks/:id', async (c) => {
 // Удаление подпункта
 tasks.delete('/subtasks/:id', async (c) => {
   try {
+    const user = c.get('user') as AuthUser;
     const subtaskId = c.req.param('id');
     const existing = await db
       .select()
@@ -840,6 +994,11 @@ tasks.delete('/subtasks/:id', async (c) => {
       return c.json({ error: 'Подпункт не найден' }, 404);
     }
     const cardId = existing[0].cardId;
+    const card = await loadCard(cardId);
+    const column = card ? await loadColumn(card.columnId) : null;
+    if (!card || !canEditCard(user, card, column)) {
+      return c.json({ error: 'Недостаточно прав для изменения подпункта' }, 403);
+    }
     await db.delete(taskCardSubtasks).where(eq(taskCardSubtasks.id, subtaskId)).execute();
 
     // После удаления тоже пересчитываем completed карточки.
