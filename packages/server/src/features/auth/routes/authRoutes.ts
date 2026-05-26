@@ -3,7 +3,12 @@ import { zValidator } from '@hono/zod-validator';
 import { z } from 'zod';
 import { db } from '../../../db';
 import { users } from '../../../db/schema';
-import { generateAccessToken, generateRefreshToken, verifyAccessToken } from '../../../shared/utils/jwt';
+import {
+  generateAccessToken,
+  generateRefreshToken,
+  verifyAccessToken,
+  verifyRefreshToken,
+} from '../../../shared/utils/jwt';
 import bcrypt from 'bcryptjs';
 import { or, eq, and, ne } from 'drizzle-orm';
 
@@ -361,16 +366,53 @@ authRouter.patch('/users/:userId', async (c) => {
   }
 });
 
-// Обновление токена
+// Обновление access-токена по refresh-токену.
+// Используется и обычным auto-refresh-на-401 в клиенте, и бакграунд-поллером
+// уведомлений после того, как UI выкинуло на /login.
 authRouter.post('/refresh', async (c) => {
-  const { refreshToken } = await c.req.json();
+  let body: { refreshToken?: string };
+  try {
+    body = await c.req.json();
+  } catch {
+    return c.json({ error: 'Invalid JSON' }, 400);
+  }
 
-  if (!refreshToken) {
+  const refreshToken = body.refreshToken;
+  if (!refreshToken || typeof refreshToken !== 'string') {
     return c.json({ error: 'Refresh token required' }, 400);
   }
 
-  // TODO: Реализовать проверку refresh token и генерацию нового access token
-  return c.json({ error: 'Not implemented' }, 501);
+  const payload = verifyRefreshToken(refreshToken);
+  if (!payload) {
+    return c.json({ error: 'Invalid or expired refresh token' }, 401);
+  }
+
+  const user = await db
+    .select()
+    .from(users)
+    .where(eq(users.id, payload.userId))
+    .limit(1);
+
+  if (user.length === 0) {
+    return c.json({ error: 'User not found' }, 401);
+  }
+
+  const accessToken = generateAccessToken({
+    userId: user[0].id,
+    email: user[0].email,
+    role: user[0].role,
+  });
+
+  return c.json({
+    accessToken,
+    user: {
+      id: user[0].id,
+      email: user[0].email,
+      username: user[0].username,
+      role: user[0].role,
+      avatarUrl: user[0].avatarUrl,
+    },
+  });
 });
 
 // Проверка пин-кода

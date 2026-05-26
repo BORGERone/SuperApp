@@ -3,6 +3,7 @@ import { useAuthStore } from '../../../store';
 import { useNavigate } from 'react-router-dom';
 import { User, LogOut } from 'lucide-react';
 import { PinInput } from '../components/PinInput';
+import { startBackgroundMailPoller } from '../../../utils/backgroundNotifications';
 
 export const PinView: React.FC = () => {
   const [pinCode, setPinCode] = useState('');
@@ -40,6 +41,9 @@ export const PinView: React.FC = () => {
       // Обновляем токены
       localStorage.setItem('accessToken', result.accessToken);
       localStorage.setItem('refreshToken', result.refreshToken);
+      // Поднимаем бакграунд-поллер уведомлений: после успешного PIN
+      // refresh-токен у нас гарантированно валиден.
+      startBackgroundMailPoller(result.refreshToken);
 
       // Перенаправляем на предыдущую страницу или на drive
       navigate('/drive');
