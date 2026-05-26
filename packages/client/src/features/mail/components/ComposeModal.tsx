@@ -46,14 +46,20 @@ export const ComposeModal: React.FC<ComposeModalProps> = ({ onClose, replyTo }) 
   const [ccInputValue, setCcInputValue] = useState('');
   const [bccInputValue, setBccInputValue] = useState('');
 
-  const handleUserSelect = (type: 'to' | 'cc' | 'bcc', user: { username: string; email: string }) => {
-    if (!email[type].includes(user.email)) {
+  const handleUserSelect = (
+    type: 'to' | 'cc' | 'bcc',
+    user: { username: string; email: string; position?: string | null }
+  ) => {
+    // В список получателей кладём username, а не email — пользователю
+    // понятнее видеть «user2», а не «2222@example.com». Сервер при
+    // отправке умеет резолвить и username, и email (см. mailRoutes).
+    const list = email[type] || [];
+    if (!list.includes(user.username)) {
       setEmail(prev => ({
         ...prev,
-        [type]: [...prev[type], user.email]
+        [type]: [...(prev[type] || []), user.username]
       }));
     }
-    // Очищаем соответствующее поле ввода
     if (type === 'to') setToInputValue('');
     if (type === 'cc') setCcInputValue('');
     if (type === 'bcc') setBccInputValue('');

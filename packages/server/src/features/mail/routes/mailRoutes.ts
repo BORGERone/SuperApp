@@ -3,7 +3,7 @@ import { z } from 'zod';
 import archiver from 'archiver';
 import { db } from '../../../db';
 import { emails, users, emailAttachments, files } from '../../../db/schema';
-import { eq, and, desc, like, inArray } from 'drizzle-orm';
+import { eq, and, desc, like, inArray, or } from 'drizzle-orm';
 import { authMiddleware } from '../../../shared/middleware/authMiddleware';
 
 // @ts-ignore
@@ -442,23 +442,30 @@ mail.post('/send', authMiddleware, async (c) => {
 
     console.log('Starting email delivery to recipients:', recipients);
 
-    for (const recipientEmail of recipients) {
+    for (const recipientIdentifier of recipients) {
       try {
-        console.log('Processing recipient:', recipientEmail);
-
-        // Ищем пользователя-получателя
+        // Клиент может прислать username или email (например, пользователь
+        // ввёл руками строку с @). Ищем сначала по username, затем по email
+        // — это позволяет не ломать совместимость со старыми письмами,
+        // где в `to` лежит email.
         const recipientUser = await db
           .select()
           .from(users)
-          .where(eq(users.email, recipientEmail))
+          .where(
+            or(
+              eq(users.username, recipientIdentifier),
+              eq(users.email, recipientIdentifier),
+            ),
+          )
           .execute();
 
-        console.log('Found recipient user:', recipientUser.length > 0 ? 'yes' : 'no');
-
         if (recipientUser.length === 0) {
-          console.log(`User ${recipientEmail} not found, skipping delivery`);
+          console.log(`Recipient "${recipientIdentifier}" not found, skipping`);
           continue;
         }
+        // Письмо у адресата будет показывать ту же строку, которую он
+        // получил (username для новых писем; email — для legacy).
+        const recipientEmail = recipientIdentifier;
 
         // Создаем письмо для получателя
         const inboxEmailId = crypto.randomUUID();
