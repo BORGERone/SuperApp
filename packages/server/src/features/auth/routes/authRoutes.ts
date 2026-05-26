@@ -11,11 +11,17 @@ const authRouter = new Hono();
 
 // Schema для регистрации
 const registerSchema = z.object({
-  email: z.string().email(),
+  // email больше не требуется со стороны клиента — он автогенерируется на
+  // сервере из username, чтобы оставаться валидным для маршрутизации почты.
+  // Клиент при создании пользователя присылает только username/password/pin
+  // и опциональную должность.
+  email: z.string().email().optional(),
   username: z.string().min(3).max(50),
   password: z.string().min(8),
   pinCode: z.string().regex(/^\d{4}$/, 'PIN-код должен состоять из 4 цифр'),
   role: z.enum(['admin', 'user']).optional().default('user'),
+  // Должность работника. Произвольный текст, ничего не валидируем, пусто = ''.
+  position: z.string().max(200).optional(),
 });
 
 // Schema для логина (принимаем email или username)
@@ -34,12 +40,14 @@ const changePinSchema = z.object({
 
 // Регистрация
 authRouter.post('/register', zValidator('json', registerSchema), async (c) => {
-  const { email, username, password, pinCode, role } = c.req.valid('json');
+  const { username, password, pinCode, role, position } = c.req.valid('json');
 
-  console.log('[Auth /register] Registration attempt:', { username, email, role });
+  // email больше не запрашиваем у клиента — синтезируем из username, чтобы
+  // оставить совместимость с маршрутизацией писем (mail/sendEmail ищет
+  // получателей по users.email).
+  const email = c.req.valid('json').email ?? `${username}@example.com`;
 
   try {
-    // Проверяем, существует ли пользователь по email или username
     const existingUser = await db.select().from(users).where(
       or(
         eq(users.email, email),
@@ -47,20 +55,13 @@ authRouter.post('/register', zValidator('json', registerSchema), async (c) => {
       )
     ).limit(1);
 
-    console.log('[Auth /register] Existing user check:', existingUser);
-
     if (existingUser.length > 0) {
-      console.log('[Auth /register] User already exists:', existingUser[0]);
       return c.json({ error: 'User already exists' }, 400);
     }
 
-    // Хешируем пароль
     const hashedPassword = await bcrypt.hash(password, 10);
-
-    // Хешируем пин-код
     const hashedPinCode = await bcrypt.hash(pinCode, 10);
 
-    // Создаем пользователя
     const userId = crypto.randomUUID();
     const now = new Date();
 
@@ -71,19 +72,20 @@ authRouter.post('/register', zValidator('json', registerSchema), async (c) => {
       password: hashedPassword,
       pinCode: hashedPinCode,
       role,
+      // Не autogenerate: если клиент ничего не прислал, оставляем пустую строку.
+      position: position ?? '',
       createdAt: now,
       updatedAt: now,
     });
-    
-    // Генерируем токены
+
     const accessToken = generateAccessToken({ userId, email, role });
     const refreshToken = generateRefreshToken(userId);
-    
+
     return c.json({
       message: 'User registered successfully',
       accessToken,
       refreshToken,
-      user: { id: userId, email, username, role },
+      user: { id: userId, email, username, role, position: position ?? '' },
     });
   } catch (error) {
     console.error('Registration error:', error);
@@ -171,10 +173,9 @@ authRouter.get('/users', async (c) => {
       email: users.email,
       role: users.role,
       avatarUrl: users.avatarUrl,
+      position: users.position,
       createdAt: users.createdAt,
     }).from(users).execute();
-
-    console.log('[Auth /users] Returning users:', JSON.stringify(allUsers, null, 2));
 
     return c.json({ users: allUsers });
   } catch (error) {
@@ -265,10 +266,10 @@ authRouter.put('/users/:userId/role', async (c) => {
   }
 });
 
-// Обновление данных пользователя (username, password, pinCode)
+// Обновление данных пользователя (username, password, pinCode, position)
 authRouter.patch('/users/:userId', async (c) => {
   const { userId } = c.req.param();
-  const { username, password, pinCode } = await c.req.json();
+  const { username, password, pinCode, position } = await c.req.json();
 
   try {
     // Проверяем авторизацию
@@ -319,7 +320,16 @@ authRouter.patch('/users/:userId', async (c) => {
       }
 
       updates.username = username;
-      updates.email = `${username}@example.com`;
+      // email больше не перезаписываем автоматически при смене username —
+      // он остается прежним, чтобы не потерять привязку к существующей
+      // переписке. При необходимости его можно отдельно обновить.
+    }
+
+    if (typeof position === 'string') {
+      if (position.length > 200) {
+        return c.json({ error: 'Position is too long (max 200)' }, 400);
+      }
+      updates.position = position;
     }
 
     if (password) {

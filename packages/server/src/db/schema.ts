@@ -9,6 +9,8 @@ export const users = sqliteTable('users', {
   avatarUrl: text('avatar_url'),
   pinCode: text('pin_code'),
   role: text('role').notNull().$type<'admin' | 'user'>(),
+  // Должность сотрудника. Произвольный текст, может быть пустым.
+  position: text('position'),
   createdAt: integer('created_at', { mode: 'timestamp' }).notNull(),
   updatedAt: integer('updated_at', { mode: 'timestamp' }).notNull(),
 });
@@ -21,6 +23,10 @@ export const files = sqliteTable('files', {
   path: text('path').notNull(),
   size: integer('size'),
   ownerId: text('owner_id').notNull().references(() => users.id),
+  // ID родительской записи в `files` (директория). NULL = корень.
+  // Используется для наследования прав доступа при создании дочерних
+  // папок и файлов.
+  parentId: text('parent_id'),
   createdAt: integer('created_at', { mode: 'timestamp' }).notNull(),
   updatedAt: integer('updated_at', { mode: 'timestamp' }).notNull(),
 });

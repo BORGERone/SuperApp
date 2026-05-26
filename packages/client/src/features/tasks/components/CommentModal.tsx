@@ -13,6 +13,7 @@ import {
   useTaskComments,
 } from '../api/tasksApi';
 import { useUsers } from '../../auth/api/usersApi';
+import { useBodyModalOpen } from '../../../utils/useBodyModalOpen';
 
 // Функция для отправки логов на сервер
 const logToServer = async (message: string) => {
@@ -48,12 +49,7 @@ function formatDateTime(value: string): string {
 export const CommentModal: React.FC<CommentModalProps> = ({ card, currentUserId, onClose }) => {
   const { data: users = [], refetch } = useUsers();
 
-  useEffect(() => {
-    document.body.classList.add('has-modal-open');
-    return () => {
-      document.body.classList.remove('has-modal-open');
-    };
-  }, []);
+  useBodyModalOpen(true);
   
   // Принудительный сброс кэша при открытии модального окна
   useEffect(() => {

@@ -2,7 +2,7 @@ import { Hono } from 'hono';
 import { zValidator } from '@hono/zod-validator';
 import { z } from 'zod';
 import { db } from '../../../db';
-import { files, filePermissions } from '../../../db/schema';
+import { files, filePermissions, users } from '../../../db/schema';
 import { authMiddleware } from '../../../shared/middleware/auth';
 import { eq, and, inArray } from 'drizzle-orm';
 
@@ -10,6 +10,88 @@ const driveRouter = new Hono();
 
 // Применяем auth middleware ко всем routes
 driveRouter.use('*', authMiddleware);
+
+/**
+ * Иерархия прав в сетевом диске.
+ *
+ * Семантика, согласованная с пользователем:
+ *   - В корне диска по умолчанию все пользователи имеют доступ ко всем
+ *     создаваемым там файлам и папкам.
+ *   - Если папка имеет ограниченный набор разрешённых пользователей, то
+ *     все вновь создаваемые внутри неё файлы и подпапки автоматически
+ *     получают точно такой же набор разрешений (наследование).
+ *
+ * Технически это решается так: при создании элемента в `parentPath`
+ *   1) Ищем родительскую папку как запись в `files` (type=directory).
+ *   2) Если parentPath = `/` (корень) или родитель не найден — права
+ *      выставляются на ВСЕХ пользователей.
+ *   3) Иначе берётся актуальный список `file_permissions` родителя и
+ *      копируется на новый элемент.
+ *
+ * Админ всегда имеет доступ независимо от записей в `file_permissions`
+ * (см. ветку `user.role === 'admin'` в `/list`), поэтому в наследуемый
+ * список он не добавляется отдельно.
+ */
+async function findParentFolder(parentPath: string) {
+  if (!parentPath || parentPath === '/' || parentPath === '') return null;
+
+  const trimmed = parentPath.startsWith('/') ? parentPath.slice(1) : parentPath;
+  const parts = trimmed.split('/').filter(Boolean);
+  if (parts.length === 0) return null;
+
+  const folderName = parts[parts.length - 1];
+  const folderParent = '/' + parts.slice(0, -1).join('/');
+  const folderParentNormalized = folderParent === '/' ? '/' : folderParent;
+
+  const parentRows = await db
+    .select()
+    .from(files)
+    .where(
+      and(
+        eq(files.name, folderName),
+        eq(files.path, folderParentNormalized),
+        eq(files.type, 'directory'),
+      ),
+    )
+    .limit(1);
+
+  return parentRows[0] ?? null;
+}
+
+async function getInheritedUserIds(parentPath: string): Promise<string[]> {
+  const parent = await findParentFolder(parentPath);
+  if (!parent) {
+    // Корень (или родитель не существует как папка): даём доступ всем.
+    const allUsers = await db.select({ id: users.id }).from(users);
+    return allUsers.map((u: { id: string }) => u.id);
+  }
+
+  const perms = await db
+    .select({ userId: filePermissions.userId })
+    .from(filePermissions)
+    .where(eq(filePermissions.fileId, parent.id));
+
+  return perms.map((p: { userId: string }) => p.userId);
+}
+
+async function applyInheritedPermissions(fileId: string, parentPath: string) {
+  const parent = await findParentFolder(parentPath);
+  const allowed = await getInheritedUserIds(parentPath);
+  if (allowed.length === 0) return parent?.id ?? null;
+
+  const now = new Date();
+  for (const userId of allowed) {
+    await db
+      .insert(filePermissions)
+      .values({
+        id: crypto.randomUUID(),
+        fileId,
+        userId,
+        createdAt: now,
+      });
+  }
+  return parent?.id ?? null;
+}
 
 // Schema для создания файла/папки
 const createItemSchema = z.object({
@@ -111,15 +193,23 @@ driveRouter.post('/create', zValidator('json', createItemSchema), async (c) => {
     const fileId = crypto.randomUUID();
     const now = new Date();
 
+    // Привязка к родительской записи (NULL для корня) — нужна для будущей
+    // навигации по дереву и для наследования прав.
+    const parentRecord = await findParentFolder(path);
+
     await db.insert(files).values({
       id: fileId,
       name,
       type,
       path, // Сохраняем путь к родительской директории
       ownerId: user.userId,
+      parentId: parentRecord?.id ?? null,
       createdAt: now,
       updatedAt: now,
     });
+
+    // Наследуем права от родителя (или открываем для всех в корне).
+    await applyInheritedPermissions(fileId, path);
 
     return c.json({ message: 'Directory created successfully', id: fileId });
   } catch (error) {
@@ -156,7 +246,8 @@ driveRouter.post('/upload', async (c) => {
     console.log('File buffer size:', buffer.byteLength);
     fs.writeFileSync(filePath, Buffer.from(buffer));
 
-    // Создаем запись в базе данных
+    const parentRecord = await findParentFolder(path);
+
     await db.insert(files).values({
       id: fileId,
       name: file.name,
@@ -164,11 +255,15 @@ driveRouter.post('/upload', async (c) => {
       path, // Сохраняем путь к родительской директории
       size: file.size,
       ownerId: user.userId,
+      parentId: parentRecord?.id ?? null,
       createdAt: now,
       updatedAt: now,
     });
 
-    console.log('File uploaded successfully:', { fileId, fileName: file.name });
+    // Наследуем права от родительской папки (или открываем для всех
+    // пользователей, если файл загружен в корень).
+    await applyInheritedPermissions(fileId, path);
+
     return c.json({ message: 'File uploaded successfully', id: fileId });
   } catch (error) {
     console.error('Upload file error:', error);
@@ -237,6 +332,9 @@ driveRouter.delete('/delete', async (c) => {
       }
     }
 
+    // Чистим связанные права доступа, чтобы не оставалось «висячих»
+    // записей в file_permissions для удаленного файла/папки.
+    await db.delete(filePermissions).where(eq(filePermissions.fileId, file[0].id));
     await db.delete(files).where(eq(files.id, file[0].id));
 
     return c.json({ message: 'File deleted successfully' });

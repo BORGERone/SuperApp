@@ -20,6 +20,7 @@ import {
   useUpdateSubtask,
 } from '../api/tasksApi';
 import { AssigneePicker } from './AssigneePicker';
+import { useBodyModalOpen } from '../../../utils/useBodyModalOpen';
 
 interface CardModalProps {
   card: TaskCard;
@@ -49,12 +50,7 @@ export const CardModal: React.FC<CardModalProps> = ({ card, columns, onClose }) 
   const deleteCard = useDeleteCard();
   const createSubtask = useCreateSubtask();
 
-  useEffect(() => {
-    document.body.classList.add('has-modal-open');
-    return () => {
-      document.body.classList.remove('has-modal-open');
-    };
-  }, []);
+  useBodyModalOpen(true);
   const updateSubtask = useUpdateSubtask();
   const deleteSubtask = useDeleteSubtask();
 

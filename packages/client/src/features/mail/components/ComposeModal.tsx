@@ -6,6 +6,7 @@ import { useSendEmail } from '../api/mailApi';
 import { UserAutocomplete } from '../../auth/components/UserAutocomplete';
 import { DriveFileSelectorModal } from './DriveFileSelectorModal';
 import { GrantAccessModal } from './GrantAccessModal';
+import { useBodyModalOpen } from '../../../utils/useBodyModalOpen';
 
 interface ComposeModalProps {
   onClose: () => void;
@@ -16,12 +17,10 @@ export const ComposeModal: React.FC<ComposeModalProps> = ({ onClose, replyTo }) 
   const sendEmailMutation = useSendEmail();
   const { closeCompose } = useMailStore();
 
-  useEffect(() => {
-    document.body.classList.add('has-modal-open');
-    return () => {
-      document.body.classList.remove('has-modal-open');
-    };
-  }, []);
+  // Скрываем глобальный тайтлбар, пока ComposeModal открыт. Используем
+  // счетчик ссылок, чтобы дочерние модалки (например, выбор файла с диска)
+  // не снимали класс по своему unmount, пока ComposeModal все еще открыт.
+  useBodyModalOpen(true);
 
   const [email, setEmail] = useState<ComposeEmail>({
     to: replyTo ? [replyTo.from] : [],

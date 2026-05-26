@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useDriveStore } from '../viewmodels/driveViewModel';
 import { useAuthStore } from '../../../store';
@@ -8,6 +8,7 @@ import { FolderOpen, RefreshCw, Upload, Plus, Grid, List, LogOut, X } from 'luci
 import { FileItem } from '../models/driveModel';
 import { api } from '../../../lib/apiClient';
 import { useQueryClient } from '@tanstack/react-query';
+import { useBodyModalOpen } from '../../../utils/useBodyModalOpen';
 
 export const DriveView: React.FC = () => {
   const navigate = useNavigate();
@@ -34,13 +35,7 @@ export const DriveView: React.FC = () => {
   const [allUsers, setAllUsers] = useState<Array<{id: string, username: string, role: string}>>([]);
   const [allowedUsers, setAllowedUsers] = useState<Set<string>>(new Set());
 
-  useEffect(() => {
-    if (showCreateFolderModal || showPermissionsModal) {
-      document.body.classList.add('has-modal-open');
-    } else {
-      document.body.classList.remove('has-modal-open');
-    }
-  }, [showCreateFolderModal, showPermissionsModal]);
+  useBodyModalOpen(showCreateFolderModal || showPermissionsModal);
 
   const handleLogout = () => {
     logout();
