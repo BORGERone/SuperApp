@@ -8,7 +8,8 @@ import {
   Inbox,
   Send,
   Trash2,
-  Edit
+  Edit,
+  ChevronsUp
 } from 'lucide-react';
 import { useMailStore } from '../features/mail/viewmodels/mailViewModel';
 import { useTaskCards } from '../features/tasks/api/tasksApi';
@@ -225,28 +226,33 @@ export const Sidebar: React.FC = () => {
           className="btn-icon"
           aria-label={isCollapsed ? 'Развернуть меню' : 'Свернуть меню'}
         >
-          <div className="w-6 h-5 relative flex flex-col justify-center">
+          <div className="w-6 h-5 relative flex items-center justify-center">
+            {/* Бургер (три полоски) — в развёрнутом состоянии */}
             <div
-              className="w-6 h-0.5 bg-current rounded-full origin-center"
+              className="absolute inset-0 flex flex-col justify-center"
               style={{
-                transform: isCollapsed ? 'translateY(-1px) rotate(-135deg)' : 'none',
-                transition: 'transform 360ms cubic-bezier(0.16, 1, 0.3, 1)',
+                opacity: isCollapsed ? 0 : 1,
+                transform: isCollapsed ? 'scale(0.6)' : 'none',
+                transition:
+                  'opacity 360ms cubic-bezier(0.16, 1, 0.3, 1), transform 360ms cubic-bezier(0.16, 1, 0.3, 1)',
               }}
-            />
+            >
+              <div className="w-6 h-0.5 bg-current rounded-full" />
+              <div className="w-6 h-0.5 bg-current rounded-full my-1" />
+              <div className="w-6 h-0.5 bg-current rounded-full" />
+            </div>
+            {/* Двойная стрелка вверх — в свёрнутом состоянии */}
             <div
-              className="w-6 h-0.5 bg-current rounded-full my-1"
+              className="absolute inset-0 flex items-center justify-center"
               style={{
-                transform: isCollapsed ? 'translateY(1px) rotate(-45deg)' : 'none',
-                transition: 'transform 360ms cubic-bezier(0.16, 1, 0.3, 1)',
+                opacity: isCollapsed ? 1 : 0,
+                transform: isCollapsed ? 'none' : 'scale(0.6)',
+                transition:
+                  'opacity 360ms cubic-bezier(0.16, 1, 0.3, 1), transform 360ms cubic-bezier(0.16, 1, 0.3, 1)',
               }}
-            />
-            <div
-              className="w-6 h-0.5 bg-current rounded-full"
-              style={{
-                transform: isCollapsed ? 'scale(0)' : 'none',
-                transition: 'transform 360ms cubic-bezier(0.16, 1, 0.3, 1)',
-              }}
-            />
+            >
+              <ChevronsUp size={24} strokeWidth={2.75} />
+            </div>
           </div>
         </button>
       </div>
