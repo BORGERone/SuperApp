@@ -181,7 +181,7 @@ export const FileList: React.FC<FileListProps> = ({
             // обрезку справа и визуальное «размытие» текста плитки.
             // Подсветка идёт через класс .select-shimmer (см. index.css):
             // светлеющая подложка + бегущая радужная рамка, без блюра.
-            transition: 'background 220ms ease-out, box-shadow 220ms ease-out',
+            transition: 'background 300ms ease-out, box-shadow 300ms ease-out, transform 300ms ease-out',
           }}
           onClick={() => handleFileClick(file)}
         >

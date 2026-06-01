@@ -8,7 +8,7 @@ import { ComposeModal } from '../components/ComposeModal';
 import { useEmails, useUpdateEmail, useDeleteEmail, useMoveEmail } from '../api/mailApi';
 import { useQueryClient } from '@tanstack/react-query';
 import { useLocation } from 'react-router-dom';
-import { showNotification, requestNotificationPermission } from '../../../utils/notifications';
+import { requestNotificationPermission } from '../../../utils/notifications';
 
 export const MailView: React.FC = () => {
   const location = useLocation();
@@ -34,6 +34,7 @@ export const MailView: React.FC = () => {
     setCurrentFolder,
     setFilters,
     openCompose,
+    openComposeForForward,
     closeCompose,
     deleteEmail,
     moveToFolder,
@@ -87,24 +88,10 @@ export const MailView: React.FC = () => {
 
   // Отслеживание новых писем и показ уведомлений
   useEffect(() => {
-    if (currentFolder === 'inbox' && emailsData.length > 0) {
-      const currentCount = emailsData.length;
-      
-      // Если количество писем увеличилось, показываем уведомление
-      if (currentCount > previousEmailsCount.current && previousEmailsCount.current > 0) {
-        const newEmailsCount = currentCount - previousEmailsCount.current;
-        const latestEmail = emailsData[0]; // Новые письма будут в начале массива
-        
-        showNotification(
-          `Новое письмо${newEmailsCount > 1 ? 'я' : ''}`,
-          `${latestEmail.from}: ${latestEmail.subject}`,
-          'email'
-        );
-      }
-      
-      previousEmailsCount.current = currentCount;
+    if (emailsData.length > 0) {
+      previousEmailsCount.current = emailsData.length;
     }
-  }, [emailsData, currentFolder]);
+  }, [emailsData]);
 
   
   const updateEmailMutation = useUpdateEmail();
@@ -330,7 +317,7 @@ export const MailView: React.FC = () => {
                 <MailItem
                   email={selectedEmail}
                   onReply={() => openCompose(selectedEmail)}
-                  onForward={() => openCompose(selectedEmail)}
+                  onForward={() => openComposeForForward()}
                   onDelete={() => {
                     deleteEmailMutation.mutate(selectedEmail.id);
                     setSelectedEmail(null);

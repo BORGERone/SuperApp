@@ -84,7 +84,7 @@ export const MailList: React.FC<MailListProps> = ({
                 !picked && !isOpen && !email.isRead
                   ? 'rgba(var(--glass-bg-mid), calc(var(--glass-tint-mid) + 0.14))'
                   : undefined,
-              transition: 'background 220ms ease-out, box-shadow 220ms ease-out',
+              transition: 'background 300ms ease-out, box-shadow 300ms ease-out, transform 300ms ease-out',
             }}
           >
             <div className="flex items-start gap-3">

@@ -7,6 +7,12 @@ contextBridge.exposeInMainWorld('electron', {
   startDrag: (options) => ipcRenderer.invoke('drag:start', options),
   // API для показа уведомлений через Electron
   showNotification: (options) => ipcRenderer.invoke('show-notification', options),
+  // API для подписки на клик по уведомлению
+  onNotificationClick: (cb) => {
+    const handler = (_e, path) => cb(path);
+    ipcRenderer.on('notification-clicked', handler);
+    return () => ipcRenderer.removeListener('notification-clicked', handler);
+  },
   // API кастомного титлбара
   window: {
     minimize: () => ipcRenderer.invoke('window:minimize'),

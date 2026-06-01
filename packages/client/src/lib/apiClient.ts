@@ -1,6 +1,7 @@
 // API клиент для взаимодействия с сервером
 
 import { refreshAccessToken, clearAuthAndRedirect } from './tokenRefresh';
+import { playErrorSound } from '../utils/notifications';
 
 // API базовый URL - в Electron используем абсолютный URL, в браузере - относительный (работает через proxy)
 const isElectron = typeof window !== 'undefined' && (window as any).electronAPI !== undefined;
@@ -41,6 +42,7 @@ export async function apiRequest<T>(
 
   if (!response.ok) {
     const error = await response.json().catch(() => ({ error: 'Request failed' }));
+    playErrorSound();
     throw new Error(error.error || 'Request failed');
   }
 

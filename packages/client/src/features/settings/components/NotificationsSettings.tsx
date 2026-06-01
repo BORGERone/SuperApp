@@ -1,6 +1,7 @@
 import React, { useRef } from 'react';
 import { useNotificationsStore } from '../viewmodels/notificationsViewModel';
 import { Bell, Mail, Volume2, Clock } from 'lucide-react';
+import { playNotificationSound } from '../../../utils/notifications';
 
 export const NotificationsSettings: React.FC = () => {
   const {
@@ -19,39 +20,19 @@ export const NotificationsSettings: React.FC = () => {
   const lastSoundPlayTime = useRef(0);
   const soundPlayCooldown = 300; // 300ms между воспроизведениями
 
-  const playNotificationSound = (volume: number) => {
-    try {
-      const now = Date.now();
-      if (now - lastSoundPlayTime.current < soundPlayCooldown) {
-        return; // Пропускаем, если прошло мало времени
-      }
-      
-      lastSoundPlayTime.current = now;
-      
-      const audioContext = new (window.AudioContext || (window as any).webkitAudioContext)();
-      const oscillator = audioContext.createOscillator();
-      const gainNode = audioContext.createGain();
-      
-      oscillator.connect(gainNode);
-      gainNode.connect(audioContext.destination);
-      
-      oscillator.frequency.setValueAtTime(800, audioContext.currentTime);
-      oscillator.frequency.exponentialRampToValueAtTime(600, audioContext.currentTime + 0.1);
-      oscillator.type = 'sine';
-      
-      gainNode.gain.setValueAtTime(volume / 100 * 0.3, audioContext.currentTime);
-      gainNode.gain.exponentialRampToValueAtTime(0.01, audioContext.currentTime + 0.3);
-      
-      oscillator.start(audioContext.currentTime);
-      oscillator.stop(audioContext.currentTime + 0.3);
-    } catch (error) {
-      console.error('Failed to play notification sound:', error);
+  const handlePlayNotificationSound = (volume: number) => {
+    const now = Date.now();
+    if (now - lastSoundPlayTime.current < soundPlayCooldown) {
+      return; // Пропускаем, если прошло мало времени
     }
+    
+    lastSoundPlayTime.current = now;
+    playNotificationSound(volume);
   };
 
   const handleVolumeChange = (value: number) => {
     setSoundVolume(value);
-    playNotificationSound(value);
+    handlePlayNotificationSound(value);
   };
 
   return (

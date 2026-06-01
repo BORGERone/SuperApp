@@ -357,7 +357,7 @@ export const UserManagement: React.FC = () => {
                   type="text"
                   value={newUsername}
                   onChange={(e) => setNewUsername(e.target.value)}
-                  className="w-full px-4 py-2 border border-app-border rounded-lg bg-surface-2 focus:ring-2 focus:ring-indigo-500 focus:border-transparent"
+                  className="glass-input w-full px-4 py-2"
                   placeholder="Введите имя пользователя"
                   required
                 />
@@ -371,7 +371,7 @@ export const UserManagement: React.FC = () => {
                   type="password"
                   value={newPassword}
                   onChange={(e) => setNewPassword(e.target.value)}
-                  className="w-full px-4 py-2 border border-app-border rounded-lg bg-surface-2 focus:ring-2 focus:ring-indigo-500 focus:border-transparent"
+                  className="glass-input w-full px-4 py-2"
                   placeholder="Введите пароль"
                   required
                 />
@@ -387,7 +387,7 @@ export const UserManagement: React.FC = () => {
                   maxLength={4}
                   value={newPinCode}
                   onChange={(e) => setNewPinCode(e.target.value.replace(/\D/g, ''))}
-                  className="w-full px-4 py-2 border border-app-border rounded-lg bg-surface-2 focus:ring-2 focus:ring-indigo-500 focus:border-transparent"
+                  className="glass-input w-full px-4 py-2"
                   placeholder="Введите 4-значный PIN-код"
                   required
                 />
@@ -402,7 +402,7 @@ export const UserManagement: React.FC = () => {
                   value={newPosition}
                   maxLength={200}
                   onChange={(e) => setNewPosition(e.target.value)}
-                  className="w-full px-4 py-2 border border-app-border rounded-lg bg-surface-2 focus:ring-2 focus:ring-indigo-500 focus:border-transparent"
+                  className="glass-input w-full px-4 py-2"
                   placeholder="Например, Менеджер по продажам"
                 />
               </div>
@@ -444,7 +444,7 @@ export const UserManagement: React.FC = () => {
                       type="text"
                       value={editUsername}
                       onChange={(e) => setEditUsername(e.target.value)}
-                      className="w-full px-4 py-2 border border-app-border rounded-lg bg-surface-2 focus:ring-2 focus:ring-indigo-500 focus:border-transparent"
+                      className="glass-input w-full px-4 py-2"
                       placeholder="Введите новое имя пользователя"
                       required
                     />
@@ -458,7 +458,7 @@ export const UserManagement: React.FC = () => {
                       type="password"
                       value={editPassword}
                       onChange={(e) => setEditPassword(e.target.value)}
-                      className="w-full px-4 py-2 border border-app-border rounded-lg bg-surface-2 focus:ring-2 focus:ring-indigo-500 focus:border-transparent"
+                      className="glass-input w-full px-4 py-2"
                       placeholder="Введите новый пароль"
                     />
                   </div>
@@ -473,7 +473,7 @@ export const UserManagement: React.FC = () => {
                       maxLength={4}
                       value={editPinCode}
                       onChange={(e) => setEditPinCode(e.target.value.replace(/\D/g, ''))}
-                      className="w-full px-4 py-2 border border-app-border rounded-lg bg-surface-2 focus:ring-2 focus:ring-indigo-500 focus:border-transparent"
+                      className="glass-input w-full px-4 py-2"
                       placeholder="Введите новый 4-значный PIN-код"
                     />
                   </div>
@@ -487,7 +487,7 @@ export const UserManagement: React.FC = () => {
                       value={editPosition}
                       maxLength={200}
                       onChange={(e) => setEditPosition(e.target.value)}
-                      className="w-full px-4 py-2 border border-app-border rounded-lg bg-surface-2 focus:ring-2 focus:ring-indigo-500 focus:border-transparent"
+                      className="glass-input w-full px-4 py-2"
                       placeholder="Оставьте пустым, если не задана"
                     />
                   </div>

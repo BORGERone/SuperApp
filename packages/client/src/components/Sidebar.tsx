@@ -229,21 +229,21 @@ export const Sidebar: React.FC = () => {
             <div
               className="w-6 h-0.5 bg-current rounded-full origin-center"
               style={{
-                transform: isCollapsed ? 'rotate(-45deg) translateY(-4px)' : 'none',
+                transform: isCollapsed ? 'translateY(-1px) rotate(-135deg)' : 'none',
                 transition: 'transform 360ms cubic-bezier(0.16, 1, 0.3, 1)',
               }}
             />
             <div
               className="w-6 h-0.5 bg-current rounded-full my-1"
               style={{
-                transform: isCollapsed ? 'rotate(45deg) translateY(-4px)' : 'none',
+                transform: isCollapsed ? 'translateY(1px) rotate(-45deg)' : 'none',
                 transition: 'transform 360ms cubic-bezier(0.16, 1, 0.3, 1)',
               }}
             />
             <div
               className="w-6 h-0.5 bg-current rounded-full"
               style={{
-                transform: isCollapsed ? 'rotate(90deg) scale(0.75)' : 'none',
+                transform: isCollapsed ? 'scale(0)' : 'none',
                 transition: 'transform 360ms cubic-bezier(0.16, 1, 0.3, 1)',
               }}
             />

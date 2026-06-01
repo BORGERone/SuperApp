@@ -439,8 +439,12 @@ export const ComposeModal: React.FC<ComposeModalProps> = ({ onClose, replyTo }) 
   return (
     <div className="fixed inset-0 modal-backdrop flex items-center justify-center z-50 fade-in p-4">
       <div
-        className="glass-top scale-in w-full max-w-3xl flex flex-col"
-        style={{ maxHeight: 'calc(100vh - 64px)' }}
+        className="scale-in w-full max-w-3xl flex flex-col rounded-3xl compose-modal-solid"
+        style={{
+          maxHeight: 'calc(100vh - 64px)',
+          boxShadow: '0 10px 30px rgba(0,0,0,0.2)',
+          backdropFilter: 'none'
+        }}
         onKeyDown={handleKeyDown}
       >
         {/* Header */}
@@ -610,7 +614,7 @@ export const ComposeModal: React.FC<ComposeModalProps> = ({ onClose, replyTo }) 
             value={email.body}
             onChange={(e) => setEmail(prev => ({ ...prev, body: e.target.value }))}
             placeholder="Введите текст письма..."
-            className="glass-input flex-1 w-full min-h-[260px] px-3 py-3 resize-none text-sm leading-relaxed"
+            className="glass-input flex-1 w-full min-h-[200px] max-h-[400px] px-3 py-3 resize-y text-sm leading-relaxed"
           />
         </div>
 

@@ -225,7 +225,11 @@ body.has-bg-image {
   --glass-tint-deep: 0.62;
   --glass-tint-mid: 0.72;
   --glass-tint-top: 0.82;
+  /* Темные рамки в светлой теме при фоновом изображении */
+  --glass-border: rgba(0, 0, 0, 0.15);
+  --glass-border-soft: rgba(0, 0, 0, 0.08);
 }
+
 html.dark body.has-bg-image {
   --glass-tint-deep: 0.78;
   --glass-tint-mid: 0.82;
@@ -485,7 +489,7 @@ html.dark body.has-bg-image {
   background: transparent;
   transition: background 160ms var(--ease-standard), color 160ms var(--ease-standard), transform 160ms var(--ease-spring);
   cursor: pointer;
-  border: 1px solid transparent;
+  border: none;
 }
 
 .btn-icon:hover {
@@ -500,7 +504,37 @@ html.dark body.has-bg-image {
 .btn-icon.is-active {
   background: rgba(var(--color-primary-rgb), 0.12);
   color: var(--color-primary);
-  border-color: rgba(var(--color-primary-rgb), 0.25);
+  border: none;
+}
+
+/* Убираем обводку у кнопок в темной теме */
+.dark .btn-icon {
+  border: none !important;
+  outline: none !important;
+  box-shadow: none !important;
+}
+.dark .btn-icon::before,
+.dark .btn-icon::after {
+  display: none !important;
+}
+
+/* Убираем градиентную обводку у glass элементов в темной теме */
+.dark .glass-top::before,
+.dark .glass-mid::before,
+.dark .glass-deep::before {
+  display: none !important;
+}
+
+/* Убираем border у glass элементов в темной теме */
+.dark .glass-top,
+.dark .glass-mid,
+.dark .glass-deep {
+  border: none !important;
+}
+
+/* Убираем divider линии в темной теме */
+.dark .divider {
+  display: none !important;
 }
 
 /* Текстовые градиенты */
@@ -671,6 +705,17 @@ html.dark body.has-bg-image {
 }
 .dark .modal-backdrop {
   background: rgba(0, 0, 0, 0.55);
+}
+
+/* Специальный класс для ComposeModal - без прозрачности */
+.compose-modal-solid {
+  background: rgb(235, 240, 250) !important;
+  border: 1px solid rgb(200, 210, 230) !important;
+}
+
+.dark .compose-modal-solid {
+  background: rgb(28, 28, 30) !important;
+  border: 1px solid rgb(48, 48, 50) !important;
 }
 
 /* Glass-стилизованные выпадающие списки/селекты/опции */
@@ -912,8 +957,8 @@ button, a, input, select, textarea, label {
   -webkit-backdrop-filter: blur(28px) saturate(170%);
   border: 1px solid var(--glass-border-soft);
   border-bottom: 0;
-  border-top-left-radius: var(--radius-xl);
-  border-top-right-radius: var(--radius-xl);
+  border-top-left-radius: 8px;
+  border-top-right-radius: 8px;
   border-bottom-left-radius: 0;
   border-bottom-right-radius: 0;
   box-shadow:
