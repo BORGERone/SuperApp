@@ -8,8 +8,7 @@ import {
   Inbox,
   Send,
   Trash2,
-  Edit,
-  ChevronsUp
+  Edit
 } from 'lucide-react';
 import { useMailStore } from '../features/mail/viewmodels/mailViewModel';
 import { useTaskCards } from '../features/tasks/api/tasksApi';
@@ -226,32 +225,92 @@ export const Sidebar: React.FC = () => {
           className="btn-icon"
           aria-label={isCollapsed ? 'Развернуть меню' : 'Свернуть меню'}
         >
-          <div className="w-6 h-5 relative flex items-center justify-center">
-            {/* Бургер (три полоски) — в развёрнутом состоянии */}
+          {/*
+            Морфинг бургер ↔ двойная стрелка вверх. Каждая из верхней/нижней
+            полосок — это два плеча, которые поворачиваются вокруг вершины в шеврон,
+            а средняя полоска исчезает. Всё на transform/opacity — плавный переход.
+          */}
+          <div className="relative" style={{ width: 24, height: 20 }}>
+            {/* Верхний шеврон / верхняя полоска */}
             <div
-              className="absolute inset-0 flex flex-col justify-center"
+              className="absolute left-0 right-0"
               style={{
-                opacity: isCollapsed ? 0 : 1,
-                transform: isCollapsed ? 'scale(0.6)' : 'none',
-                transition:
-                  'opacity 360ms cubic-bezier(0.16, 1, 0.3, 1), transform 360ms cubic-bezier(0.16, 1, 0.3, 1)',
+                top: 0,
+                height: 2,
+                transform: `translateY(${isCollapsed ? 2 : 4}px)`,
+                transition: 'transform 360ms cubic-bezier(0.16, 1, 0.3, 1)',
               }}
             >
-              <div className="w-6 h-0.5 bg-current rounded-full" />
-              <div className="w-6 h-0.5 bg-current rounded-full my-1" />
-              <div className="w-6 h-0.5 bg-current rounded-full" />
+              <div
+                className="absolute bg-current rounded-full"
+                style={{
+                  height: 2,
+                  width: 12,
+                  right: '50%',
+                  top: -1,
+                  transformOrigin: '100% 50%',
+                  transform: `rotate(${isCollapsed ? -45 : 0}deg)`,
+                  transition: 'transform 360ms cubic-bezier(0.16, 1, 0.3, 1)',
+                }}
+              />
+              <div
+                className="absolute bg-current rounded-full"
+                style={{
+                  height: 2,
+                  width: 12,
+                  left: '50%',
+                  top: -1,
+                  transformOrigin: '0% 50%',
+                  transform: `rotate(${isCollapsed ? 45 : 0}deg)`,
+                  transition: 'transform 360ms cubic-bezier(0.16, 1, 0.3, 1)',
+                }}
+              />
             </div>
-            {/* Двойная стрелка вверх — в свёрнутом состоянии */}
+            {/* Средняя полоска — только в развёрнутом состоянии */}
             <div
-              className="absolute inset-0 flex items-center justify-center"
+              className="absolute left-0 right-0 bg-current rounded-full"
               style={{
-                opacity: isCollapsed ? 1 : 0,
-                transform: isCollapsed ? 'none' : 'scale(0.6)',
-                transition:
-                  'opacity 360ms cubic-bezier(0.16, 1, 0.3, 1), transform 360ms cubic-bezier(0.16, 1, 0.3, 1)',
+                top: 0,
+                height: 2,
+                transform: 'translateY(9px)',
+                opacity: isCollapsed ? 0 : 1,
+                transition: 'opacity 240ms cubic-bezier(0.16, 1, 0.3, 1)',
+              }}
+            />
+            {/* Нижний шеврон / нижняя полоска */}
+            <div
+              className="absolute left-0 right-0"
+              style={{
+                top: 0,
+                height: 2,
+                transform: `translateY(${isCollapsed ? 10 : 16}px)`,
+                transition: 'transform 360ms cubic-bezier(0.16, 1, 0.3, 1)',
               }}
             >
-              <ChevronsUp size={24} strokeWidth={2.75} />
+              <div
+                className="absolute bg-current rounded-full"
+                style={{
+                  height: 2,
+                  width: 12,
+                  right: '50%',
+                  top: -1,
+                  transformOrigin: '100% 50%',
+                  transform: `rotate(${isCollapsed ? -45 : 0}deg)`,
+                  transition: 'transform 360ms cubic-bezier(0.16, 1, 0.3, 1)',
+                }}
+              />
+              <div
+                className="absolute bg-current rounded-full"
+                style={{
+                  height: 2,
+                  width: 12,
+                  left: '50%',
+                  top: -1,
+                  transformOrigin: '0% 50%',
+                  transform: `rotate(${isCollapsed ? 45 : 0}deg)`,
+                  transition: 'transform 360ms cubic-bezier(0.16, 1, 0.3, 1)',
+                }}
+              />
             </div>
           </div>
         </button>
