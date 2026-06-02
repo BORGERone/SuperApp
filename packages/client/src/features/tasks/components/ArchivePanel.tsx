@@ -50,7 +50,14 @@ export const ArchivePanel: React.FC<ArchivePanelProps> = ({ onClose }) => {
 
   return (
     <div className="fixed inset-0 z-50 modal-backdrop flex items-start justify-center p-4 pt-16 fade-in">
-      <div className="glass-top scale-in w-full max-w-2xl rounded-3xl p-6">
+      <div
+        className="scale-in w-full max-w-2xl rounded-3xl p-6 compose-modal-solid"
+        style={{
+          maxHeight: 'calc(100vh - 64px)',
+          boxShadow: '0 10px 30px rgba(0,0,0,0.2)',
+          backdropFilter: 'none'
+        }}
+      >
         <header className="mb-4 flex items-center justify-between gap-2">
           <div>
             <p
@@ -72,7 +79,7 @@ export const ArchivePanel: React.FC<ArchivePanelProps> = ({ onClose }) => {
           </button>
         </header>
 
-        <div className="tasks-scroll max-h-[60vh] space-y-2 overflow-y-auto pr-2">
+        <div className="tasks-scroll max-h-[60vh] space-y-2 overflow-y-auto px-2 pb-2">
           {isLoading ? (
             <div
               className="flex items-center justify-center rounded-2xl p-6 text-sm text-app-muted"

@@ -48,9 +48,9 @@
   --glass-bg-deep: 235 240 250;
   --glass-bg-mid: 255 255 255;
   --glass-bg-top: 255 255 255;
-  --glass-tint-deep: 0.36;
-  --glass-tint-mid: 0.58;
-  --glass-tint-top: 0.72;
+  --glass-tint-deep: 0.45;
+  --glass-tint-mid: 0.65;
+  --glass-tint-top: 0.85;
 
   --glass-border: rgba(255, 255, 255, 0.55);
   --glass-border-soft: rgba(255, 255, 255, 0.35);

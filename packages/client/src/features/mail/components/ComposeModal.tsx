@@ -691,6 +691,7 @@ export const ComposeModal: React.FC<ComposeModalProps> = ({ onClose, replyTo }) 
               onClick={handleSend}
               disabled={sendEmailMutation.isPending}
               className="btn-glass flex items-center gap-2 px-4 py-2 disabled:opacity-50 disabled:cursor-not-allowed"
+              data-component-name="ComposeModal"
             >
               <Send size={16} />
               {sendEmailMutation.isPending ? 'Отправка...' : 'Отправить'}

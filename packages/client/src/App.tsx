@@ -29,7 +29,14 @@ function App() {
         // Проверяем, что это не чекбокс или радио
         const isCheckbox = target.closest('input[type="checkbox"], input[type="radio"]');
         if (!isCheckbox) {
-          playTapSound();
+          // Проверяем, что это кнопка бургера или кнопка отправки письма
+          const componentName = button.getAttribute('data-component-name');
+          const buttonText = button.textContent;
+          const isBurgerButton = componentName === 'Sidebar';
+          const isSendButton = componentName === 'ComposeModal' && buttonText?.includes('Отправить');
+          if (isBurgerButton || isSendButton) {
+            playTapSound();
+          }
         }
       }
     };

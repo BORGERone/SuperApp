@@ -151,14 +151,14 @@ export const NotificationsSettings: React.FC = () => {
                       type="time"
                       value={quietHours.start}
                       onChange={(e) => setQuietHours(true, e.target.value, quietHours.end)}
-                      className="px-2 sm:px-3 py-2 border border-app-border rounded-lg bg-surface-2 focus:outline-none focus:ring-2 focus:ring-purple-400 text-sm sm:text-base"
+                      className="glass-input px-2 sm:px-3 py-2 text-sm sm:text-base"
                     />
                     <span className="text-app-muted text-center sm:text-left">—</span>
                     <input
                       type="time"
                       value={quietHours.end}
                       onChange={(e) => setQuietHours(true, quietHours.start, e.target.value)}
-                      className="px-2 sm:px-3 py-2 border border-app-border rounded-lg bg-surface-2 focus:outline-none focus:ring-2 focus:ring-purple-400 text-sm sm:text-base"
+                      className="glass-input px-2 sm:px-3 py-2 text-sm sm:text-base"
                     />
                   </div>
                 </div>
