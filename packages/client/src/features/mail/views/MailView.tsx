@@ -1,5 +1,5 @@
 import React, { useEffect, useState, useRef } from 'react';
-import { Search, Trash2, Star, Filter } from 'lucide-react';
+import { Search, Trash2, Star, Filter, CheckCircle2, Circle } from 'lucide-react';
 import { useMailStore } from '../viewmodels/mailViewModel';
 import { MailFolder, Email } from '../models/mailModel';
 import { MailList } from '../components/MailList';
@@ -212,6 +212,16 @@ export const MailView: React.FC = () => {
     }
   };
 
+  const handleSelectAll = () => {
+    if (selectedEmails.length > 0) {
+      // Снимаем выделение со всех
+      selectedEmails.forEach(id => toggleEmailSelection(id));
+    } else {
+      // Выделяем все
+      filteredEmails.forEach(email => toggleEmailSelection(email.id));
+    }
+  };
+
   const handleMoveToFolder = (folder: MailFolder) => {
     if (selectedEmails.length > 0) {
       selectedEmails.forEach(id => {
@@ -250,6 +260,18 @@ export const MailView: React.FC = () => {
         {!selectedEmail && (
           <div className="glass-deep p-3 slide-in-left">
             <div className="flex items-center gap-2">
+              <button
+                onClick={handleSelectAll}
+                className="btn-icon"
+                title={selectedEmails.length > 0 ? 'Снять выделение' : 'Выделить все'}
+              >
+                {selectedEmails.length > 0 ? (
+                  <CheckCircle2 size={18} className="text-primary" />
+                ) : (
+                  <Circle size={18} className="text-app" />
+                )}
+              </button>
+
               <div className="flex-1 relative no-drag">
                 <Search
                   className="absolute left-3 top-1/2 transform -translate-y-1/2 text-app-muted"
@@ -297,7 +319,7 @@ export const MailView: React.FC = () => {
         {/* Email List and Detail */}
         <div className="flex-1 flex flex-col min-h-0">
           {selectedEmail ? (
-            <div className="flex items-center gap-2 mb-3 slide-in-left">
+            <div className="flex items-center gap-2 mb-3 slide-in-left no-drag">
               <button
                 onClick={() => setSelectedEmail(null)}
                 className="btn-glass-secondary px-3 py-1.5 flex items-center gap-2"
@@ -329,8 +351,8 @@ export const MailView: React.FC = () => {
                 />
               </div>
             ) : (
-              <div className="glass-mid p-3 overflow-hidden flex flex-col h-full slide-in-left">
-                <div className="flex-1 overflow-y-auto">
+              <div className="glass-mid p-2 overflow-hidden flex flex-col h-full slide-in-left">
+                <div className="flex-1 overflow-y-auto px-1">
                   {filteredEmails.length === 0 ? (
                     <div className="flex items-center justify-center h-full">
                       <div className="text-app-muted text-center fade-in">

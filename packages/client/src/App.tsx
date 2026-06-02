@@ -5,10 +5,12 @@ import { Layout } from './components/Layout';
 import { ThemeProvider } from './components/ThemeProvider';
 import { resumeBackgroundMailPollerIfPossible } from './utils/backgroundNotifications';
 import { playTapSound } from './utils/notifications';
+import { useNotificationsStore } from './features/settings/viewmodels/notificationsViewModel';
 
 function App() {
   const { isAuthenticated, checkAuth } = useAuthStore();
   const navigate = useNavigate();
+  const { soundVolume } = useNotificationsStore();
 
   useEffect(() => {
     // Проверяем авторизацию при загрузке приложения
@@ -35,7 +37,7 @@ function App() {
           const isBurgerButton = componentName === 'Sidebar';
           const isSendButton = componentName === 'ComposeModal' && buttonText?.includes('Отправить');
           if (isBurgerButton || isSendButton) {
-            playTapSound();
+            playTapSound(soundVolume * 0.5);
           }
         }
       }
@@ -43,7 +45,7 @@ function App() {
 
     document.addEventListener('click', handleButtonClick);
     return () => document.removeEventListener('click', handleButtonClick);
-  }, []);
+  }, [soundVolume]);
 
   // Обработчик клика на уведомление в Electron
   useEffect(() => {

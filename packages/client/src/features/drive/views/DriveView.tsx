@@ -290,7 +290,7 @@ export const DriveView: React.FC = () => {
   }, [currentPath, refetch]);
 
   return (
-    <div className="min-h-screen p-3 space-y-3">
+    <div className="flex flex-col h-full p-3 gap-3 overflow-hidden">
       {/* Header */}
       <div className="glass-deep blur-smooth-deep px-6 py-4 flex flex-col gap-3">
         <div className="flex items-center justify-between">
@@ -301,7 +301,7 @@ export const DriveView: React.FC = () => {
             <span className="text-sm font-medium text-app-secondary">{currentUser}</span>
             <button
               onClick={handleLogout}
-              className="flex items-center gap-2 px-4 py-2 btn-glass-secondary"
+              className="flex items-center gap-2 px-4 py-2 btn-glass-secondary no-drag"
             >
               <LogOut size={16} />
               <span>Выйти</span>
@@ -357,14 +357,16 @@ export const DriveView: React.FC = () => {
       </div>
 
       {/* File List — без фонового островка, файлы лежат прямо на app-bg */}
-      <div className="px-1">
-        <FileList
-          files={files}
-          currentPath={currentPath}
-          setDownloading={setIsDownloading}
-          setDownloadProgress={setDownloadProgress}
-          setDownloadFileName={setDownloadFileName}
-        />
+      <div className="flex-1 overflow-hidden px-1">
+        <div className="h-full overflow-y-auto">
+          <FileList
+            files={files}
+            currentPath={currentPath}
+            setDownloading={setIsDownloading}
+            setDownloadProgress={setDownloadProgress}
+            setDownloadFileName={setDownloadFileName}
+          />
+        </div>
       </div>
 
       {/* Action Island */}
@@ -510,7 +512,13 @@ export const DriveView: React.FC = () => {
       {/* Create Folder Modal */}
       {showCreateFolderModal && (
         <div className="fixed inset-0 modal-backdrop flex items-center justify-center z-50 fade-in p-4">
-          <div className="glass-top scale-in p-6 w-full max-w-md">
+          <div
+            className="scale-in p-6 w-full max-w-md rounded-3xl compose-modal-solid"
+            style={{
+              boxShadow: '0 10px 30px rgba(0,0,0,0.2)',
+              backdropFilter: 'none'
+            }}
+          >
             <div className="flex items-center justify-between mb-4">
               <h3 className="text-lg font-semibold text-gradient">Создать папку</h3>
               <button

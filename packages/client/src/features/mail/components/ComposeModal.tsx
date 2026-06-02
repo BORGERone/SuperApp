@@ -439,7 +439,7 @@ export const ComposeModal: React.FC<ComposeModalProps> = ({ onClose, replyTo }) 
   return (
     <div className="fixed inset-0 modal-backdrop flex items-center justify-center z-50 fade-in p-4">
       <div
-        className="scale-in w-full max-w-3xl flex flex-col rounded-3xl compose-modal-solid"
+        className="scale-in w-full max-w-4xl flex flex-col rounded-3xl compose-modal-solid"
         style={{
           maxHeight: 'calc(100vh - 64px)',
           boxShadow: '0 10px 30px rgba(0,0,0,0.2)',
@@ -447,63 +447,57 @@ export const ComposeModal: React.FC<ComposeModalProps> = ({ onClose, replyTo }) 
         }}
         onKeyDown={handleKeyDown}
       >
-        {/* Header */}
-        <div className="flex items-center justify-between p-4 relative">
-          <div className="divider absolute bottom-0 left-0 right-0" />
-          <h2 className="text-base font-semibold text-app">
-            {replyTo ? 'Ответ на письмо' : 'Новое письмо'}
-          </h2>
-          <button onClick={onClose} className="btn-icon">
-            <X size={18} />
-          </button>
-        </div>
-
         {/* Recipients */}
         <div className="px-4 py-3 space-y-2 flex-shrink-0">
           {/* To */}
-          <div>
-            <label className="block text-sm font-medium text-app-secondary mb-2">Кому:</label>
-            <div className="space-y-2">
-              <div className="flex flex-wrap gap-2">
-                {email.to.map((recipient, index) => (
-                  <div
-                    key={recipient}
-                    className="inline-flex items-center gap-2 px-3 py-1.5 rounded-full text-sm ring-1"
-                    style={{
-                      background: `linear-gradient(135deg, rgba(var(--color-primary-rgb), 0.25) 0%, rgba(var(--color-primary-rgb), 0.15) 100%)`,
-                      color: 'var(--color-primary)',
-                      borderColor: 'rgba(var(--color-primary-rgb), 0.4)',
-                    }}
-                  >
-                    <span>{recipient}</span>
-                    <button
-                      onClick={() => handleRemoveRecipient('to', recipient)}
-                      className="ml-1 hover:opacity-80"
-                      style={{ color: 'var(--color-primary)' }}
+          <div className="flex items-start justify-between gap-4">
+            <div className="flex-1">
+              <label className="block text-sm font-medium text-app-secondary mb-2">Кому:</label>
+              <div className="space-y-2">
+                <div className="flex flex-wrap gap-2">
+                  {email.to.map((recipient, index) => (
+                    <div
+                      key={recipient}
+                      className="inline-flex items-center gap-2 px-3 py-1.5 rounded-full text-sm ring-1"
+                      style={{
+                        background: `linear-gradient(135deg, rgba(var(--color-primary-rgb), 0.25) 0%, rgba(var(--color-primary-rgb), 0.15) 100%)`,
+                        color: 'var(--color-primary)',
+                        borderColor: 'rgba(var(--color-primary-rgb), 0.4)',
+                      }}
                     >
-                      ×
-                    </button>
-                  </div>
-                ))}
-              </div>
-              <UserAutocomplete
-                value={toInputValue}
-                onChange={(value) => {
-                  setToInputValue(value);
-                  // Если введен email напрямую, добавляем его
-                  if (value.includes('@')) {
-                    if (!email.to.includes(value)) {
-                      setEmail(prev => ({
-                        ...prev,
-                        to: [...prev.to, value]
-                      }));
+                      <span>{recipient}</span>
+                      <button
+                        onClick={() => handleRemoveRecipient('to', recipient)}
+                        className="ml-1 hover:opacity-80"
+                        style={{ color: 'var(--color-primary)' }}
+                      >
+                        ×
+                      </button>
+                    </div>
+                  ))}
+                </div>
+                <UserAutocomplete
+                  value={toInputValue}
+                  onChange={(value) => {
+                    setToInputValue(value);
+                    // Если введен email напрямую, добавляем его
+                    if (value.includes('@')) {
+                      if (!email.to.includes(value)) {
+                        setEmail(prev => ({
+                          ...prev,
+                          to: [...prev.to, value]
+                        }));
+                      }
                     }
-                  }
-                }}
-                onSelect={(user) => handleUserSelect('to', user)}
-                placeholder="Введите имя..."
-              />
+                  }}
+                  onSelect={(user) => handleUserSelect('to', user)}
+                  placeholder="Введите имя..."
+                />
+              </div>
             </div>
+            <button onClick={onClose} className="btn-icon" aria-label="Закрыть">
+              <X size={18} />
+            </button>
           </div>
 
           {/* CC */}
@@ -608,13 +602,13 @@ export const ComposeModal: React.FC<ComposeModalProps> = ({ onClose, replyTo }) 
         </div>
 
         {/* Body */}
-        <div className="flex-1 px-4 pt-2 pb-4 flex flex-col min-h-0">
+        <div className="flex-1 px-4 pt-2 pb-4 flex flex-col min-h-0 overflow-hidden">
           <label className="block text-sm font-medium text-app-secondary mb-1.5">Текст письма:</label>
           <textarea
             value={email.body}
             onChange={(e) => setEmail(prev => ({ ...prev, body: e.target.value }))}
             placeholder="Введите текст письма..."
-            className="glass-input flex-1 w-full min-h-[200px] max-h-[400px] px-3 py-3 resize-y text-sm leading-relaxed"
+            className="glass-input flex-1 w-full min-h-[300px] max-h-[500px] px-3 py-3 resize-y text-sm leading-relaxed"
           />
         </div>
 
@@ -622,36 +616,51 @@ export const ComposeModal: React.FC<ComposeModalProps> = ({ onClose, replyTo }) 
         {pendingAttachments.length > 0 && (
           <div className="px-6 pb-4 flex-shrink-0">
             <div className="text-sm font-medium text-app-secondary mb-2">Вложения:</div>
-            <div className="space-y-2">
+            <div className="grid grid-cols-3 gap-2">
               {pendingAttachments.map((attachment) => (
                 <div
                   key={`attachment-${attachment.id}`}
-                  className="glass-top flex items-center justify-between p-3"
+                  className="p-2 rounded-lg border cursor-pointer transition-all relative"
+                  style={{
+                    background: 'var(--surface-1)',
+                    borderColor: 'var(--glass-border-soft)',
+                  }}
                 >
-                  <div className="flex items-center gap-3">
-                    <Paperclip size={16} className="text-app-muted" />
-                    <span className="text-sm text-app">{attachment.file.name}</span>
-                    <span className="text-xs text-app-muted">
-                      {(attachment.file.size / 1024).toFixed(1)} KB
-                    </span>
-                    {attachment.storageType === 'drive' && (
-                      <span
-                        className="text-xs px-2 py-0.5 rounded-full"
-                        style={{
-                          background: 'rgba(var(--color-primary-rgb), 0.15)',
-                          color: 'var(--color-primary)',
-                        }}
-                      >
-                        Диск
-                      </span>
-                    )}
-                  </div>
                   <button
                     onClick={() => handleRemoveAttachment(attachment.id)}
-                    className="text-red-500 hover:text-red-600"
+                    className="absolute top-1 right-1 text-red-500 hover:text-red-600 text-sm"
                   >
                     ×
                   </button>
+                  <div className="flex items-center gap-2">
+                    <div
+                      className="w-8 h-8 rounded-lg flex items-center justify-center flex-shrink-0"
+                      style={{ background: 'var(--surface-2)' }}
+                    >
+                      <Paperclip size={16} style={{ color: 'var(--color-primary)' }} />
+                    </div>
+                    <div className="flex-1 min-w-0">
+                      <div className="text-xs font-medium text-app truncate">
+                        {attachment.file.name}
+                      </div>
+                      <div className="flex items-center gap-1">
+                        {attachment.storageType === 'drive' && (
+                          <span
+                            className="text-xs px-1.5 py-0.5 rounded-full"
+                            style={{
+                              background: 'rgba(var(--color-primary-rgb), 0.15)',
+                              color: 'var(--color-primary)',
+                            }}
+                          >
+                            Диск
+                          </span>
+                        )}
+                        <span className="text-xs text-app-muted">
+                          {(attachment.file.size / 1024).toFixed(1)} KB
+                        </span>
+                      </div>
+                    </div>
+                  </div>
                 </div>
               ))}
             </div>

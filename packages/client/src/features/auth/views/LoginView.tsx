@@ -21,14 +21,17 @@ export const LoginView: React.FC = () => {
 
   const loginMutation = useLogin();
 
-  const handleSubmit = async (e: React.FormEvent) => {
-    e.preventDefault();
+  const handleSubmit = async (e?: React.FormEvent, overridePinCode?: string) => {
+    if (e) e.preventDefault();
+    setError('');
     setIsLoading(true);
 
-    try {
-      console.log('Attempting login with:', { username, password, pinCode });
+    const pinToUse = overridePinCode || pinCode;
 
-      const result = await loginMutation.mutateAsync({ email: username, password, pinCode });
+    try {
+      console.log('Attempting login with:', { username, password, pinCode: pinToUse });
+
+      const result = await loginMutation.mutateAsync({ email: username, password, pinCode: pinToUse });
 
       // Обновляем состояние авторизации
       if (result.user) {
@@ -74,11 +77,11 @@ export const LoginView: React.FC = () => {
   }, []);
 
   return (
-    <div className="min-h-screen flex items-center justify-center">
-      <div className="glass-deep rounded-2xl p-12 w-full max-w-md">
+    <div className="min-h-screen flex items-center justify-center relative overflow-hidden" style={{ background: 'var(--bg-base, #f7f8fc)' }}>
+      <div className="glass-deep rounded-2xl p-12 w-full max-w-md border border-white/10 shadow-2xl relative z-10">
         <div className="text-center mb-8">
           <h1 className="text-4xl font-bold mb-2 text-gradient">SuperApp</h1>
-          <h2 className="text-sm text-app-secondary">Сетевой диск</h2>
+          <h2 className="text-sm text-app-secondary">Авторизация</h2>
         </div>
 
         <form onSubmit={handleSubmit} className="space-y-6">
@@ -134,11 +137,10 @@ export const LoginView: React.FC = () => {
                 value={pinCode}
                 onChange={setPinCode}
                 isShaking={isShaking}
-                onComplete={() => {
-                  // Автосабмит при заполнении всех 4 цифр
-                  const submitBtn = document.querySelector('button[type="submit"]') as HTMLButtonElement;
-                  if (submitBtn && pinCode.length === 4) {
-                    submitBtn.click();
+                onComplete={(value) => {
+                  // Автосабмит при заполнении всех 4 цифр если введены логин и пароль
+                  if (username && password && value.length === 4) {
+                    handleSubmit(undefined, value);
                   }
                 }}
               />

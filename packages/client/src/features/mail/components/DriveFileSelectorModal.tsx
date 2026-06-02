@@ -97,8 +97,12 @@ export const DriveFileSelectorModal: React.FC<DriveFileSelectorModalProps> = ({ 
   return (
     <div className="fixed inset-0 modal-backdrop flex items-center justify-center z-[60] fade-in p-4">
       <div
-        className="glass-top scale-in w-full max-w-3xl flex flex-col"
-        style={{ maxHeight: 'calc(100vh - 64px)' }}
+        className="scale-in w-full max-w-3xl flex flex-col rounded-3xl compose-modal-solid"
+        style={{
+          maxHeight: 'calc(100vh - 64px)',
+          boxShadow: '0 10px 30px rgba(0,0,0,0.2)',
+          backdropFilter: 'none'
+        }}
       >
         {/* Header */}
         <div className="flex items-center justify-between p-4 relative">
