@@ -1,9 +1,12 @@
 import React, { useState, useEffect } from 'react';
-import { X, Send, Paperclip } from 'lucide-react';
-import { Email, ComposeEmail } from '../models/mailModel';
+import { X, Send, Paperclip, HardDrive } from 'lucide-react';
+import { Email, ComposeEmail, PendingAttachment } from '../models/mailModel';
 import { useMailStore } from '../viewmodels/mailViewModel';
 import { useSendEmail } from '../api/mailApi';
 import { UserAutocomplete } from '../../auth/components/UserAutocomplete';
+import { DriveFileSelectorModal } from './DriveFileSelectorModal';
+import { GrantAccessModal } from './GrantAccessModal';
+import { useBodyModalOpen } from '../../../utils/useBodyModalOpen';
 
 interface ComposeModalProps {
   onClose: () => void;
@@ -13,15 +16,27 @@ interface ComposeModalProps {
 export const ComposeModal: React.FC<ComposeModalProps> = ({ onClose, replyTo }) => {
   const sendEmailMutation = useSendEmail();
   const { closeCompose } = useMailStore();
-  
+
+  // Скрываем глобальный тайтлбар, пока ComposeModal открыт. Используем
+  // счетчик ссылок, чтобы дочерние модалки (например, выбор файла с диска)
+  // не снимали класс по своему unmount, пока ComposeModal все еще открыт.
+  useBodyModalOpen(true);
+
   const [email, setEmail] = useState<ComposeEmail>({
     to: replyTo ? [replyTo.from] : [],
     cc: [],
     bcc: [],
     subject: replyTo ? `Re: ${replyTo.subject}` : '',
     body: replyTo ? `\n\n---\n${replyTo.from} написал:\n${replyTo.body}` : '',
-    attachments: [],
+    attachmentIds: [],
   });
+
+  const [pendingAttachments, setPendingAttachments] = useState<PendingAttachment[]>([]);
+  const [isUploading, setIsUploading] = useState(false);
+  const [showDriveSelector, setShowDriveSelector] = useState(false);
+  const [showGrantAccessModal, setShowGrantAccessModal] = useState(false);
+  const [filesWithoutAccess, setFilesWithoutAccess] = useState<string[]>([]);
+  const [fileIdsWithoutAccess, setFileIdsWithoutAccess] = useState<string[]>([]);
 
   const [showCc, setShowCc] = useState(false);
   const [showBcc, setShowBcc] = useState(false);
@@ -31,14 +46,20 @@ export const ComposeModal: React.FC<ComposeModalProps> = ({ onClose, replyTo }) 
   const [ccInputValue, setCcInputValue] = useState('');
   const [bccInputValue, setBccInputValue] = useState('');
 
-  const handleUserSelect = (type: 'to' | 'cc' | 'bcc', user: { username: string; email: string }) => {
-    if (!email[type].includes(user.email)) {
+  const handleUserSelect = (
+    type: 'to' | 'cc' | 'bcc',
+    user: { username: string; email: string; position?: string | null }
+  ) => {
+    // В список получателей кладём username, а не email — пользователю
+    // понятнее видеть «user2», а не «2222@example.com». Сервер при
+    // отправке умеет резолвить и username, и email (см. mailRoutes).
+    const list = email[type] || [];
+    if (!list.includes(user.username)) {
       setEmail(prev => ({
         ...prev,
-        [type]: [...prev[type], user.email]
+        [type]: [...(prev[type] || []), user.username]
       }));
     }
-    // Очищаем соответствующее поле ввода
     if (type === 'to') setToInputValue('');
     if (type === 'cc') setCcInputValue('');
     if (type === 'bcc') setBccInputValue('');
@@ -47,23 +68,130 @@ export const ComposeModal: React.FC<ComposeModalProps> = ({ onClose, replyTo }) 
   const handleRemoveRecipient = (type: 'to' | 'cc' | 'bcc', recipient: string) => {
     setEmail(prev => ({
       ...prev,
-      [type]: prev[type].filter(r => r !== recipient)
+      [type]: prev[type]?.filter(r => r !== recipient) || []
     }));
   };
 
-  const handleFileAttach = (e: React.ChangeEvent<HTMLInputElement>) => {
+  const handleFileAttach = async (e: React.ChangeEvent<HTMLInputElement>) => {
     const files = Array.from(e.target.files || []);
+    if (files.length === 0) return;
+
+    setIsUploading(true);
+
+    try {
+      // В Electron используем абсолютный URL, в браузере - относительный (через proxy)
+      const isElectron = typeof window !== 'undefined' && (window as any).electronAPI !== undefined;
+      const apiUrl = isElectron ? 'http://localhost:3002' : '';
+
+      const newAttachments: PendingAttachment[] = [];
+
+      for (const file of files) {
+        const formData = new FormData();
+        formData.append('file', file);
+        formData.append('storageType', 'local');
+
+        const response = await fetch(`${apiUrl}/api/mail/attachments/upload`, {
+          method: 'POST',
+          headers: {
+            'Authorization': `Bearer ${localStorage.getItem('accessToken')}`,
+          },
+          body: formData,
+        });
+
+        if (!response.ok) {
+          throw new Error(`Failed to upload file: ${file.name}`);
+        }
+
+        const data = await response.json();
+        newAttachments.push({
+          id: data.id,
+          file: file,
+          storageType: 'local',
+        });
+      }
+
+      setPendingAttachments(prev => [...prev, ...newAttachments]);
+      setEmail(prev => ({
+        ...prev,
+        attachmentIds: [...(prev.attachmentIds || []), ...newAttachments.map(a => a.id)],
+      }));
+    } catch (error) {
+      console.error('Failed to upload files:', error);
+      alert('Не удалось загрузить файлы');
+    } finally {
+      setIsUploading(false);
+    }
+  };
+
+  const handleRemoveAttachment = (attachmentId: string) => {
+    setPendingAttachments(prev => prev.filter(a => a.id !== attachmentId));
     setEmail(prev => ({
       ...prev,
-      attachments: [...prev.attachments, ...files]
+      attachmentIds: prev.attachmentIds?.filter(id => id !== attachmentId) || [],
     }));
   };
 
-  const handleRemoveAttachment = (index: number) => {
-    setEmail(prev => ({
-      ...prev,
-      attachments: prev.attachments.filter((_, i) => i !== index)
-    }));
+  const handleDriveFilesSelected = async (files: Array<{ id: string; name: string; size: number; type: string }>) => {
+    setIsUploading(true);
+
+    try {
+      // В Electron используем абсолютный URL, в браузере - относительный (через proxy)
+      const isElectron = typeof window !== 'undefined' && (window as any).electronAPI !== undefined;
+      const apiUrl = isElectron ? 'http://localhost:3002' : '';
+
+      console.log('Attaching files from drive:', files);
+      const newAttachments: PendingAttachment[] = [];
+
+      for (const file of files) {
+        console.log('Attaching file:', file);
+        // Просто создаем запись о вложении ссылающуюся на файл диска
+        const requestBody = {
+          filename: file.name,
+          size: file.size,
+          mimeType: file.type || 'application/octet-stream',
+          storageType: 'drive',
+          driveFileId: file.id,
+        };
+        console.log('Request body:', requestBody);
+
+        const response = await fetch(`${apiUrl}/api/mail/attachments/upload`, {
+          method: 'POST',
+          headers: {
+            'Authorization': `Bearer ${localStorage.getItem('accessToken')}`,
+            'Content-Type': 'application/json',
+          },
+          body: JSON.stringify(requestBody),
+        });
+
+        console.log('Response status:', response.status);
+
+        if (!response.ok) {
+          const errorText = await response.text();
+          console.error('Failed to attach file from drive. Status:', response.status, 'Error:', errorText);
+          throw new Error(`Failed to attach file from drive: ${file.name}. Status: ${response.status}`);
+        }
+
+        const data = await response.json();
+        console.log('Attachment created:', data);
+        newAttachments.push({
+          id: data.id,
+          file: new File([], file.name, { type: file.type || 'application/octet-stream' }),
+          storageType: 'drive',
+          driveFileId: file.id,
+        });
+      }
+
+      setPendingAttachments(prev => [...prev, ...newAttachments]);
+      setEmail(prev => ({
+        ...prev,
+        attachmentIds: [...(prev.attachmentIds || []), ...newAttachments.map(a => a.id)],
+      }));
+    } catch (error) {
+      console.error('Failed to attach files from drive:', error);
+      alert('Не удалось прикрепить файлы с диска');
+    } finally {
+      setIsUploading(false);
+    }
   };
 
   // Сбрасываем состояния полей только при реальном открытии модального окна (не при ответе на письмо)
@@ -92,11 +220,122 @@ export const ComposeModal: React.FC<ComposeModalProps> = ({ onClose, replyTo }) 
       return;
     }
 
+    // Проверяем права доступа к файлам с диска
+    const driveAttachments = pendingAttachments.filter(a => a.storageType === 'drive');
+    console.log('Drive attachments:', driveAttachments);
+    console.log('All pending attachments:', pendingAttachments);
+
+    if (driveAttachments.length > 0) {
+      try {
+        const isElectron = typeof window !== 'undefined' && (window as any).electronAPI !== undefined;
+        const apiUrl = isElectron ? 'http://localhost:3002' : '';
+
+        // Получаем список пользователей-получателей
+        const recipientEmails = [...email.to, ...(email.cc || []), ...(email.bcc || [])];
+        console.log('Recipient emails:', recipientEmails);
+
+        // Для каждого файла проверяем, есть ли доступ у получателей
+        const filesWithoutAccessList: string[] = [];
+        const fileIdsWithoutAccessList: string[] = [];
+
+        for (const attachment of driveAttachments) {
+          console.log('Checking attachment:', attachment);
+          if (!attachment.driveFileId) {
+            console.log('Attachment has no driveFileId:', attachment);
+            continue;
+          }
+
+          // Получаем права доступа к файлу
+          const response = await fetch(`${apiUrl}/api/drive/permissions-by-id?fileId=${attachment.driveFileId}`, {
+            headers: {
+              'Authorization': `Bearer ${localStorage.getItem('accessToken')}`,
+            },
+          });
+
+          console.log('Permissions response status:', response.status);
+
+          if (response.ok) {
+            const data = await response.json();
+            const allowedUsers = data.allowedUsers || [];
+            console.log('Allowed users for file:', attachment.file.name, allowedUsers);
+
+            // Проверяем, есть ли доступ у всех получателей
+            const hasAllAccess = recipientEmails.every(email =>
+              allowedUsers.includes(email)
+            );
+
+            console.log('Has all access:', hasAllAccess, 'for recipients:', recipientEmails);
+
+            if (!hasAllAccess) {
+              filesWithoutAccessList.push(attachment.file.name);
+              fileIdsWithoutAccessList.push(attachment.driveFileId);
+            }
+          } else {
+            console.error('Failed to get permissions:', response.status, response.statusText);
+          }
+        }
+
+        console.log('Files without access:', filesWithoutAccessList);
+
+        if (filesWithoutAccessList.length > 0) {
+          setFilesWithoutAccess(filesWithoutAccessList);
+          setFileIdsWithoutAccess(fileIdsWithoutAccessList);
+          setShowGrantAccessModal(true);
+          return; // Не отправляем письмо, пока пользователь не подтвердит
+        }
+      } catch (error) {
+        console.error('Failed to check file permissions:', error);
+        // Продолжаем отправку даже если не удалось проверить права
+      }
+    } else {
+      console.log('No drive attachments found');
+    }
+
     if (!email.subject.trim() && !email.body.trim()) {
       showValidationAlert('Пожалуйста, укажите тему или текст письма');
       return;
     }
 
+    await sendEmail();
+  };
+
+  const handleGrantAccessConfirm = async () => {
+    try {
+      const isElectron = typeof window !== 'undefined' && (window as any).electronAPI !== undefined;
+      const apiUrl = isElectron ? 'http://localhost:3002' : '';
+
+      // Получаем список пользователей-получателей
+      const recipientEmails = [...email.to, ...(email.cc || []), ...(email.bcc || [])];
+
+      // Выдаем права доступа к файлам для получателей
+      const response = await fetch(`${apiUrl}/api/drive/grant-access-batch`, {
+        method: 'POST',
+        headers: {
+          'Authorization': `Bearer ${localStorage.getItem('accessToken')}`,
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          fileIds: fileIdsWithoutAccess,
+          userIds: recipientEmails,
+        }),
+      });
+
+      if (response.ok) {
+        console.log('Access granted successfully');
+        setShowGrantAccessModal(false);
+        // Отправляем письмо после выдачи прав
+        await sendEmail();
+      } else {
+        console.error('Failed to grant access:', response.statusText);
+        alert('Не удалось выдать доступ к файлам');
+      }
+    } catch (error) {
+      console.error('Failed to grant access:', error);
+      alert('Не удалось выдать доступ к файлам');
+    }
+  };
+
+  const sendEmail = async () => {
     // Если тема пустая, но есть текст - используем первые слова текста как тему
     let finalSubject = email.subject.trim();
     if (!finalSubject && email.body.trim()) {
@@ -198,64 +437,67 @@ export const ComposeModal: React.FC<ComposeModalProps> = ({ onClose, replyTo }) 
   }, [onClose]);
 
   return (
-    <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50">
+    <div className="fixed inset-0 modal-backdrop flex items-center justify-center z-50 fade-in p-4">
       <div
-        className="glass-card rounded-xl w-full max-w-4xl max-h-[95vh] m-4 flex flex-col"
+        className="scale-in w-full max-w-4xl flex flex-col rounded-3xl compose-modal-solid"
+        style={{
+          maxHeight: 'calc(100vh - 64px)',
+          boxShadow: '0 10px 30px rgba(0,0,0,0.2)',
+          backdropFilter: 'none'
+        }}
         onKeyDown={handleKeyDown}
       >
-        {/* Header */}
-        <div className="flex items-center justify-between p-6 border-b border-gray-200/50">
-          <h2 className="text-xl font-semibold text-gray-800">
-            {replyTo ? 'Ответ на письмо' : 'Новое письмо'}
-          </h2>
-          <button
-            onClick={onClose}
-            className="p-2 rounded-lg hover:bg-white/60 transition-colors"
-          >
-            <X size={20} className="text-gray-600" />
-          </button>
-        </div>
-
         {/* Recipients */}
-        <div className="p-6 space-y-3 flex-shrink-0">
+        <div className="px-4 py-3 space-y-2 flex-shrink-0">
           {/* To */}
-          <div>
-            <label className="block text-sm font-medium text-gray-700 mb-2">Кому:</label>
-            <div className="space-y-2">
-              <div className="flex flex-wrap gap-2">
-                {email.to.map((recipient, index) => (
-                  <div
-                    key={recipient}
-                    className="inline-flex items-center gap-2 px-3 py-1 bg-blue-100/60 text-blue-700 rounded-full text-sm"
-                  >
-                    <span>{recipient}</span>
-                    <button
-                      onClick={() => handleRemoveRecipient('to', recipient)}
-                      className="ml-1 text-blue-600 hover:text-blue-800"
+          <div className="flex items-start justify-between gap-4">
+            <div className="flex-1">
+              <label className="block text-sm font-medium text-app-secondary mb-2">Кому:</label>
+              <div className="space-y-2">
+                <div className="flex flex-wrap gap-2">
+                  {email.to.map((recipient, index) => (
+                    <div
+                      key={recipient}
+                      className="inline-flex items-center gap-2 px-3 py-1.5 rounded-full text-sm ring-1"
+                      style={{
+                        background: `linear-gradient(135deg, rgba(var(--color-primary-rgb), 0.25) 0%, rgba(var(--color-primary-rgb), 0.15) 100%)`,
+                        color: 'var(--color-primary)',
+                        borderColor: 'rgba(var(--color-primary-rgb), 0.4)',
+                      }}
                     >
-                      ×
-                    </button>
-                  </div>
-                ))}
-              </div>
-              <UserAutocomplete
-                value={toInputValue}
-                onChange={(value) => {
-                  setToInputValue(value);
-                  // Если введен email напрямую, добавляем его
-                  if (value.includes('@')) {
-                    if (!email.to.includes(value)) {
-                      setEmail(prev => ({
-                        ...prev,
-                        to: [...prev.to, value]
-                      }));
+                      <span>{recipient}</span>
+                      <button
+                        onClick={() => handleRemoveRecipient('to', recipient)}
+                        className="ml-1 hover:opacity-80"
+                        style={{ color: 'var(--color-primary)' }}
+                      >
+                        ×
+                      </button>
+                    </div>
+                  ))}
+                </div>
+                <UserAutocomplete
+                  value={toInputValue}
+                  onChange={(value) => {
+                    setToInputValue(value);
+                    // Если введен email напрямую, добавляем его
+                    if (value.includes('@')) {
+                      if (!email.to.includes(value)) {
+                        setEmail(prev => ({
+                          ...prev,
+                          to: [...prev.to, value]
+                        }));
+                      }
                     }
-                  }
-                }}
-                onSelect={(user) => handleUserSelect('to', user)}
-                placeholder="Введите имя..."
-              />
+                  }}
+                  onSelect={(user) => handleUserSelect('to', user)}
+                  placeholder="Введите имя..."
+                />
+              </div>
             </div>
+            <button onClick={onClose} className="btn-icon" aria-label="Закрыть">
+              <X size={18} />
+            </button>
           </div>
 
           {/* CC */}
@@ -265,12 +507,18 @@ export const ComposeModal: React.FC<ComposeModalProps> = ({ onClose, replyTo }) 
                 {email.cc?.map((recipient) => (
                   <div
                     key={`cc-${recipient}`}
-                    className="inline-flex items-center gap-2 px-3 py-1 bg-blue-100/60 text-blue-700 rounded-full text-sm"
+                    className="inline-flex items-center gap-2 px-3 py-1.5 rounded-full text-sm ring-1"
+                    style={{
+                      background: `linear-gradient(135deg, rgba(var(--color-primary-rgb), 0.25) 0%, rgba(var(--color-primary-rgb), 0.15) 100%)`,
+                      color: 'var(--color-primary)',
+                      borderColor: 'rgba(var(--color-primary-rgb), 0.4)',
+                    }}
                   >
                     <span>{recipient}</span>
                     <button
                       onClick={() => handleRemoveRecipient('cc', recipient)}
-                      className="ml-1 text-blue-600 hover:text-blue-800"
+                      className="ml-1 hover:opacity-80"
+                      style={{ color: 'var(--color-primary)' }}
                     >
                       ×
                     </button>
@@ -303,12 +551,18 @@ export const ComposeModal: React.FC<ComposeModalProps> = ({ onClose, replyTo }) 
                 {email.bcc?.map((recipient) => (
                   <div
                     key={`bcc-${recipient}`}
-                    className="inline-flex items-center gap-2 px-3 py-1 bg-blue-100/60 text-blue-700 rounded-full text-sm"
+                    className="inline-flex items-center gap-2 px-3 py-1.5 rounded-full text-sm ring-1"
+                    style={{
+                      background: `linear-gradient(135deg, rgba(var(--color-primary-rgb), 0.25) 0%, rgba(var(--color-primary-rgb), 0.15) 100%)`,
+                      color: 'var(--color-primary)',
+                      borderColor: 'rgba(var(--color-primary-rgb), 0.4)',
+                    }}
                   >
                     <span>{recipient}</span>
                     <button
                       onClick={() => handleRemoveRecipient('bcc', recipient)}
-                      className="ml-1 text-blue-600 hover:text-blue-800"
+                      className="ml-1 hover:opacity-80"
+                      style={{ color: 'var(--color-primary)' }}
                     >
                       ×
                     </button>
@@ -336,51 +590,77 @@ export const ComposeModal: React.FC<ComposeModalProps> = ({ onClose, replyTo }) 
         </div>
 
         {/* Subject */}
-        <div className="px-6 flex-shrink-0">
-          <label className="block text-sm font-medium text-gray-700 mb-2">Тема:</label>
+        <div className="px-4 pb-3 flex-shrink-0">
+          <label className="block text-sm font-medium text-app-secondary mb-1.5">Тема:</label>
           <input
             type="text"
             value={email.subject}
             onChange={(e) => setEmail(prev => ({ ...prev, subject: e.target.value }))}
             placeholder="Введите тему письма..."
-            className="w-full px-3 py-2 border border-gray-200/50 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-400 bg-white/80"
+            className="glass-input w-full px-3 py-2"
           />
         </div>
 
         {/* Body */}
-        <div className="flex-1 p-6 pt-0 flex flex-col min-h-0">
-          <label className="block text-sm font-medium text-gray-700 mb-2">Текст письма:</label>
+        <div className="flex-1 px-4 pt-2 pb-4 flex flex-col min-h-0 overflow-hidden">
+          <label className="block text-sm font-medium text-app-secondary mb-1.5">Текст письма:</label>
           <textarea
             value={email.body}
             onChange={(e) => setEmail(prev => ({ ...prev, body: e.target.value }))}
             placeholder="Введите текст письма..."
-            className="flex-1 w-full min-h-[150px] px-3 py-2 border border-gray-200/50 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-400 bg-white/80 resize-none"
+            className="glass-input flex-1 w-full min-h-[300px] max-h-[500px] px-3 py-3 resize-y text-sm leading-relaxed"
           />
         </div>
 
         {/* Attachments */}
-        {email.attachments.length > 0 && (
+        {pendingAttachments.length > 0 && (
           <div className="px-6 pb-4 flex-shrink-0">
-            <div className="text-sm font-medium text-gray-700 mb-2">Вложения:</div>
-            <div className="space-y-2">
-              {email.attachments.map((attachment) => (
+            <div className="text-sm font-medium text-app-secondary mb-2">Вложения:</div>
+            <div className="grid grid-cols-3 gap-2">
+              {pendingAttachments.map((attachment) => (
                 <div
-                  key={`attachment-${attachment.name}`}
-                  className="flex items-center justify-between p-3 bg-gray-50/60 rounded-lg"
+                  key={`attachment-${attachment.id}`}
+                  className="p-2 rounded-lg border cursor-pointer transition-all relative"
+                  style={{
+                    background: 'var(--surface-1)',
+                    borderColor: 'var(--glass-border-soft)',
+                  }}
                 >
-                  <div className="flex items-center gap-3">
-                    <Paperclip size={16} className="text-gray-400" />
-                    <span className="text-sm text-gray-700">{attachment.name}</span>
-                    <span className="text-xs text-gray-500">
-                      {(attachment.size / 1024).toFixed(1)} KB
-                    </span>
-                  </div>
                   <button
-                    onClick={() => handleRemoveAttachment(index)}
-                    className="text-red-600 hover:text-red-800"
+                    onClick={() => handleRemoveAttachment(attachment.id)}
+                    className="absolute top-1 right-1 text-red-500 hover:text-red-600 text-sm"
                   >
                     ×
                   </button>
+                  <div className="flex items-center gap-2">
+                    <div
+                      className="w-8 h-8 rounded-lg flex items-center justify-center flex-shrink-0"
+                      style={{ background: 'var(--surface-2)' }}
+                    >
+                      <Paperclip size={16} style={{ color: 'var(--color-primary)' }} />
+                    </div>
+                    <div className="flex-1 min-w-0">
+                      <div className="text-xs font-medium text-app truncate">
+                        {attachment.file.name}
+                      </div>
+                      <div className="flex items-center gap-1">
+                        {attachment.storageType === 'drive' && (
+                          <span
+                            className="text-xs px-1.5 py-0.5 rounded-full"
+                            style={{
+                              background: 'rgba(var(--color-primary-rgb), 0.15)',
+                              color: 'var(--color-primary)',
+                            }}
+                          >
+                            Диск
+                          </span>
+                        )}
+                        <span className="text-xs text-app-muted">
+                          {(attachment.file.size / 1024).toFixed(1)} KB
+                        </span>
+                      </div>
+                    </div>
+                  </div>
                 </div>
               ))}
             </div>
@@ -388,31 +668,39 @@ export const ComposeModal: React.FC<ComposeModalProps> = ({ onClose, replyTo }) 
         )}
 
         {/* Footer */}
-        <div className="flex items-center justify-between p-6 border-t border-gray-200/50 flex-shrink-0">
+        <div className="flex items-center justify-between p-6 flex-shrink-0 relative">
+          <div className="divider absolute top-0 left-0 right-0" />
           <div className="flex items-center gap-3">
-            <label className="flex items-center gap-2 cursor-pointer text-sm text-gray-600 hover:text-gray-800">
+            <label className="btn-glass-secondary flex items-center gap-2 cursor-pointer px-3 py-1.5 text-sm">
               <input
                 type="file"
                 multiple
                 onChange={handleFileAttach}
+                disabled={isUploading}
                 className="hidden"
               />
-              <Paperclip size={18} />
-              Прикрепить файлы
+              <Paperclip size={16} />
+              {isUploading ? 'Загрузка...' : 'Прикрепить'}
             </label>
+            <button
+              onClick={() => setShowDriveSelector(true)}
+              disabled={isUploading}
+              className="btn-glass-secondary flex items-center gap-2 px-3 py-1.5 text-sm disabled:opacity-50 disabled:cursor-not-allowed"
+            >
+              <HardDrive size={16} />
+              С диска
+            </button>
           </div>
 
           <div className="flex items-center gap-3">
-            <button
-              onClick={onClose}
-              className="px-4 py-2 border border-gray-200/50 rounded-lg hover:bg-white/60 transition-colors"
-            >
+            <button onClick={onClose} className="btn-glass-secondary px-4 py-2">
               Отмена
             </button>
             <button
               onClick={handleSend}
               disabled={sendEmailMutation.isPending}
-              className="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors flex items-center gap-2 disabled:opacity-50 disabled:cursor-not-allowed"
+              className="btn-glass flex items-center gap-2 px-4 py-2 disabled:opacity-50 disabled:cursor-not-allowed"
+              data-component-name="ComposeModal"
             >
               <Send size={16} />
               {sendEmailMutation.isPending ? 'Отправка...' : 'Отправить'}
@@ -420,6 +708,22 @@ export const ComposeModal: React.FC<ComposeModalProps> = ({ onClose, replyTo }) 
           </div>
         </div>
       </div>
+
+      {showDriveSelector && (
+        <DriveFileSelectorModal
+          onClose={() => setShowDriveSelector(false)}
+          onFilesSelected={handleDriveFilesSelected}
+        />
+      )}
+
+      {showGrantAccessModal && (
+        <GrantAccessModal
+          isOpen={showGrantAccessModal}
+          onClose={() => setShowGrantAccessModal(false)}
+          onConfirm={handleGrantAccessConfirm}
+          filesWithoutAccess={filesWithoutAccess}
+        />
+      )}
     </div>
   );
 };

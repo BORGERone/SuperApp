@@ -2,7 +2,7 @@ import { Hono } from 'hono';
 import { zValidator } from '@hono/zod-validator';
 import { z } from 'zod';
 import { db } from '../../../db';
-import { files, filePermissions } from '../../../db/schema';
+import { files, filePermissions, users } from '../../../db/schema';
 import { authMiddleware } from '../../../shared/middleware/auth';
 import { eq, and, inArray } from 'drizzle-orm';
 
@@ -10,6 +10,88 @@ const driveRouter = new Hono();
 
 // Применяем auth middleware ко всем routes
 driveRouter.use('*', authMiddleware);
+
+/**
+ * Иерархия прав в сетевом диске.
+ *
+ * Семантика, согласованная с пользователем:
+ *   - В корне диска по умолчанию все пользователи имеют доступ ко всем
+ *     создаваемым там файлам и папкам.
+ *   - Если папка имеет ограниченный набор разрешённых пользователей, то
+ *     все вновь создаваемые внутри неё файлы и подпапки автоматически
+ *     получают точно такой же набор разрешений (наследование).
+ *
+ * Технически это решается так: при создании элемента в `parentPath`
+ *   1) Ищем родительскую папку как запись в `files` (type=directory).
+ *   2) Если parentPath = `/` (корень) или родитель не найден — права
+ *      выставляются на ВСЕХ пользователей.
+ *   3) Иначе берётся актуальный список `file_permissions` родителя и
+ *      копируется на новый элемент.
+ *
+ * Админ всегда имеет доступ независимо от записей в `file_permissions`
+ * (см. ветку `user.role === 'admin'` в `/list`), поэтому в наследуемый
+ * список он не добавляется отдельно.
+ */
+async function findParentFolder(parentPath: string) {
+  if (!parentPath || parentPath === '/' || parentPath === '') return null;
+
+  const trimmed = parentPath.startsWith('/') ? parentPath.slice(1) : parentPath;
+  const parts = trimmed.split('/').filter(Boolean);
+  if (parts.length === 0) return null;
+
+  const folderName = parts[parts.length - 1];
+  const folderParent = '/' + parts.slice(0, -1).join('/');
+  const folderParentNormalized = folderParent === '/' ? '/' : folderParent;
+
+  const parentRows = await db
+    .select()
+    .from(files)
+    .where(
+      and(
+        eq(files.name, folderName),
+        eq(files.path, folderParentNormalized),
+        eq(files.type, 'directory'),
+      ),
+    )
+    .limit(1);
+
+  return parentRows[0] ?? null;
+}
+
+async function getInheritedUserIds(parentPath: string): Promise<string[]> {
+  const parent = await findParentFolder(parentPath);
+  if (!parent) {
+    // Корень (или родитель не существует как папка): даём доступ всем.
+    const allUsers = await db.select({ id: users.id }).from(users);
+    return allUsers.map((u: { id: string }) => u.id);
+  }
+
+  const perms = await db
+    .select({ userId: filePermissions.userId })
+    .from(filePermissions)
+    .where(eq(filePermissions.fileId, parent.id));
+
+  return perms.map((p: { userId: string }) => p.userId);
+}
+
+async function applyInheritedPermissions(fileId: string, parentPath: string) {
+  const parent = await findParentFolder(parentPath);
+  const allowed = await getInheritedUserIds(parentPath);
+  if (allowed.length === 0) return parent?.id ?? null;
+
+  const now = new Date();
+  for (const userId of allowed) {
+    await db
+      .insert(filePermissions)
+      .values({
+        id: crypto.randomUUID(),
+        fileId,
+        userId,
+        createdAt: now,
+      });
+  }
+  return parent?.id ?? null;
+}
 
 // Schema для создания файла/папки
 const createItemSchema = z.object({
@@ -111,15 +193,23 @@ driveRouter.post('/create', zValidator('json', createItemSchema), async (c) => {
     const fileId = crypto.randomUUID();
     const now = new Date();
 
+    // Привязка к родительской записи (NULL для корня) — нужна для будущей
+    // навигации по дереву и для наследования прав.
+    const parentRecord = await findParentFolder(path);
+
     await db.insert(files).values({
       id: fileId,
       name,
       type,
       path, // Сохраняем путь к родительской директории
       ownerId: user.userId,
+      parentId: parentRecord?.id ?? null,
       createdAt: now,
       updatedAt: now,
     });
+
+    // Наследуем права от родителя (или открываем для всех в корне).
+    await applyInheritedPermissions(fileId, path);
 
     return c.json({ message: 'Directory created successfully', id: fileId });
   } catch (error) {
@@ -156,7 +246,8 @@ driveRouter.post('/upload', async (c) => {
     console.log('File buffer size:', buffer.byteLength);
     fs.writeFileSync(filePath, Buffer.from(buffer));
 
-    // Создаем запись в базе данных
+    const parentRecord = await findParentFolder(path);
+
     await db.insert(files).values({
       id: fileId,
       name: file.name,
@@ -164,11 +255,15 @@ driveRouter.post('/upload', async (c) => {
       path, // Сохраняем путь к родительской директории
       size: file.size,
       ownerId: user.userId,
+      parentId: parentRecord?.id ?? null,
       createdAt: now,
       updatedAt: now,
     });
 
-    console.log('File uploaded successfully:', { fileId, fileName: file.name });
+    // Наследуем права от родительской папки (или открываем для всех
+    // пользователей, если файл загружен в корень).
+    await applyInheritedPermissions(fileId, path);
+
     return c.json({ message: 'File uploaded successfully', id: fileId });
   } catch (error) {
     console.error('Upload file error:', error);
@@ -204,7 +299,26 @@ driveRouter.delete('/delete', async (c) => {
       return c.json({ error: 'File not found' }, 404);
     }
 
-    if (user.role !== 'admin' && file[0].ownerId !== user.userId) {
+    // Проверяем права: администратор или владелец или пользователь с правами доступа
+    const hasAccess = user.role === 'admin' || file[0].ownerId === user.userId;
+
+    // Проверяем права доступа через таблицу filePermissions
+    let hasPermission = false;
+    if (!hasAccess) {
+      const permission = await db.select()
+        .from(filePermissions)
+        .where(
+          and(
+            eq(filePermissions.fileId, file[0].id),
+            eq(filePermissions.userId, user.userId)
+          )
+        )
+        .limit(1);
+
+      hasPermission = permission.length > 0;
+    }
+
+    if (!hasAccess && !hasPermission) {
       return c.json({ error: 'Permission denied' }, 403);
     }
 
@@ -218,6 +332,9 @@ driveRouter.delete('/delete', async (c) => {
       }
     }
 
+    // Чистим связанные права доступа, чтобы не оставалось «висячих»
+    // записей в file_permissions для удаленного файла/папки.
+    await db.delete(filePermissions).where(eq(filePermissions.fileId, file[0].id));
     await db.delete(files).where(eq(files.id, file[0].id));
 
     return c.json({ message: 'File deleted successfully' });
@@ -299,7 +416,68 @@ driveRouter.get('/download', async (c) => {
   }
 });
 
-// Получить права доступа к файлу
+// Скачать файл по ID
+driveRouter.get('/files/:id/download', async (c) => {
+  const user = c.get('user') as any;
+  const fileId = c.req.param('id');
+
+  if (!fileId) {
+    return c.json({ error: 'File ID is required' }, 400);
+  }
+
+  try {
+    // Ищем файл по ID
+    const file = await db.select().from(files).where(eq(files.id, fileId)).limit(1);
+
+    if (file.length === 0) {
+      return c.json({ error: 'File not found' }, 404);
+    }
+
+    // Проверяем права доступа: админ или владелец или пользователь с правами доступа
+    if (user.role !== 'admin' && file[0].ownerId !== user.userId) {
+      // Проверяем, есть ли у пользователя права доступа к этому файлу
+      const permission = await db.select()
+        .from(filePermissions)
+        .where(
+          and(
+            eq(filePermissions.fileId, file[0].id),
+            eq(filePermissions.userId, user.userId)
+          )
+        )
+        .limit(1);
+
+      if (permission.length === 0) {
+        return c.json({ error: 'Permission denied' }, 403);
+      }
+    }
+
+    if (file[0].type === 'directory') {
+      return c.json({ error: 'Directory download not implemented yet' }, 501);
+    }
+
+    // Читаем файл из файловой системы
+    const fs = require('fs');
+    const uploadsDir = './uploads';
+    const filePathOnDisk = `${uploadsDir}/${file[0].id}-${file[0].name}`;
+
+    if (!fs.existsSync(filePathOnDisk)) {
+      return c.json({ error: 'File not found on disk' }, 404);
+    }
+
+    // Используем потоковую передачу для больших файлов
+    const fileStream = fs.createReadStream(filePathOnDisk);
+
+    return c.body(fileStream, 200, {
+      'Content-Type': 'application/octet-stream',
+      'Content-Disposition': `attachment; filename="${encodeURIComponent(file[0].name)}"`,
+    });
+  } catch (error) {
+    console.error('Download file by ID error:', error);
+    return c.json({ error: 'Failed to download file' }, 500);
+  }
+});
+
+// Получить права доступа к файлу по пути
 driveRouter.get('/permissions', async (c) => {
   const filePath = c.req.query('path');
 
@@ -337,6 +515,147 @@ driveRouter.get('/permissions', async (c) => {
   } catch (error) {
     console.error('Get permissions error:', error);
     return c.json({ error: 'Failed to get permissions' }, 500);
+  }
+});
+
+// Получить права доступа к файлу по ID
+driveRouter.get('/permissions-by-id', async (c) => {
+  const fileId = c.req.query('fileId');
+
+  if (!fileId) {
+    return c.json({ error: 'File ID is required' }, 400);
+  }
+
+  try {
+    // Ищем файл по ID
+    const file = await db.select().from(files).where(eq(files.id, fileId)).limit(1);
+
+    if (file.length === 0) {
+      return c.json({ error: 'File not found' }, 404);
+    }
+
+    const permissions = await db
+      .select({ userId: filePermissions.userId })
+      .from(filePermissions)
+      .where(eq(filePermissions.fileId, fileId));
+
+    const allowedUsers = permissions.map((p: any) => p.userId);
+
+    return c.json({ allowedUsers });
+  } catch (error) {
+    console.error('Get permissions by ID error:', error);
+    return c.json({ error: 'Failed to get permissions' }, 500);
+  }
+});
+
+// Выдать права доступа к файлу для пользователя
+driveRouter.post('/grant-access', zValidator('json', z.object({
+  fileId: z.string(),
+  userId: z.string(),
+})), async (c) => {
+  const user = c.get('user') as any;
+  const { fileId, userId } = c.req.valid('json');
+
+  try {
+    // Ищем файл
+    const file = await db.select().from(files).where(eq(files.id, fileId)).limit(1);
+
+    if (file.length === 0) {
+      return c.json({ error: 'File not found' }, 404);
+    }
+
+    // Проверяем, что текущий пользователь имеет право выдавать доступ (владелец или админ)
+    if (user.role !== 'admin' && file[0].ownerId !== user.userId) {
+      return c.json({ error: 'Permission denied' }, 403);
+    }
+
+    // Проверяем, нет ли уже прав доступа
+    const existingPermission = await db.select()
+      .from(filePermissions)
+      .where(
+        and(
+          eq(filePermissions.fileId, fileId),
+          eq(filePermissions.userId, userId)
+        )
+      )
+      .limit(1);
+
+    if (existingPermission.length > 0) {
+      return c.json({ message: 'Permission already exists' });
+    }
+
+    // Выдаем права доступа
+    await db.insert(filePermissions).values({
+      id: crypto.randomUUID(),
+      fileId,
+      userId,
+      createdAt: new Date(),
+    });
+
+    return c.json({ message: 'Permission granted successfully' });
+  } catch (error) {
+    console.error('Grant access error:', error);
+    return c.json({ error: 'Failed to grant access' }, 500);
+  }
+});
+
+// Выдать права доступа к файлам для списка пользователей
+driveRouter.post('/grant-access-batch', zValidator('json', z.object({
+  fileIds: z.array(z.string()),
+  userIds: z.array(z.string()),
+})), async (c) => {
+  const user = c.get('user') as any;
+  const { fileIds, userIds } = c.req.valid('json');
+
+  try {
+    console.log('Grant batch access:', { fileIds, userIds, requestingUser: user.userId });
+
+    // Проверяем права для каждого файла
+    const fileRecords = await db.select().from(files).where(inArray(files.id, fileIds));
+
+    if (fileRecords.length === 0) {
+      return c.json({ error: 'No files found' }, 404);
+    }
+
+    // Проверяем, что текущий пользователь имеет право выдавать доступ для каждого файла
+    for (const file of fileRecords) {
+      if (user.role !== 'admin' && file.ownerId !== user.userId) {
+        return c.json({ error: `Permission denied for file: ${file.name}` }, 403);
+      }
+    }
+
+    // Выдаем права доступа для каждого файла и каждого пользователя
+    let grantedCount = 0;
+    for (const fileId of fileIds) {
+      for (const userId of userIds) {
+        // Проверяем, нет ли уже прав доступа
+        const existingPermission = await db.select()
+          .from(filePermissions)
+          .where(
+            and(
+              eq(filePermissions.fileId, fileId),
+              eq(filePermissions.userId, userId)
+            )
+          )
+          .limit(1);
+
+        if (existingPermission.length === 0) {
+          await db.insert(filePermissions).values({
+            id: crypto.randomUUID(),
+            fileId,
+            userId,
+            createdAt: new Date(),
+          });
+          grantedCount++;
+        }
+      }
+    }
+
+    console.log('Batch access granted:', grantedCount);
+    return c.json({ message: `Permissions granted successfully`, count: grantedCount });
+  } catch (error) {
+    console.error('Grant batch access error:', error);
+    return c.json({ error: 'Failed to grant batch access' }, 500);
   }
 });
 

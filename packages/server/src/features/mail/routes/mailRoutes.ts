@@ -1,11 +1,22 @@
 import { Hono } from 'hono';
 import { z } from 'zod';
+import archiver from 'archiver';
 import { db } from '../../../db';
-import { emails, users } from '../../../db/schema';
-import { eq, and, desc, like, or } from 'drizzle-orm';
+import { emails, users, emailAttachments, files } from '../../../db/schema';
+import { eq, and, desc, like, inArray, or } from 'drizzle-orm';
 import { authMiddleware } from '../../../shared/middleware/authMiddleware';
 
+// @ts-ignore
+const Archiver = archiver;
+
 const mail = new Hono();
+
+// Middleware для логирования всех запросов к mail routes
+mail.use('*', async (c, next) => {
+  console.log('[Mail Routes] Request:', c.req.method, c.req.path);
+  console.log('[Mail Routes] URL:', c.req.url);
+  await next();
+});
 
 // Схемы валидации
 const sendEmailSchema = z.object({
@@ -14,6 +25,7 @@ const sendEmailSchema = z.object({
   bcc: z.array(z.string().min(1)).optional(),
   subject: z.string().min(1),
   body: z.string().min(1),
+  attachmentIds: z.array(z.string()).optional(), // ID загруженных вложений
 });
 
 const updateEmailSchema = z.object({
@@ -74,6 +86,36 @@ mail.get('/', authMiddleware, async (c) => {
       .limit(50)
       .execute();
 
+    // Получаем вложения для каждого письма
+    const emailIds = emailList.map(e => e.id);
+    const attachments = await db
+      .select()
+      .from(emailAttachments)
+      .where(inArray(emailAttachments.emailId, emailIds))
+      .execute();
+
+    // Группируем вложения по emailId
+    const attachmentsByEmail = attachments.reduce((acc, att) => {
+      if (!acc[att.emailId]) {
+        acc[att.emailId] = [];
+      }
+      acc[att.emailId].push({
+        id: att.id,
+        filename: att.filename,
+        size: att.size,
+        mimeType: att.mimeType,
+        storageType: att.storageType,
+        driveFileId: att.driveFileId,
+      });
+      return acc;
+    }, {} as Record<string, any[]>);
+
+    // Добавляем вложения к письмам
+    const emailsWithAttachments = emailList.map(email => ({
+      ...email,
+      attachments: attachmentsByEmail[email.id] || [],
+    }));
+
     const resultLog = {
       timestamp: new Date().toISOString(),
       action: 'GET_EMAILS_SUCCESS',
@@ -93,8 +135,8 @@ mail.get('/', authMiddleware, async (c) => {
       search: search,
       isUnreadOnly: isUnreadOnly,
       isStarredOnly: isStarredOnly,
-      totalEmails: emailList.length,
-      emails: emailList.map(e => ({
+      totalEmails: emailsWithAttachments.length,
+      emails: emailsWithAttachments.map(e => ({
         id: e.id,
         folder: e.folder,
         subject: e.subject,
@@ -103,15 +145,21 @@ mail.get('/', authMiddleware, async (c) => {
       }))
     });
 
-    return c.json({ emails: emailList });
+    return c.json({ emails: emailsWithAttachments });
   } catch (error) {
+    const user = c.get('user');
     const errorLog = {
       timestamp: new Date().toISOString(),
       action: 'GET_EMAILS_ERROR',
       userId: user?.id || 'unknown',
-      params: { folder, search, isUnreadOnly, isStarredOnly },
-      error: error.message,
-      stack: error.stack
+      params: { 
+        folder: c.req.query('folder') || 'inbox',
+        search: c.req.query('search') || '',
+        isUnreadOnly: c.req.query('isUnreadOnly') === 'true',
+        isStarredOnly: c.req.query('isStarredOnly') === 'true'
+      },
+      error: error instanceof Error ? error.message : 'Unknown error',
+      stack: error instanceof Error ? error.stack : undefined
     };
     console.log('MAIL_LOG:', JSON.stringify(errorLog));
     
@@ -120,8 +168,180 @@ mail.get('/', authMiddleware, async (c) => {
   }
 });
 
-// Получение одного письма
+// Скачивание всех вложений письма в архиве
 mail.get('/:id', authMiddleware, async (c) => {
+  const fs = require('fs');
+  const path = require('path');
+  const logFile = path.join(__dirname, 'download-attachments.log');
+  
+  const log = (message: string) => {
+    const timestamp = new Date().toISOString();
+    const logMessage = `[${timestamp}] ${message}\n`;
+    fs.appendFileSync(logFile, logMessage);
+    console.log(message);
+  };
+  
+  log('[Mail Route /:id] Called');
+  log('[Mail Route /:id] Full URL: ' + c.req.url);
+  log('[Mail Route /:id] Query params: ' + JSON.stringify(c.req.query()));
+  
+  const downloadAll = c.req.query('download-attachments');
+  log('[Mail Route /:id] download-attachments param: ' + downloadAll);
+  
+  if (downloadAll === 'true') {
+    log('[Download All] ROUTE CALLED!');
+    log('[Download All] Request path: ' + c.req.path);
+    log('[Download All] Request URL: ' + c.req.url);
+    
+    try {
+      const user = c.get('user');
+      const emailId = c.req.param('id');
+
+      log('[Download All] Starting download for email: ' + emailId);
+      log('[Download All] User: ' + JSON.stringify(user));
+
+      // Проверяем, что письмо принадлежит пользователю
+      const email = await db
+        .select()
+        .from(emails)
+        .where(and(eq(emails.id, emailId), eq(emails.ownerId, user.id)))
+        .limit(1);
+
+      log('[Download All] Email found: ' + email.length);
+
+      if (!email.length) {
+        log('[Download All] Email not found');
+        return c.json({ error: 'Email not found' }, 404);
+      }
+
+      // Получаем вложения письма
+      const attachments = await db
+        .select()
+        .from(emailAttachments)
+        .where(eq(emailAttachments.emailId, emailId));
+
+      log('[Download All] Found attachments: ' + attachments.length);
+      log('[Download All] Attachments: ' + JSON.stringify(attachments, null, 2));
+
+      if (!attachments.length) {
+        return c.json({ error: 'No attachments found' }, 404);
+      }
+
+      // Создаем архив в памяти
+      const archiver = await import('archiver');
+      const fs = require('fs');
+
+      log('[Download All] Creating archive...');
+
+      // Создаем поток для архива
+      const archive = archiver.default('zip', { zlib: { level: 9 } });
+
+      // Создаем массив для хранения данных архива
+      const chunks: Buffer[] = [];
+
+      archive.on('data', (chunk: Buffer) => {
+        chunks.push(chunk);
+        log('[Download All] Chunk received, size: ' + chunk.length + ', total chunks: ' + chunks.length);
+      });
+
+      archive.on('warning', (err: any) => {
+        log('[Download All] Archive warning: ' + err);
+      });
+
+      archive.on('error', (err: Error) => {
+        log('[Download All] Archive error: ' + err);
+      });
+
+      // Добавляем файлы в архив
+      let filesAdded = 0;
+      for (const attachment of attachments) {
+        log('[Download All] Processing attachment: ' + attachment.filename + ', type: ' + attachment.storageType);
+
+        if (attachment.storageType === 'drive' && attachment.driveFileId) {
+          // Файл с диска - скачиваем напрямую из файловой системы диска
+          try {
+            // Ищем файл в таблице files
+            const driveFiles = await db
+              .select()
+              .from(files)
+              .where(eq(files.id, attachment.driveFileId))
+              .limit(1);
+
+            log('[Download All] Drive file found: ' + driveFiles.length);
+            if (driveFiles.length) {
+              log('[Download All] Drive file path from DB: ' + driveFiles[0].path);
+              log('[Download All] Drive file name: ' + driveFiles[0].name);
+              log('[Download All] Drive file type: ' + driveFiles[0].type);
+              
+              // Формируем путь к файлу: uploads/{fileId}-{attachmentFilename}
+              const filePath = 'e:\\Project\\SuperApp\\packages\\server\\uploads\\' + attachment.driveFileId + '-' + attachment.filename;
+              
+              log('[Download All] Constructed file path: ' + filePath);
+              log('[Download All] File exists: ' + fs.existsSync(filePath));
+              
+              if (fs.existsSync(filePath)) {
+                archive.file(filePath, { name: attachment.filename });
+                filesAdded++;
+                log('[Download All] Added drive file to archive: ' + attachment.filename + ' from ' + filePath);
+              } else {
+                log('[Download All] Drive file not found at constructed path');
+              }
+            } else {
+              log('[Download All] Drive file not found in DB');
+            }
+          } catch (error) {
+            log('[Download All] Failed to get drive file ' + attachment.filename + ': ' + error);
+          }
+        } else if (attachment.filePath && fs.existsSync(attachment.filePath)) {
+          // Локальный файл
+          archive.file(attachment.filePath, { name: attachment.filename });
+          filesAdded++;
+          log('[Download All] Added local file to archive: ' + attachment.filename);
+        } else {
+          log('[Download All] File path missing or does not exist: ' + attachment.filePath);
+        }
+      }
+
+      log('[Download All] Total files added to archive: ' + filesAdded);
+
+      // Ждем завершения архивации
+      await new Promise<void>((resolve, reject) => {
+        archive.on('end', () => {
+          log('[Download All] Archive ended, total bytes: ' + archive.pointer());
+          resolve();
+        });
+        archive.on('error', reject);
+        archive.finalize();
+      });
+
+      // Объединяем все чанки в один буфер
+      const archiveBuffer = Buffer.concat(chunks);
+
+      log('[Download All] Archive buffer size: ' + archiveBuffer.length);
+      log('[Download All] Chunks count: ' + chunks.length);
+
+      if (archiveBuffer.length === 0) {
+        log('[Download All] ERROR: Archive buffer is empty!');
+        return c.json({ error: 'Archive is empty' }, 500);
+      }
+
+      // Устанавливаем заголовки для скачивания
+      c.header('Content-Type', 'application/zip');
+      c.header('Content-Disposition', `attachment; filename="attachments-${emailId}.zip"; filename*=UTF-8''attachments-${emailId}.zip`);
+      c.header('Content-Length', String(archiveBuffer.length));
+      c.header('Cache-Control', 'no-cache, no-store, must-revalidate');
+      c.header('Pragma', 'no-cache');
+      c.header('Expires', '0');
+
+      log('[Download All] Sending archive to client, size: ' + archiveBuffer.length);
+      return c.body(archiveBuffer);
+    } catch (error) {
+      log('[Download All] Download all attachments error: ' + error);
+      return c.json({ error: 'Failed to download attachments' }, 500);
+    }
+  }
+  
+  // Обычный запрос на получение письма
   try {
     const user = c.get('user');
     const emailId = c.req.param('id');
@@ -136,6 +356,23 @@ mail.get('/:id', authMiddleware, async (c) => {
       return c.json({ error: 'Email not found' }, 404);
     }
 
+    // Получаем вложения для письма
+    const attachments = await db
+      .select()
+      .from(emailAttachments)
+      .where(eq(emailAttachments.emailId, emailId))
+      .execute();
+
+    // Формируем массив вложений
+    const attachmentsArray = attachments.map(att => ({
+      id: att.id,
+      filename: att.filename,
+      size: att.size,
+      mimeType: att.mimeType,
+      storageType: att.storageType,
+      driveFileId: att.driveFileId,
+    }));
+
     // Отмечаем как прочитанное
     await db
       .update(emails)
@@ -143,7 +380,7 @@ mail.get('/:id', authMiddleware, async (c) => {
       .where(eq(emails.id, emailId))
       .execute();
 
-    return c.json({ email: email[0] });
+    return c.json({ email: { ...email[0], attachments: attachmentsArray } });
   } catch (error) {
     console.error('Error fetching email:', error);
     return c.json({ error: 'Failed to fetch email' }, 500);
@@ -169,8 +406,9 @@ mail.post('/send', authMiddleware, async (c) => {
 
     // Создаем письмо в отправленных
     console.log('Creating sent email for user:', user.email);
+    const sentEmailId = crypto.randomUUID();
     const sentEmail = {
-      id: crypto.randomUUID(),
+      id: sentEmailId,
       from: user.email,
       to: validatedData.to.join(', '),
       cc: validatedData.cc?.join(', ') || null,
@@ -190,29 +428,49 @@ mail.post('/send', authMiddleware, async (c) => {
     await db.insert(emails).values(sentEmail).execute();
     console.log('Sent email inserted successfully');
 
+    // Связываем вложения с письмом отправителя
+    if (validatedData.attachmentIds && validatedData.attachmentIds.length > 0) {
+      console.log('Linking attachments to sent email:', validatedData.attachmentIds);
+      for (const attachmentId of validatedData.attachmentIds) {
+        await db
+          .update(emailAttachments)
+          .set({ emailId: sentEmailId })
+          .where(eq(emailAttachments.id, attachmentId))
+          .execute();
+      }
+    }
+
     console.log('Starting email delivery to recipients:', recipients);
 
-    for (const recipientEmail of recipients) {
+    for (const recipientIdentifier of recipients) {
       try {
-        console.log('Processing recipient:', recipientEmail);
-        
-        // Ищем пользователя-получателя
+        // Клиент может прислать username или email (например, пользователь
+        // ввёл руками строку с @). Ищем сначала по username, затем по email
+        // — это позволяет не ломать совместимость со старыми письмами,
+        // где в `to` лежит email.
         const recipientUser = await db
           .select()
           .from(users)
-          .where(eq(users.email, recipientEmail))
+          .where(
+            or(
+              eq(users.username, recipientIdentifier),
+              eq(users.email, recipientIdentifier),
+            ),
+          )
           .execute();
-        
-        console.log('Found recipient user:', recipientUser.length > 0 ? 'yes' : 'no');
 
         if (recipientUser.length === 0) {
-          console.log(`User ${recipientEmail} not found, skipping delivery`);
+          console.log(`Recipient "${recipientIdentifier}" not found, skipping`);
           continue;
         }
+        // Письмо у адресата будет показывать ту же строку, которую он
+        // получил (username для новых писем; email — для legacy).
+        const recipientEmail = recipientIdentifier;
 
         // Создаем письмо для получателя
+        const inboxEmailId = crypto.randomUUID();
         const inboxEmail = {
-          id: crypto.randomUUID(),
+          id: inboxEmailId,
           from: user.email,
           to: recipientEmail,
           subject: validatedData.subject,
@@ -228,6 +486,34 @@ mail.post('/send', authMiddleware, async (c) => {
 
         await db.insert(emails).values(inboxEmail).execute();
         console.log(`Email delivered to ${recipientEmail}:`, inboxEmail);
+
+        // Копируем вложения для получателя
+        if (validatedData.attachmentIds && validatedData.attachmentIds.length > 0) {
+          console.log('Copying attachments for recipient:', validatedData.attachmentIds);
+          for (const attachmentId of validatedData.attachmentIds) {
+            const originalAttachment = await db
+              .select()
+              .from(emailAttachments)
+              .where(eq(emailAttachments.id, attachmentId))
+              .limit(1);
+
+            if (originalAttachment.length > 0) {
+              const newAttachmentId = crypto.randomUUID();
+              await db.insert(emailAttachments).values({
+                id: newAttachmentId,
+                emailId: inboxEmailId,
+                filename: originalAttachment[0].filename,
+                size: originalAttachment[0].size,
+                mimeType: originalAttachment[0].mimeType,
+                storageType: originalAttachment[0].storageType,
+                filePath: originalAttachment[0].filePath,
+                driveFileId: originalAttachment[0].driveFileId,
+                ownerId: recipientUser[0].id,
+                createdAt: new Date(),
+              });
+            }
+          }
+        }
       } catch (error) {
         console.error(`Error delivering email to ${recipientEmail}:`, error);
       }
@@ -241,7 +527,7 @@ mail.post('/send', authMiddleware, async (c) => {
     if (sentEmail) {
       response.email = sentEmail;
     }
-    
+
     return c.json(response);
   } catch (error) {
     if (error instanceof z.ZodError) {
@@ -435,6 +721,174 @@ mail.put('/:id/move', authMiddleware, async (c) => {
     }
     console.error('Error moving email:', error);
     return c.json({ error: 'Failed to move email' }, 500);
+  }
+});
+
+// Загрузка вложения
+mail.post('/attachments/upload', authMiddleware, async (c) => {
+  try {
+    const user = c.get('user');
+    const contentType = c.req.header('content-type');
+
+    let filename: string;
+    let size: number;
+    let mimeType: string;
+    let storageType: 'local' | 'drive' = 'local';
+    let driveFileId: string | null = null;
+    let filePath: string;
+    let file: File | null = null;
+
+    if (contentType?.includes('multipart/form-data')) {
+      // FormData запрос (для локальных файлов)
+      const body = await c.req.parseBody();
+      file = body.file as File;
+      storageType = (body.storageType as string) || 'local';
+      driveFileId = (body.driveFileId as string) || null;
+
+      console.log('Upload attachment request (FormData):', { fileName: file?.name, fileSize: file?.size, storageType, driveFileId });
+
+      if (!file) {
+        return c.json({ error: 'No file provided' }, 400);
+      }
+
+      filename = file.name;
+      size = file.size;
+      mimeType = file.type || 'application/octet-stream';
+    } else {
+      // JSON запрос (для файлов с диска)
+      const body = await c.req.json();
+      filename = body.filename;
+      size = body.size;
+      mimeType = body.mimeType;
+      storageType = body.storageType;
+      driveFileId = body.driveFileId;
+
+      console.log('Upload attachment request (JSON):', { filename, size, mimeType, storageType, driveFileId });
+
+      if (!filename || storageType !== 'drive' || !driveFileId) {
+        return c.json({ error: 'Invalid request for drive attachment' }, 400);
+      }
+    }
+
+    const attachmentId = crypto.randomUUID();
+    const now = new Date();
+
+    if (storageType === 'drive' && driveFileId) {
+      // Файл с сетевого диска - не сохраняем, используем ссылку на файл диска
+      filePath = ''; // Путь не нужен, файл уже на диске
+    } else if (file) {
+      // Файл с локального компьютера - сохраняем с уникальным именем
+      const uploadsDir = './uploads';
+      const fs = require('fs');
+      if (!fs.existsSync(uploadsDir)) {
+        fs.mkdirSync(uploadsDir, { recursive: true });
+      }
+      filePath = `${uploadsDir}/${attachmentId}-${filename}`;
+      const buffer = await file.arrayBuffer();
+      fs.writeFileSync(filePath, Buffer.from(buffer));
+    } else {
+      return c.json({ error: 'Invalid request' }, 400);
+    }
+
+    // Создаем запись в таблице email_attachments
+    await db.insert(emailAttachments).values({
+      id: attachmentId,
+      emailId: '', // Будет заполнено при отправке письма
+      filename: filename,
+      size: size,
+      mimeType: mimeType,
+      storageType: storageType,
+      filePath: filePath,
+      driveFileId: driveFileId,
+      ownerId: user.id,
+      createdAt: now,
+    });
+
+    console.log('Attachment uploaded successfully:', { attachmentId, fileName: filename });
+    return c.json({ message: 'Attachment uploaded successfully', id: attachmentId });
+  } catch (error) {
+    console.error('Upload attachment error:', error);
+    return c.json({ error: 'Failed to upload attachment' }, 500);
+  }
+});
+
+// Скачивание вложения
+mail.get('/attachments/:id/download', authMiddleware, async (c) => {
+  try {
+    const user = c.get('user');
+    const attachmentId = c.req.param('id');
+
+    // Получаем информацию о вложении
+    const attachment = await db
+      .select()
+      .from(emailAttachments)
+      .where(eq(emailAttachments.id, attachmentId))
+      .limit(1);
+
+    if (!attachment.length) {
+      return c.json({ error: 'Attachment not found' }, 404);
+    }
+
+    // Проверяем права доступа
+    if (attachment[0].ownerId !== user.id) {
+      // Также проверяем, есть ли у пользователя доступ к письму с этим вложением
+      const email = await db
+        .select()
+        .from(emails)
+        .where(eq(emails.id, attachment[0].emailId))
+        .limit(1);
+
+      if (!email.length || email[0].ownerId !== user.id) {
+        return c.json({ error: 'Permission denied' }, 403);
+      }
+    }
+
+    // Читаем файл из файловой системы
+    const fs = require('fs');
+    if (!fs.existsSync(attachment[0].filePath)) {
+      return c.json({ error: 'File not found on disk' }, 404);
+    }
+
+    // Используем потоковую передачу для больших файлов
+    const fileStream = fs.createReadStream(attachment[0].filePath);
+
+    return c.body(fileStream, 200, {
+      'Content-Type': attachment[0].mimeType,
+      'Content-Disposition': `attachment; filename="${encodeURIComponent(attachment[0].filename)}"`,
+    });
+  } catch (error) {
+    console.error('Download attachment error:', error);
+    return c.json({ error: 'Failed to download attachment' }, 500);
+  }
+});
+
+// Получение вложений письма
+mail.get('/:id/attachments', authMiddleware, async (c) => {
+  try {
+    const user = c.get('user');
+    const emailId = c.req.param('id');
+
+    // Проверяем, что письмо принадлежит пользователю
+    const email = await db
+      .select()
+      .from(emails)
+      .where(and(eq(emails.id, emailId), eq(emails.ownerId, user.id)))
+      .limit(1);
+
+    if (!email.length) {
+      return c.json({ error: 'Email not found' }, 404);
+    }
+
+    // Получаем вложения письма
+    const attachments = await db
+      .select()
+      .from(emailAttachments)
+      .where(eq(emailAttachments.emailId, emailId));
+
+    return c.json({ attachments });
+  } catch (error) {
+    console.error('Get attachments error:', error);
+    return c.json({ error: 'Failed to get attachments' }, 500);
   }
 });
 

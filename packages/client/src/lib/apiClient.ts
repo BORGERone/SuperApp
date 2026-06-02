@@ -1,50 +1,51 @@
 // API клиент для взаимодействия с сервером
 
+import { refreshAccessToken, clearAuthAndRedirect } from './tokenRefresh';
+import { playErrorSound } from '../utils/notifications';
+
 // API базовый URL - в Electron используем абсолютный URL, в браузере - относительный (работает через proxy)
 const isElectron = typeof window !== 'undefined' && (window as any).electronAPI !== undefined;
 const API_BASE_URL = (import.meta.env as any).VITE_API_URL || (isElectron ? 'http://localhost:3002' : '');
+
+async function doFetch(endpoint: string, options: RequestInit): Promise<Response> {
+  const url = `${API_BASE_URL}${endpoint}`;
+  const token = localStorage.getItem('accessToken');
+
+  const headers: Record<string, string> = {
+    'Content-Type': 'application/json',
+    ...(options.headers as Record<string, string>),
+  };
+  if (token) headers['Authorization'] = `Bearer ${token}`;
+
+  return fetch(url, { ...options, headers });
+}
 
 export async function apiRequest<T>(
   endpoint: string,
   options: RequestInit = {}
 ): Promise<T> {
-  const url = `${API_BASE_URL}${endpoint}`;
-  console.log('API Request:', { url, endpoint, API_BASE_URL });
-  
-  const token = localStorage.getItem('accessToken');
-  
-  const headers: Record<string, string> = {
-    'Content-Type': 'application/json',
-    ...(options.headers as Record<string, string>),
-  };
-  
-  if (token) {
-    headers['Authorization'] = `Bearer ${token}`;
-  }
-  
-  const response = await fetch(url, {
-    ...options,
-    headers,
-  });
-  
-  console.log('API Response status:', response.status);
-  
-  if (!response.ok) {
-    // Обработка 401 ошибки (истекший токен)
-    if (response.status === 401) {
-      console.log('Token expired, redirecting to login');
-      localStorage.removeItem('accessToken');
-      localStorage.removeItem('refreshToken');
-      localStorage.removeItem('user');
-      window.location.href = '/login';
+  let response = await doFetch(endpoint, options);
+
+  // На 401 пробуем обменять refresh-токен на новый access — и только если
+  // это не получилось, выкидываем пользователя на /login. Это и убирает
+  // «вылет каждые 15 минут», и оставляет бакграунд-поллеру шанс продолжить.
+  if (response.status === 401) {
+    const refreshed = await refreshAccessToken();
+    if (refreshed) {
+      response = await doFetch(endpoint, options);
+    }
+    if (!response.ok && response.status === 401) {
+      clearAuthAndRedirect();
       throw new Error('Token expired');
     }
-    
+  }
+
+  if (!response.ok) {
     const error = await response.json().catch(() => ({ error: 'Request failed' }));
-    console.error('API Error:', error);
+    playErrorSound();
     throw new Error(error.error || 'Request failed');
   }
-  
+
   return response.json();
 }
 

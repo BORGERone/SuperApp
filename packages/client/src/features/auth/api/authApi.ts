@@ -1,4 +1,8 @@
-import { useMutation, useQueryClient } from '@tanstack/react-query';
+import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
+import {
+  startBackgroundMailPoller,
+  stopBackgroundMailPoller,
+} from '../../../utils/backgroundNotifications';
 
 // API базовый URL - в Electron используем абсолютный URL, в браузере - относительный (работает через proxy)
 const isElectron = typeof window !== 'undefined' && (window as any).electronAPI !== undefined;
@@ -7,7 +11,7 @@ const API_BASE = isElectron ? 'http://localhost:3002/api/auth' : '/api/auth';
 // API функции
 const authApi = {
   // Вход пользователя
-  async login(credentials: { email: string; password: string }) {
+  async login(credentials: { email: string; password: string; pinCode: string }) {
     const response = await fetch(`${API_BASE}/login`, {
       method: 'POST',
       headers: {
@@ -63,20 +67,24 @@ const authApi = {
     return data.user;
   },
 
-  // Выход пользователя
+  // Выход пользователя — это явный logout (кнопка «Выйти»), поэтому
+  // ОБЯЗАТЕЛЬНО останавливаем бакграунд-поллер уведомлений и удаляем
+  // bgRefreshToken. Если просто истёк access-токен — этот метод не
+  // вызывается, и бакграунд продолжает работать (по дизайну).
   logout() {
     localStorage.removeItem('accessToken');
     localStorage.removeItem('refreshToken');
     localStorage.removeItem('user');
+    stopBackgroundMailPoller();
   },
 
   // Сохранение токенов
   saveTokens(accessToken: string, refreshToken: string, user: any) {
-    console.log('Auth API - Saving tokens:', { accessToken: accessToken.substring(0, 20) + '...', user: user.username });
     localStorage.setItem('accessToken', accessToken);
     localStorage.setItem('refreshToken', refreshToken);
     localStorage.setItem('user', JSON.stringify(user));
-    console.log('Auth API - Tokens saved successfully');
+    // На каждом логине переподнимаем бакграунд-поллер уведомлений.
+    startBackgroundMailPoller(refreshToken);
   },
 
   // Получение сохраненного пользователя
@@ -122,6 +130,43 @@ export const useCurrentUser = () => {
     queryFn: authApi.getCurrentUser,
     enabled: authApi.isAuthenticated(),
     staleTime: 1000 * 60 * 5, // 5 минут
+  });
+};
+
+// Смена пин-кода
+async function changePin(data: { password: string; currentPinCode: string; newPinCode: string }) {
+  const response = await fetch(`${API_BASE}/change-pin`, {
+    method: 'POST',
+    headers: {
+      'Content-Type': 'application/json',
+      'Authorization': `Bearer ${localStorage.getItem('accessToken')}`,
+    },
+    body: JSON.stringify(data),
+  });
+
+  if (!response.ok) {
+    let errorMessage = 'Failed to change PIN';
+    const contentType = response.headers.get('content-type');
+    if (contentType && contentType.includes('application/json')) {
+      try {
+        const error = await response.json();
+        errorMessage = error.error || errorMessage;
+      } catch (e) {
+        // Если JSON не удалось распарсить
+      }
+    } else {
+      const text = await response.text();
+      errorMessage = text || errorMessage;
+    }
+    throw new Error(errorMessage);
+  }
+
+  return response.json();
+}
+
+export const useChangePin = () => {
+  return useMutation({
+    mutationFn: changePin,
   });
 };
 
