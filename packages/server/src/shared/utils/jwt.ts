@@ -1,6 +1,16 @@
 import jwt from 'jsonwebtoken';
 
+// Секрет берём строго из окружения. Дефолт оставлен только для локальной
+// разработки, чтобы приложение запускалось «из коробки», но при его
+// использовании печатаем явное предупреждение — в проде JWT_SECRET обязан
+// быть задан, иначе токены можно подделать общеизвестным ключом.
 const JWT_SECRET = process.env.JWT_SECRET || 'superapp-secret-key';
+if (!process.env.JWT_SECRET) {
+  console.warn(
+    '[auth] JWT_SECRET не задан в окружении — используется небезопасное значение по умолчанию. ' +
+    'Обязательно задайте переменную окружения JWT_SECRET в production.',
+  );
+}
 const ACCESS_TOKEN_EXPIRY = '15m';
 const REFRESH_TOKEN_EXPIRY = '7d';
 

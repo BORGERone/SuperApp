@@ -1,4 +1,4 @@
-const { app, BrowserWindow, ipcMain, dialog } = require('electron');
+const { app, BrowserWindow, ipcMain, dialog, Tray, Menu, nativeImage, safeStorage } = require('electron');
 const path = require('path');
 const fs = require('fs');
 
@@ -12,6 +12,34 @@ if (process.platform === 'win32') {
 }
 
 let mainWindow = null;
+let tray = null;
+// Флаг настоящего выхода. По умолчанию закрытие окна не завершает
+// приложение, а прячет его в трей (чтобы продолжали приходить фоновые
+// уведомления). Реальный выход — только через пункт «Выход» в трее.
+app.isQuitting = false;
+
+// --- Безопасное хранилище токенов (Variant A) -----------------------------
+// Долгоживущий refresh-токен фоновых уведомлений шифруется средствами ОС
+// (Electron safeStorage: DPAPI на Windows, Keychain на macOS, libsecret на
+// Linux) и кладётся на диск в userData. В localStorage (доступном для XSS)
+// его больше не держим. Если шифрование ОС недоступно — деградируем до
+// хранения в том же файле без шифрования (всё равно вне досягаемости JS
+// рендерера), о чём честно сообщаем флагом enc:false.
+const secureStorePath = () => path.join(app.getPath('userData'), 'secure-tokens.json');
+function readSecureStore() {
+  try {
+    return JSON.parse(fs.readFileSync(secureStorePath(), 'utf8'));
+  } catch {
+    return {};
+  }
+}
+function writeSecureStore(obj) {
+  try {
+    fs.writeFileSync(secureStorePath(), JSON.stringify(obj), { mode: 0o600 });
+  } catch (error) {
+    console.error('secure store write failed:', error);
+  }
+}
 
 function createWindow() {
   mainWindow = new BrowserWindow({
@@ -43,9 +71,52 @@ function createWindow() {
   mainWindow.on('maximize', broadcastMaximizeState);
   mainWindow.on('unmaximize', broadcastMaximizeState);
 
+  // Закрытие окна (в т.ч. крестик кастомного титлбара) не завершает
+  // приложение — прячем окно в трей. Реальный выход только при isQuitting.
+  mainWindow.on('close', (e) => {
+    if (!app.isQuitting) {
+      e.preventDefault();
+      mainWindow.hide();
+      return false;
+    }
+  });
+
   mainWindow.on('closed', () => {
     mainWindow = null;
   });
+}
+
+function createTray() {
+  if (tray) return;
+  const icon = nativeImage.createFromPath(path.join(__dirname, 'tray-icon.png'));
+  tray = new Tray(icon);
+  tray.setToolTip('SuperApp');
+  const contextMenu = Menu.buildFromTemplate([
+    {
+      label: 'Выход',
+      click: () => {
+        app.isQuitting = true;
+        app.quit();
+      },
+    },
+  ]);
+  tray.setContextMenu(contextMenu);
+  // Клик по иконке — показать/скрыть окно.
+  tray.on('click', () => toggleWindow());
+}
+
+function toggleWindow() {
+  if (!mainWindow) {
+    createWindow();
+    return;
+  }
+  if (mainWindow.isVisible() && !mainWindow.isMinimized()) {
+    mainWindow.hide();
+  } else {
+    if (mainWindow.isMinimized()) mainWindow.restore();
+    mainWindow.show();
+    mainWindow.focus();
+  }
 }
 
 // IPC handlers для управления окном (кастомный титлбар)
@@ -69,6 +140,50 @@ ipcMain.handle('window:close', () => {
 
 ipcMain.handle('window:isMaximized', () => {
   return mainWindow ? mainWindow.isMaximized() : false;
+});
+
+// Свёрнуто ли окно (минимизировано ИЛИ спрятано в трей). Используется
+// фоновым поллером, чтобы решать, показывать ли уведомление бакграундом.
+ipcMain.handle('window:isMinimized', () => {
+  if (!mainWindow) return true;
+  return mainWindow.isMinimized() || !mainWindow.isVisible();
+});
+
+// --- IPC безопасного хранилища токенов ------------------------------------
+ipcMain.handle('secure:set', (_e, key, value) => {
+  if (typeof key !== 'string' || typeof value !== 'string') return false;
+  const store = readSecureStore();
+  if (safeStorage.isEncryptionAvailable()) {
+    store[key] = { enc: true, data: safeStorage.encryptString(value).toString('base64') };
+  } else {
+    store[key] = { enc: false, data: Buffer.from(value, 'utf8').toString('base64') };
+  }
+  writeSecureStore(store);
+  return true;
+});
+
+ipcMain.handle('secure:get', (_e, key) => {
+  const store = readSecureStore();
+  const rec = store[key];
+  if (!rec) return null;
+  try {
+    const buf = Buffer.from(rec.data, 'base64');
+    if (rec.enc) {
+      if (!safeStorage.isEncryptionAvailable()) return null;
+      return safeStorage.decryptString(buf);
+    }
+    return buf.toString('utf8');
+  } catch (error) {
+    console.error('secure store read failed:', error);
+    return null;
+  }
+});
+
+ipcMain.handle('secure:delete', (_e, key) => {
+  const store = readSecureStore();
+  delete store[key];
+  writeSecureStore(store);
+  return true;
 });
 
 // Подписка на события maximize/unmaximize — renderer обновляет иконку.
@@ -121,10 +236,21 @@ ipcMain.handle('show-notification', async (event, options) => {
   return { success: true };
 });
 
-app.on('ready', createWindow);
+app.on('ready', () => {
+  createWindow();
+  createTray();
+});
+
+// Любой путь выхода (меню трея, Cmd+Q, выключение ОС) помечаем как настоящий
+// выход, чтобы обработчик 'close' не перехватывал его и окно реально закрылось.
+app.on('before-quit', () => {
+  app.isQuitting = true;
+});
 
 app.on('window-all-closed', () => {
-  if (process.platform !== 'darwin') {
+  // Не выходим автоматически: окно прячется в трей и приложение продолжает
+  // работать ради фоновых уведомлений. Выходим только по явному «Выход».
+  if (app.isQuitting && process.platform !== 'darwin') {
     app.quit();
   }
 });
@@ -132,5 +258,7 @@ app.on('window-all-closed', () => {
 app.on('activate', () => {
   if (mainWindow === null) {
     createWindow();
+  } else {
+    mainWindow.show();
   }
 });

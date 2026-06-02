@@ -256,12 +256,20 @@ export const ComposeModal: React.FC<ComposeModalProps> = ({ onClose, replyTo }) 
 
           if (response.ok) {
             const data = await response.json();
-            const allowedUsers = data.allowedUsers || [];
-            console.log('Allowed users for file:', attachment.file.name, allowedUsers);
+            // Получатели на клиенте — это username (или email у legacy),
+            // а права на диске хранятся по id. Сервер теперь отдаёт ещё и
+            // username/email разрешённых пользователей — сверяем по ним,
+            // иначе доступ ложно считается отсутствующим.
+            const allowedIdentifiers = new Set<string>([
+              ...(data.allowedUsers || []),
+              ...(data.allowedUsernames || []),
+              ...(data.allowedEmails || []),
+            ]);
+            console.log('Allowed identifiers for file:', attachment.file.name, [...allowedIdentifiers]);
 
             // Проверяем, есть ли доступ у всех получателей
-            const hasAllAccess = recipientEmails.every(email =>
-              allowedUsers.includes(email)
+            const hasAllAccess = recipientEmails.every(recipient =>
+              allowedIdentifiers.has(recipient)
             );
 
             console.log('Has all access:', hasAllAccess, 'for recipients:', recipientEmails);
