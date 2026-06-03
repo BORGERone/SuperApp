@@ -1,6 +1,7 @@
 import React, { useState, useRef } from 'react';
 import { useDriveStore } from '../viewmodels/driveViewModel';
 import { FileItem } from '../models/driveModel';
+import { api } from '../../../lib/apiClient';
 
 interface FileListProps {
   files: FileItem[];
@@ -131,46 +132,9 @@ export const FileList: React.FC<FileListProps> = ({
         setDownloadProgress(0);
 
         try {
-          // В Electron используем абсолютный URL, в браузере - относительный (через proxy)
-          const isElectron = typeof window !== 'undefined' && (window as any).electronAPI !== undefined;
-          const apiUrl = isElectron ? 'http://localhost:3002' : '';
+          const blob = await api.downloadFile(filePath);
 
-          const response = await fetch(`${apiUrl}/api/drive/download?path=${encodeURIComponent(filePath)}`, {
-            headers: {
-              'Authorization': `Bearer ${localStorage.getItem('accessToken')}`,
-            },
-          });
-
-          if (!response.ok) {
-            throw new Error('Failed to download file');
-          }
-
-          // Получаем размер файла из заголовка Content-Length
-          const contentLength = response.headers.get('Content-Length');
-          const totalSize = contentLength ? parseInt(contentLength, 10) : 0;
-          let downloadedSize = 0;
-
-          // Читаем поток данных
-          const reader = response.body?.getReader();
-          const chunks: Uint8Array[] = [];
-
-          if (reader) {
-            while (true) {
-              const { done, value } = await reader.read();
-              if (done) break;
-
-              chunks.push(value);
-              downloadedSize += value.length;
-
-              if (totalSize > 0) {
-                const progress = (downloadedSize / totalSize) * 100;
-                setDownloadProgress(progress);
-              }
-            }
-          }
-
-          // Создаем blob из чанков
-          const blob = new Blob(chunks as BlobPart[]);
+          // Создаем URL для скачивания
           const url = URL.createObjectURL(blob);
           const a = document.createElement('a');
           a.href = url;

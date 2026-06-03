@@ -141,28 +141,14 @@ export const DriveView: React.FC = () => {
     let downloadedCount = 0;
 
     try {
-      // В Electron используем абсолютный URL, в браузере - относительный (через proxy)
-      const isElectron = typeof window !== 'undefined' && (window as any).electronAPI !== undefined;
-      const apiUrl = isElectron ? 'http://localhost:3002' : '';
-
       setIsDownloading(true);
       setDownloadFileName(`${totalFiles} файлов`);
       setDownloadProgress(0);
 
       for (const file of filesArray) {
         const filePath = currentPath === '/' ? `/${file}` : `${currentPath}/${file}`;
-        const response = await fetch(`${apiUrl}/api/drive/download?path=${encodeURIComponent(filePath)}`, {
-          headers: {
-            'Authorization': `Bearer ${localStorage.getItem('accessToken')}`,
-          },
-        });
+        const blob = await api.downloadFile(filePath);
 
-        if (!response.ok) {
-          console.error(`Failed to download file: ${file}`);
-          continue;
-        }
-
-        const blob = await response.blob();
         const url = URL.createObjectURL(blob);
         const a = document.createElement('a');
         a.href = url;
@@ -259,7 +245,8 @@ export const DriveView: React.FC = () => {
       
       setShowPermissionsModal(false);
       useDriveStore.getState().clearSelection();
-      refetch();
+      // Инвалидируем все кэши файлов, чтобы права обновились у всех пользователей
+      queryClient.invalidateQueries({ queryKey: ['files'] });
     } catch (error) {
       console.error('Failed to save permissions:', error);
       alert('Не удалось сохранить права доступа');
@@ -288,6 +275,13 @@ export const DriveView: React.FC = () => {
   React.useEffect(() => {
     refetch();
   }, [currentPath, refetch]);
+
+  // Также обновляем список при закрытии модального окна прав доступа
+  React.useEffect(() => {
+    if (!showPermissionsModal) {
+      refetch();
+    }
+  }, [showPermissionsModal, refetch]);
 
   return (
     <div className="flex flex-col h-full p-3 gap-3 overflow-hidden">

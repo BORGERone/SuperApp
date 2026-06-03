@@ -381,6 +381,8 @@ driveRouter.get('/download', async (c) => {
   const user = c.get('user') as any;
   const filePath = c.req.query('path');
 
+  console.log('Download request:', { filePath, userId: user.userId, role: user.role });
+
   if (!filePath) {
     return c.json({ error: 'Path is required' }, 400);
   }
@@ -391,6 +393,8 @@ driveRouter.get('/download', async (c) => {
     const fileName = parts.pop();
     const parentPath = parts.join('/') || '/';
 
+    console.log('Parsed path:', { fileName, parentPath });
+
     if (!fileName) {
       return c.json({ error: 'Invalid path' }, 400);
     }
@@ -399,6 +403,11 @@ driveRouter.get('/download', async (c) => {
     const file = await db.select().from(files).where(
       and(eq(files.name, fileName), eq(files.path, parentPath))
     ).limit(1);
+
+    console.log('Found files:', file.length);
+    if (file.length > 0) {
+      console.log('File details:', { id: file[0].id, name: file[0].name, path: file[0].path, type: file[0].type });
+    }
 
     if (file.length === 0) {
       return c.json({ error: 'File not found' }, 404);

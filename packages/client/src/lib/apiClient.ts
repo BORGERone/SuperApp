@@ -86,4 +86,36 @@ export const api = {
       method: 'PUT',
       body: JSON.stringify({ allowedUsers }),
     }),
+
+  downloadFile: async (path: string): Promise<Blob> => {
+    const url = `${API_BASE_URL}/api/drive/download?path=${encodeURIComponent(path)}`;
+    const token = localStorage.getItem('accessToken');
+
+    const headers: Record<string, string> = {};
+    if (token) headers['Authorization'] = `Bearer ${token}`;
+
+    let response = await fetch(url, { headers });
+
+    // На 401 пробуем обменять refresh-токен на новый access
+    if (response.status === 401) {
+      const refreshed = await refreshAccessToken();
+      if (refreshed) {
+        const newToken = localStorage.getItem('accessToken');
+        if (newToken) headers['Authorization'] = `Bearer ${newToken}`;
+        response = await fetch(url, { headers });
+      }
+      if (!response.ok && response.status === 401) {
+        clearAuthAndRedirect();
+        throw new Error('Token expired');
+      }
+    }
+
+    if (!response.ok) {
+      const error = await response.json().catch(() => ({ error: 'Request failed' }));
+      playErrorSound();
+      throw new Error(error.error || 'Request failed');
+    }
+
+    return response.blob();
+  },
 };
