@@ -1,0 +1,15 @@
+directories:
+  output: dist-electron
+  buildResources: build
+appId: com.superapp.app
+productName: SuperApp
+files:
+  - filter:
+      - dist/**/*
+      - electron/**/*
+      - package.json
+asar: false
+win:
+  target:
+    - nsis
+electronVersion: 22.0.0
