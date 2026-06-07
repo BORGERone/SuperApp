@@ -13,6 +13,57 @@ if (process.platform === 'win32') {
 
 let mainWindow = null;
 let tray = null;
+
+// --- Конфигурация адреса сервера ------------------------------------------
+// Десктоп-клиент не привязан к localhost: адрес бэкенда читается из config.json,
+// который кладёт установщик клиента (installer/install-client). Порядок поиска:
+//   1) переменная окружения SUPERAPP_API_URL (или SUPERAPP_CONFIG — путь к json);
+//   2) config.json рядом с исполняемым файлом (каталог установки);
+//   3) config.json в userData;
+//   4) config.json в корне пакета клиента (для разработки).
+// В config.json нет секретов — только адрес сервера, поэтому его безопасно
+// читать и пробрасывать в renderer.
+function readJsonFile(filePath) {
+  try {
+    if (filePath && fs.existsSync(filePath)) {
+      return JSON.parse(fs.readFileSync(filePath, 'utf8'));
+    }
+  } catch (error) {
+    console.error('config read failed:', filePath, error);
+  }
+  return null;
+}
+
+function loadClientConfig() {
+  const candidates = [];
+  if (process.env.SUPERAPP_CONFIG) candidates.push(process.env.SUPERAPP_CONFIG);
+  try { candidates.push(path.join(path.dirname(app.getPath('exe')), 'config.json')); } catch {}
+  try { candidates.push(path.join(app.getPath('userData'), 'config.json')); } catch {}
+  candidates.push(path.join(__dirname, '..', 'config.json'));
+
+  let cfg = {};
+  for (const candidate of candidates) {
+    const parsed = readJsonFile(candidate);
+    if (parsed) { cfg = parsed; break; }
+  }
+
+  // Явная переменная окружения имеет наивысший приоритет (удобно для тестов).
+  let apiBaseUrl = process.env.SUPERAPP_API_URL || cfg.apiBaseUrl || '';
+  if (!apiBaseUrl && cfg.serverHost) {
+    const protocol = cfg.protocol || 'http';
+    const port = cfg.serverPort ? `:${cfg.serverPort}` : '';
+    apiBaseUrl = `${protocol}://${cfg.serverHost}${port}`;
+  }
+  return { apiBaseUrl: String(apiBaseUrl || '').replace(/\/+$/, '') };
+}
+
+// Публичная (без секретов) конфигурация, пробрасываемая в renderer через preload.
+const clientPublicConfig = loadClientConfig();
+
+// preload запрашивает конфиг синхронно при старте страницы.
+ipcMain.on('superapp:get-config', (event) => {
+  event.returnValue = clientPublicConfig;
+});
 // Флаг настоящего выхода. По умолчанию закрытие окна не завершает
 // приложение, а прячет его в трей (чтобы продолжали приходить фоновые
 // уведомления). Реальный выход — только через пункт «Выход» в трее.

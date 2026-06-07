@@ -2,10 +2,11 @@
 
 import { refreshAccessToken, clearAuthAndRedirect } from './tokenRefresh';
 import { playErrorSound } from '../utils/notifications';
+import { getApiBase } from './serverConfig';
 
-// API базовый URL - в Electron используем абсолютный URL, в браузере - относительный (работает через proxy)
-const isElectron = typeof window !== 'undefined' && (window as any).electronAPI !== undefined;
-const API_BASE_URL = (import.meta.env as any).VITE_API_URL || (isElectron ? 'http://localhost:3002' : '');
+// Базовый URL бэкенда: в Electron — абсолютный адрес сервера из config.json,
+// в браузере — относительный (через proxy Vite). См. serverConfig.ts.
+const API_BASE_URL = getApiBase();
 
 async function doFetch(endpoint: string, options: RequestInit): Promise<Response> {
   const url = `${API_BASE_URL}${endpoint}`;

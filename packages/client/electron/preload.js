@@ -1,7 +1,20 @@
 const { contextBridge, ipcRenderer } = require('electron');
 
+// Конфигурация адреса сервера, синхронно полученная из главного процесса при
+// старте страницы. Доступна renderer-у до выполнения его скриптов, поэтому
+// модульные константы базового URL вычисляются корректно.
+let clientConfig = { apiBaseUrl: '' };
+try {
+  const fromMain = ipcRenderer.sendSync('superapp:get-config');
+  if (fromMain && typeof fromMain === 'object') clientConfig = fromMain;
+} catch (error) {
+  console.error('preload: не удалось получить конфигурацию сервера', error);
+}
+
 const api = {
   platform: process.platform,
+  // Адрес бэкенда (без секретов): { apiBaseUrl: 'http(s)://host:port' | '' }.
+  config: clientConfig,
   saveFile: (options) => ipcRenderer.invoke('dialog:saveFile', options),
   // API для drag and drop в Electron
   startDrag: (options) => ipcRenderer.invoke('drag:start', options),

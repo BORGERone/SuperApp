@@ -1,6 +1,7 @@
 import React, { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useDriveStore } from '../viewmodels/driveViewModel';
+import { getApiBase } from '../../../lib/serverConfig';
 import { useAuthStore } from '../../../store';
 import { FileList } from './FileList';
 import { useFilesList } from '../api/driveHooks';
@@ -72,8 +73,7 @@ export const DriveView: React.FC = () => {
 
     try {
       // В Electron используем абсолютный URL, в браузере - относительный (через proxy)
-      const isElectron = typeof window !== 'undefined' && (window as any).electronAPI !== undefined;
-      const apiUrl = isElectron ? 'http://localhost:3002' : '';
+      const apiUrl = getApiBase();
 
       for (const file of files) {
         setUploadFileName(file.name);
@@ -182,8 +182,7 @@ export const DriveView: React.FC = () => {
 
     try {
       // В Electron используем абсолютный URL, в браузере - относительный (через proxy)
-      const isElectron = typeof window !== 'undefined' && (window as any).electronAPI !== undefined;
-      const apiUrl = isElectron ? 'http://localhost:3002' : '';
+      const apiUrl = getApiBase();
 
       const usersResponse = await fetch(`${apiUrl}/api/drive/users`, {
         headers: {
@@ -223,8 +222,7 @@ export const DriveView: React.FC = () => {
 
     try {
       // В Electron используем абсолютный URL, в браузере - относительный (через proxy)
-      const isElectron = typeof window !== 'undefined' && (window as any).electronAPI !== undefined;
-      const apiUrl = isElectron ? 'http://localhost:3002' : '';
+      const apiUrl = getApiBase();
 
       const filesArray = Array.from(selectedFiles);
 

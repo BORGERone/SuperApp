@@ -2,6 +2,7 @@ import React, { useEffect, useState } from 'react';
 import { Sidebar, SIDEBAR_WIDTH_COLLAPSED, SIDEBAR_WIDTH_EXPANDED, SIDEBAR_LEFT_MARGIN, TITLEBAR_HEIGHT } from './Sidebar';
 import { TitleBar } from './TitleBar';
 import { useMailStore } from '../features/mail/viewmodels/mailViewModel';
+import { getApiBase } from '../lib/serverConfig';
 
 interface LayoutProps {
   children: React.ReactNode;
@@ -31,9 +32,8 @@ export const Layout: React.FC<LayoutProps> = ({ children }) => {
   useEffect(() => {
     const checkInboxEmails = async () => {
       try {
-        // Определяем базовый URL как в mailApi
-        const isElectron = typeof window !== 'undefined' && (window as any).electronAPI !== undefined;
-        const API_BASE = isElectron ? 'http://localhost:3002/api/mail' : '/api/mail';
+        // Базовый URL бэкенда (см. serverConfig.ts).
+        const API_BASE = `${getApiBase()}/api/mail`;
         
         const token = localStorage.getItem('accessToken');
         

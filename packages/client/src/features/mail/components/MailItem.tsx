@@ -1,6 +1,7 @@
 import React from 'react';
 import { Email, MailFolder } from '../models/mailModel';
 import { Reply, Forward, Trash2, Star, Mail, Paperclip, User, Download } from 'lucide-react';
+import { getApiBase } from '../../../lib/serverConfig';
 
 interface MailItemProps {
   email: Email;
@@ -36,8 +37,7 @@ export const MailItem: React.FC<MailItemProps> = ({
   const handleDownloadAttachment = async (attachment: any) => {
     try {
       // В Electron используем абсолютный URL, в браузере - относительный (через proxy)
-      const isElectron = typeof window !== 'undefined' && (window as any).electronAPI !== undefined;
-      const apiUrl = isElectron ? 'http://localhost:3002' : '';
+      const apiUrl = getApiBase();
 
       console.log('Downloading attachment:', attachment);
 
@@ -93,7 +93,7 @@ export const MailItem: React.FC<MailItemProps> = ({
 
     try {
       // Используем абсолютный URL напрямую к бэкенду для тестирования
-      const apiUrl = 'http://localhost:3002';
+      const apiUrl = getApiBase();
 
       console.log('Downloading all attachments for email:', email.id);
       console.log('apiUrl:', apiUrl);

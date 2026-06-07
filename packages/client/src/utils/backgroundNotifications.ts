@@ -21,10 +21,9 @@
 // «выкинут» (pathname === '/login') либо окно скрыто (document.hidden).
 
 import { playNotificationSound, showNotification } from './notifications';
+import { getApiBase } from '../lib/serverConfig';
 
-const isElectron =
-  typeof window !== 'undefined' && (window as any).electronAPI !== undefined;
-const API_BASE = isElectron ? 'http://localhost:3002' : '';
+const API_BASE = getApiBase();
 const POLL_INTERVAL_MS = 30 * 1000;
 const BG_REFRESH_KEY = 'bgRefreshToken';
 const LAST_UNREAD_KEY = 'bgLastUnreadCount';

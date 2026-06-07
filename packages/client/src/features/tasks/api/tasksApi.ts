@@ -9,10 +9,10 @@ import {
   UpdateCardInput,
   UpdateColumnInput,
 } from '../models/tasksModel';
+import { getApiBase } from '../../../lib/serverConfig';
 
-// В Electron используем абсолютный URL, в браузере — относительный (через Vite proxy)
-const isElectron = typeof window !== 'undefined' && (window as any).electronAPI !== undefined;
-const API_BASE = isElectron ? 'http://localhost:3002/api/tasks' : '/api/tasks';
+// Базовый URL бэкенда (см. serverConfig.ts).
+const API_BASE = `${getApiBase()}/api/tasks`;
 
 function buildHeaders(): Record<string, string> {
   const token = localStorage.getItem('accessToken');

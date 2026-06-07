@@ -16,6 +16,11 @@ target/
 .env
 .env.local
 .env.*.local
+!.env.example
+
+# Локальная конфигурация клиента (адрес сервера) и артефакты установщика
+packages/client/config.json
+installer/superapp-server.service
 
 # IDE
 .vscode/

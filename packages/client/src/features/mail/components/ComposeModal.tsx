@@ -3,6 +3,7 @@ import { X, Send, Paperclip, HardDrive } from 'lucide-react';
 import { Email, ComposeEmail, PendingAttachment } from '../models/mailModel';
 import { useMailStore } from '../viewmodels/mailViewModel';
 import { useSendEmail } from '../api/mailApi';
+import { getApiBase } from '../../../lib/serverConfig';
 import { UserAutocomplete } from '../../auth/components/UserAutocomplete';
 import { DriveFileSelectorModal } from './DriveFileSelectorModal';
 import { GrantAccessModal } from './GrantAccessModal';
@@ -80,8 +81,7 @@ export const ComposeModal: React.FC<ComposeModalProps> = ({ onClose, replyTo }) 
 
     try {
       // В Electron используем абсолютный URL, в браузере - относительный (через proxy)
-      const isElectron = typeof window !== 'undefined' && (window as any).electronAPI !== undefined;
-      const apiUrl = isElectron ? 'http://localhost:3002' : '';
+      const apiUrl = getApiBase();
 
       const newAttachments: PendingAttachment[] = [];
 
@@ -136,8 +136,7 @@ export const ComposeModal: React.FC<ComposeModalProps> = ({ onClose, replyTo }) 
 
     try {
       // В Electron используем абсолютный URL, в браузере - относительный (через proxy)
-      const isElectron = typeof window !== 'undefined' && (window as any).electronAPI !== undefined;
-      const apiUrl = isElectron ? 'http://localhost:3002' : '';
+      const apiUrl = getApiBase();
 
       console.log('Attaching files from drive:', files);
       const newAttachments: PendingAttachment[] = [];
@@ -227,8 +226,7 @@ export const ComposeModal: React.FC<ComposeModalProps> = ({ onClose, replyTo }) 
 
     if (driveAttachments.length > 0) {
       try {
-        const isElectron = typeof window !== 'undefined' && (window as any).electronAPI !== undefined;
-        const apiUrl = isElectron ? 'http://localhost:3002' : '';
+        const apiUrl = getApiBase();
 
         // Получаем список пользователей-получателей
         const recipientEmails = [...email.to, ...(email.cc || []), ...(email.bcc || [])];
@@ -309,8 +307,7 @@ export const ComposeModal: React.FC<ComposeModalProps> = ({ onClose, replyTo }) 
 
   const handleGrantAccessConfirm = async () => {
     try {
-      const isElectron = typeof window !== 'undefined' && (window as any).electronAPI !== undefined;
-      const apiUrl = isElectron ? 'http://localhost:3002' : '';
+      const apiUrl = getApiBase();
 
       // Получаем список пользователей-получателей
       const recipientEmails = [...email.to, ...(email.cc || []), ...(email.bcc || [])];
