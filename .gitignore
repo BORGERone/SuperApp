@@ -8,9 +8,13 @@ package-lock.json
 
 # Build outputs
 dist/
+dist-electron/
 build/
 target/
 *.log
+
+# Артефакты сборки установщиков (zip сервера, .exe клиента)
+installer/dist/
 
 # Environment variables
 .env
@@ -18,9 +22,8 @@ target/
 .env.*.local
 !.env.example
 
-# Локальная конфигурация клиента (адрес сервера) и артефакты установщика
+# Локальная конфигурация клиента (адрес сервера)
 packages/client/config.json
-installer/superapp-server.service
 
 # IDE
 .vscode/

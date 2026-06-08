@@ -1,4 +1,4 @@
-import { createBrowserRouter, Navigate } from 'react-router-dom';
+import { createBrowserRouter, createHashRouter, Navigate } from 'react-router-dom';
 import App from './App';
 import { LoginView, PinView } from './features/auth';
 import { DriveView } from './features/drive';
@@ -6,7 +6,15 @@ import { MailView } from './features/mail';
 import { TasksView } from './features/tasks';
 import { SettingsView } from './features/settings';
 
-export const router = createBrowserRouter([
+// В desktop-сборке (Electron) index.html грузится через file://, где history
+// API не работает и BrowserRouter отдаёт 404. Поэтому при запуске из file://
+// используем hash-роутинг; в вебе остаётся обычный BrowserRouter.
+const createRouter =
+  typeof window !== 'undefined' && window.location.protocol === 'file:'
+    ? createHashRouter
+    : createBrowserRouter;
+
+export const router = createRouter([
   {
     path: '/login',
     element: <LoginView />,
