@@ -7,8 +7,6 @@ files:
   - filter:
       - dist/**/*
       - electron/**/*
-      - package.json
-asar: false
 win:
   target:
     - nsis
