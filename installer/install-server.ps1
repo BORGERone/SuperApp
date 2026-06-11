@@ -1,4 +1,4 @@
-#!/usr/bin/env pwsh
+﻿#!/usr/bin/env pwsh
 # Установщик СЕРВЕРА SuperApp (Windows / PowerShell).
 #
 #   ./installer/install-server.ps1            # интерактивная настройка

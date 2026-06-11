@@ -1,4 +1,4 @@
-#!/usr/bin/env pwsh
+﻿#!/usr/bin/env pwsh
 # Установщик/сборщик КЛИЕНТА SuperApp (Windows / PowerShell).
 #
 # Два режима:
