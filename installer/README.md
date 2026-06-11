@@ -91,6 +91,43 @@ Win10/11 (шаги выше) и установите его на Win7 — Electr
 
 ---
 
+## Доступ из браузера по HTTPS (Caddy)
+
+Чтобы открыть приложение прямо в браузере по `https://prostroykrym.ru` (а не
+только из Electron), нужно отдавать **собранный веб-клиент** и API под **одним
+доменом по HTTPS**. Один origin = нет CORS и нет mixed-content. TLS-сертификат
+автоматически выпускает [Caddy](https://caddyserver.com) (Let's Encrypt).
+
+Готовый конфиг: **`installer\Caddyfile`**.
+
+Шаги:
+1. **DNS:** A-запись `prostroykrym.ru → 91.210.149.24`. Открой на сервере/роутере
+   порты **80 и 443** (нужны Caddy для выпуска сертификата и работы).
+2. **Сборка веб-клиента с абсолютным base** (иначе ломаются `/assets/*` и
+   SPA-маршруты при перезагрузке страницы вроде `/tasks`):
+   ```
+   cd packages\client
+   bun run build -- --base=/
+   ```
+   Результат — `packages\client\dist`. Важно: НЕ задавай `VITE_API_URL` — тогда
+   в браузере клиент ходит в API по относительному пути (тот же origin).
+3. **Сервер — только на localhost по HTTP.** В `packages\server\.env`
+   (через `configure-server.bat`): `HOST=127.0.0.1`, `PORT=3002`. Наружу торчит
+   только Caddy; публичный порт `25566` больше не нужен.
+4. В `installer\Caddyfile` поправь путь `root` на реальный каталог `dist` сервера.
+5. Запусти Caddy: `caddy run --config installer\Caddyfile` (или поставь службой
+   `caddy` для автозапуска). Caddy сам получит и будет продлевать сертификат.
+
+После этого приложение доступно в браузере по `https://prostroykrym.ru`, а
+Electron-клиенты указывают в `config.json` тот же `https://prostroykrym.ru`
+(протокол `https`, порт `443`).
+
+> Схема трафика: `браузер ──https──> Caddy(443) ├ статика dist ─ страница;
+> └ /api,/uploads ──http──> Bun(127.0.0.1:3002)`. TLS почти не влияет на
+> пропускную способность (AES-NI; узкое место — сеть/диск, не шифрование).
+
+---
+
 ## Безопасность
 
 - **JWT-секрет.** В production (`NODE_ENV=production`) сервер **откажется

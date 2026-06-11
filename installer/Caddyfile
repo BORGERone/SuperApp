@@ -1,0 +1,37 @@
+# SuperApp — доступ из браузера по HTTPS (reverse-proxy + TLS).
+# Caddy сам получает и продлевает сертификат Let's Encrypt — нужны ОТКРЫТЫЕ
+# порты 80 и 443 на сервере и роутере.
+#
+# Предварительно:
+#   1) DNS: A-запись  prostroykrym.ru -> 91.210.149.24
+#   2) Собрать ВЕБ-клиент с абсолютным base (для путей /assets/* и SPA-маршрутов):
+#          cd packages\client
+#          bun run build -- --base=/
+#      -> появится  packages\client\dist
+#   3) Bun-сервер запустить на HTTP только на localhost (packages\server\.env:
+#          HOST=127.0.0.1
+#          PORT=3002
+#      ). Порт 25566 наружу больше не нужен — публичными остаются только 80/443 (Caddy).
+#   4) Поправить путь `root` ниже на реальный каталог dist на этом сервере.
+#   5) Запуск:  caddy run --config Caddyfile     (или установить как службу: caddy)
+#
+# Один origin для страницы и API => нет CORS и нет mixed-content.
+
+prostroykrym.ru {
+	encode zstd gzip
+
+	# API и загруженные файлы -> Bun-бэкенд (HTTP, localhost).
+	handle /api/* {
+		reverse_proxy 127.0.0.1:3002
+	}
+	handle /uploads/* {
+		reverse_proxy 127.0.0.1:3002
+	}
+
+	# Всё остальное — собранный веб-клиент (SPA). Путь поправь под свой сервер.
+	handle {
+		root * C:/SuperApp/packages/client/dist
+		try_files {path} /index.html
+		file_server
+	}
+}
