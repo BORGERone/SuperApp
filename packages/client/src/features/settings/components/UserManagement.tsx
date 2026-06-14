@@ -8,6 +8,7 @@ interface User {
   username: string;
   email: string;
   role: string;
+  position?: string | null;
   createdAt: string;
 }
 
@@ -21,11 +22,13 @@ export const UserManagement: React.FC = () => {
   const [newUsername, setNewUsername] = useState('');
   const [newPassword, setNewPassword] = useState('');
   const [newPinCode, setNewPinCode] = useState('');
+  const [newPosition, setNewPosition] = useState('');
   const [showEditUserModal, setShowEditUserModal] = useState(false);
   const [selectedUser, setSelectedUser] = useState<User | null>(null);
   const [editUsername, setEditUsername] = useState('');
   const [editPassword, setEditPassword] = useState('');
   const [editPinCode, setEditPinCode] = useState('');
+  const [editPosition, setEditPosition] = useState('');
 
   const handleDeleteUser = async (userId: string) => {
     if (!confirm('Вы уверены, что хотите удалить этого пользователя?')) return;
@@ -78,6 +81,7 @@ export const UserManagement: React.FC = () => {
     setEditUsername(user.username);
     setEditPassword('');
     setEditPinCode('');
+    setEditPosition(user.position ?? '');
     setShowEditUserModal(true);
   };
 
@@ -89,13 +93,15 @@ export const UserManagement: React.FC = () => {
       const payload: any = {};
       if (editUsername && editUsername !== selectedUser.username) {
         payload.username = editUsername;
-        payload.email = `${editUsername}@example.com`;
       }
       if (editPassword) {
         payload.password = editPassword;
       }
       if (editPinCode) {
         payload.pinCode = editPinCode;
+      }
+      if (editPosition !== (selectedUser.position ?? '')) {
+        payload.position = editPosition;
       }
 
       if (Object.keys(payload).length === 0) {
@@ -140,7 +146,6 @@ export const UserManagement: React.FC = () => {
       const payload: any = {};
       if (editUsername && editUsername !== selectedUser.username) {
         payload.username = editUsername;
-        payload.email = `${editUsername}@example.com`;
       }
       if (editPassword) {
         if (editPassword.length < 8) {
@@ -155,6 +160,9 @@ export const UserManagement: React.FC = () => {
           return;
         }
         payload.pinCode = editPinCode;
+      }
+      if (editPosition !== (selectedUser.position ?? '')) {
+        payload.position = editPosition;
       }
 
       if (Object.keys(payload).length > 0) {
@@ -205,12 +213,12 @@ export const UserManagement: React.FC = () => {
     try {
       const payload = {
         username: newUsername,
-        email: `${newUsername}@example.com`,
         password: newPassword,
         pinCode: newPinCode,
+        // Должность не автогенерируется — отправляем то, что ввел админ,
+        // включая пустую строку, если поле оставлено пустым.
+        position: newPosition,
       };
-
-      console.log('Creating user with payload:', payload);
 
       const response = await fetch('/api/auth/register', {
         method: 'POST',
@@ -243,6 +251,7 @@ export const UserManagement: React.FC = () => {
       setNewUsername('');
       setNewPassword('');
       setNewPinCode('');
+      setNewPosition('');
       setShowAddUserModal(false);
       refetch();
     } catch (error) {
@@ -282,6 +291,9 @@ export const UserManagement: React.FC = () => {
                   Имя пользователя
                 </th>
                 <th className="px-6 py-3 text-left text-xs font-medium text-app-muted uppercase tracking-wider">
+                  Должность
+                </th>
+                <th className="px-6 py-3 text-left text-xs font-medium text-app-muted uppercase tracking-wider">
                   Роль
                 </th>
                 <th className="px-6 py-3 text-left text-xs font-medium text-app-muted uppercase tracking-wider">
@@ -301,6 +313,11 @@ export const UserManagement: React.FC = () => {
                 >
                   <td className="px-6 py-4 whitespace-nowrap text-sm font-medium text-app">
                     {user.username}
+                  </td>
+                  <td className="px-6 py-4 whitespace-nowrap text-sm text-app">
+                    {user.position
+                      ? user.position
+                      : <span className="text-app-muted">—</span>}
                   </td>
                   <td className="px-6 py-4 whitespace-nowrap">
                     <span
@@ -340,7 +357,7 @@ export const UserManagement: React.FC = () => {
                   type="text"
                   value={newUsername}
                   onChange={(e) => setNewUsername(e.target.value)}
-                  className="w-full px-4 py-2 border border-app-border rounded-lg bg-surface-2 focus:ring-2 focus:ring-indigo-500 focus:border-transparent"
+                  className="glass-input w-full px-4 py-2"
                   placeholder="Введите имя пользователя"
                   required
                 />
@@ -354,7 +371,7 @@ export const UserManagement: React.FC = () => {
                   type="password"
                   value={newPassword}
                   onChange={(e) => setNewPassword(e.target.value)}
-                  className="w-full px-4 py-2 border border-app-border rounded-lg bg-surface-2 focus:ring-2 focus:ring-indigo-500 focus:border-transparent"
+                  className="glass-input w-full px-4 py-2"
                   placeholder="Введите пароль"
                   required
                 />
@@ -370,9 +387,23 @@ export const UserManagement: React.FC = () => {
                   maxLength={4}
                   value={newPinCode}
                   onChange={(e) => setNewPinCode(e.target.value.replace(/\D/g, ''))}
-                  className="w-full px-4 py-2 border border-app-border rounded-lg bg-surface-2 focus:ring-2 focus:ring-indigo-500 focus:border-transparent"
+                  className="glass-input w-full px-4 py-2"
                   placeholder="Введите 4-значный PIN-код"
                   required
+                />
+              </div>
+
+              <div>
+                <label className="block text-sm font-medium text-app-secondary mb-2">
+                  Должность (необязательно)
+                </label>
+                <input
+                  type="text"
+                  value={newPosition}
+                  maxLength={200}
+                  onChange={(e) => setNewPosition(e.target.value)}
+                  className="glass-input w-full px-4 py-2"
+                  placeholder="Например, Менеджер по продажам"
                 />
               </div>
 
@@ -413,7 +444,7 @@ export const UserManagement: React.FC = () => {
                       type="text"
                       value={editUsername}
                       onChange={(e) => setEditUsername(e.target.value)}
-                      className="w-full px-4 py-2 border border-app-border rounded-lg bg-surface-2 focus:ring-2 focus:ring-indigo-500 focus:border-transparent"
+                      className="glass-input w-full px-4 py-2"
                       placeholder="Введите новое имя пользователя"
                       required
                     />
@@ -427,7 +458,7 @@ export const UserManagement: React.FC = () => {
                       type="password"
                       value={editPassword}
                       onChange={(e) => setEditPassword(e.target.value)}
-                      className="w-full px-4 py-2 border border-app-border rounded-lg bg-surface-2 focus:ring-2 focus:ring-indigo-500 focus:border-transparent"
+                      className="glass-input w-full px-4 py-2"
                       placeholder="Введите новый пароль"
                     />
                   </div>
@@ -442,8 +473,22 @@ export const UserManagement: React.FC = () => {
                       maxLength={4}
                       value={editPinCode}
                       onChange={(e) => setEditPinCode(e.target.value.replace(/\D/g, ''))}
-                      className="w-full px-4 py-2 border border-app-border rounded-lg bg-surface-2 focus:ring-2 focus:ring-indigo-500 focus:border-transparent"
+                      className="glass-input w-full px-4 py-2"
                       placeholder="Введите новый 4-значный PIN-код"
+                    />
+                  </div>
+
+                  <div>
+                    <label className="block text-sm font-medium text-app-secondary mb-2">
+                      Должность
+                    </label>
+                    <input
+                      type="text"
+                      value={editPosition}
+                      maxLength={200}
+                      onChange={(e) => setEditPosition(e.target.value)}
+                      className="glass-input w-full px-4 py-2"
+                      placeholder="Оставьте пустым, если не задана"
                     />
                   </div>
 

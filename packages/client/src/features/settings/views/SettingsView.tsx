@@ -63,9 +63,12 @@ export const SettingsView: React.FC = () => {
               onClick={() => setActiveTab(tab.id)}
               className={`flex items-center gap-2 px-3 sm:px-4 py-2 rounded-lg transition-colors whitespace-nowrap ${
                 activeTab === tab.id
-                  ? 'bg-blue-500 text-white'
+                  ? 'text-white'
                   : 'text-app hover:bg-surface-2'
               }`}
+              style={{
+                background: activeTab === tab.id ? 'var(--color-primary)' : undefined
+              }}
             >
               {tab.icon}
               <span className="font-medium text-sm sm:text-base">{tab.label}</span>

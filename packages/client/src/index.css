@@ -48,9 +48,9 @@
   --glass-bg-deep: 235 240 250;
   --glass-bg-mid: 255 255 255;
   --glass-bg-top: 255 255 255;
-  --glass-tint-deep: 0.36;
-  --glass-tint-mid: 0.58;
-  --glass-tint-top: 0.72;
+  --glass-tint-deep: 0.45;
+  --glass-tint-mid: 0.65;
+  --glass-tint-top: 0.85;
 
   --glass-border: rgba(255, 255, 255, 0.55);
   --glass-border-soft: rgba(255, 255, 255, 0.35);
@@ -225,7 +225,11 @@ body.has-bg-image {
   --glass-tint-deep: 0.62;
   --glass-tint-mid: 0.72;
   --glass-tint-top: 0.82;
+  /* Темные рамки в светлой теме при фоновом изображении */
+  --glass-border: rgba(0, 0, 0, 0.15);
+  --glass-border-soft: rgba(0, 0, 0, 0.08);
 }
+
 html.dark body.has-bg-image {
   --glass-tint-deep: 0.78;
   --glass-tint-mid: 0.82;
@@ -485,7 +489,7 @@ html.dark body.has-bg-image {
   background: transparent;
   transition: background 160ms var(--ease-standard), color 160ms var(--ease-standard), transform 160ms var(--ease-spring);
   cursor: pointer;
-  border: 1px solid transparent;
+  border: none;
 }
 
 .btn-icon:hover {
@@ -500,7 +504,37 @@ html.dark body.has-bg-image {
 .btn-icon.is-active {
   background: rgba(var(--color-primary-rgb), 0.12);
   color: var(--color-primary);
-  border-color: rgba(var(--color-primary-rgb), 0.25);
+  border: none;
+}
+
+/* Убираем обводку у кнопок в темной теме */
+.dark .btn-icon {
+  border: none !important;
+  outline: none !important;
+  box-shadow: none !important;
+}
+.dark .btn-icon::before,
+.dark .btn-icon::after {
+  display: none !important;
+}
+
+/* Убираем градиентную обводку у glass элементов в темной теме */
+.dark .glass-top::before,
+.dark .glass-mid::before,
+.dark .glass-deep::before {
+  display: none !important;
+}
+
+/* Убираем border у glass элементов в темной теме */
+.dark .glass-top,
+.dark .glass-mid,
+.dark .glass-deep {
+  border: none !important;
+}
+
+/* Убираем divider линии в темной теме */
+.dark .divider {
+  display: none !important;
 }
 
 /* Текстовые градиенты */
@@ -594,7 +628,18 @@ html.dark body.has-bg-image {
   /* gradient-обводки из .glass-* лежат на ::before. Дополнительный
      слой выделения цепляется к ::after, плюс свой собственный ::before
      перекрывается inset background-image у .select-shimmer-glow. */
-  transition: box-shadow 220ms var(--ease-standard);
+  transform: scale(1);
+  transform-origin: center center;
+  transition:
+    box-shadow 220ms var(--ease-standard),
+    transform 220ms var(--ease-standard);
+  will-change: transform;
+}
+
+.select-shimmer[data-selected="true"] {
+  /* При выделении письмо чуть «вжимается» в плоскость, как будто его
+     прижимает легким нажатием — даёт тактильный отклик. */
+  transform: scale(0.97);
 }
 
 .select-shimmer[data-selected="true"] {
@@ -660,6 +705,17 @@ html.dark body.has-bg-image {
 }
 .dark .modal-backdrop {
   background: rgba(0, 0, 0, 0.55);
+}
+
+/* Специальный класс для ComposeModal - без прозрачности */
+.compose-modal-solid {
+  background: rgb(235, 240, 250) !important;
+  border: 1px solid rgb(200, 210, 230) !important;
+}
+
+.dark .compose-modal-solid {
+  background: rgb(28, 28, 30) !important;
+  border: 1px solid rgb(48, 48, 50) !important;
 }
 
 /* Glass-стилизованные выпадающие списки/селекты/опции */
@@ -901,8 +957,8 @@ button, a, input, select, textarea, label {
   -webkit-backdrop-filter: blur(28px) saturate(170%);
   border: 1px solid var(--glass-border-soft);
   border-bottom: 0;
-  border-top-left-radius: var(--radius-xl);
-  border-top-right-radius: var(--radius-xl);
+  border-top-left-radius: 8px;
+  border-top-right-radius: 8px;
   border-bottom-left-radius: 0;
   border-bottom-right-radius: 0;
   box-shadow:

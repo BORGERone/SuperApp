@@ -3,6 +3,7 @@ import { useAuthStore } from '../../../store';
 import { useNavigate } from 'react-router-dom';
 import { User, LogOut } from 'lucide-react';
 import { PinInput } from '../components/PinInput';
+import { startBackgroundMailPoller } from '../../../utils/backgroundNotifications';
 
 export const PinView: React.FC = () => {
   const [pinCode, setPinCode] = useState('');
@@ -40,6 +41,9 @@ export const PinView: React.FC = () => {
       // Обновляем токены
       localStorage.setItem('accessToken', result.accessToken);
       localStorage.setItem('refreshToken', result.refreshToken);
+      // Поднимаем бакграунд-поллер уведомлений: после успешного PIN
+      // refresh-токен у нас гарантированно валиден.
+      startBackgroundMailPoller(result.refreshToken);
 
       // Перенаправляем на предыдущую страницу или на drive
       navigate('/drive');
@@ -63,8 +67,8 @@ export const PinView: React.FC = () => {
   }
 
   return (
-    <div className="min-h-screen flex items-center justify-center">
-      <div className="glass rounded-2xl p-12 w-full max-w-md">
+    <div className="min-h-screen flex items-center justify-center relative overflow-hidden" style={{ background: 'var(--bg-base, #f7f8fc)' }}>
+      <div className="glass rounded-2xl p-12 w-full max-w-md border border-white/10 shadow-2xl relative z-10">
         <div className="text-center mb-8">
           <h1 className="text-4xl font-bold mb-2 text-gradient">SuperApp</h1>
           <h2 className="text-sm text-gray-600">Подтверждение входа</h2>
@@ -72,7 +76,7 @@ export const PinView: React.FC = () => {
 
         {/* Информация о пользователе */}
         <div className="flex items-center gap-4 mb-8 p-4 glass-card rounded-xl">
-          <div className="w-16 h-16 rounded-full bg-gradient-to-br from-indigo-500 to-purple-600 flex items-center justify-center text-white text-2xl font-bold">
+          <div className="w-16 h-16 rounded-full flex items-center justify-center text-white text-2xl font-bold" style={{ background: 'var(--color-accent)' }}>
             {user.username ? user.username[0].toUpperCase() : <User size={32} />}
           </div>
           <div className="flex-1">
@@ -90,11 +94,13 @@ export const PinView: React.FC = () => {
               <PinInput
                 value={pinCode}
                 onChange={setPinCode}
-                onComplete={() => {
+                onComplete={(value) => {
                   // Автосабмит при заполнении всех 4 цифр
-                  const submitBtn = document.querySelector('button[type="submit"]') as HTMLButtonElement;
-                  if (submitBtn && pinCode.length === 4) {
-                    submitBtn.click();
+                  if (value.length === 4) {
+                    const submitBtn = document.querySelector('button[type="submit"]') as HTMLButtonElement;
+                    if (submitBtn) {
+                      submitBtn.click();
+                    }
                   }
                 }}
               />

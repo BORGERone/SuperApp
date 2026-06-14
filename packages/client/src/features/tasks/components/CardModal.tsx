@@ -20,6 +20,7 @@ import {
   useUpdateSubtask,
 } from '../api/tasksApi';
 import { AssigneePicker } from './AssigneePicker';
+import { useBodyModalOpen } from '../../../utils/useBodyModalOpen';
 
 interface CardModalProps {
   card: TaskCard;
@@ -49,12 +50,7 @@ export const CardModal: React.FC<CardModalProps> = ({ card, columns, onClose }) 
   const deleteCard = useDeleteCard();
   const createSubtask = useCreateSubtask();
 
-  useEffect(() => {
-    document.body.classList.add('has-modal-open');
-    return () => {
-      document.body.classList.remove('has-modal-open');
-    };
-  }, []);
+  useBodyModalOpen(true);
   const updateSubtask = useUpdateSubtask();
   const deleteSubtask = useDeleteSubtask();
 
@@ -201,7 +197,12 @@ export const CardModal: React.FC<CardModalProps> = ({ card, columns, onClose }) 
       onClick={onClose}
     >
       <div
-        className="glass-top scale-in relative flex max-h-[95vh] w-full max-w-3xl flex-col overflow-hidden rounded-3xl"
+        className="scale-in relative flex max-h-[95vh] w-full max-w-3xl flex-col overflow-hidden rounded-3xl compose-modal-solid"
+        style={{
+          maxHeight: 'calc(100vh - 64px)',
+          boxShadow: '0 10px 30px rgba(0,0,0,0.2)',
+          backdropFilter: 'none'
+        }}
         onClick={(event) => event.stopPropagation()}
       >
         <div className="flex items-start gap-3 px-6 py-5 relative">

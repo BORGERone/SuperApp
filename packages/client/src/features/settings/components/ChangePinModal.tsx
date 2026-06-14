@@ -1,7 +1,8 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState } from 'react';
 import ReactDOM from 'react-dom';
 import { useChangePin } from '../../../features/auth/api/authApi';
 import { PinInput } from '../../../features/auth/components/PinInput';
+import { useBodyModalOpen } from '../../../utils/useBodyModalOpen';
 
 interface ChangePinModalProps {
   isOpen: boolean;
@@ -18,14 +19,7 @@ export const ChangePinModal: React.FC<ChangePinModalProps> = ({ isOpen, onClose 
 
   const changePinMutation = useChangePin();
 
-  useEffect(() => {
-    if (isOpen) {
-      document.body.classList.add('has-modal-open');
-      return () => {
-        document.body.classList.remove('has-modal-open');
-      };
-    }
-  }, [isOpen]);
+  useBodyModalOpen(isOpen);
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();

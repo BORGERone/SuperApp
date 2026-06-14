@@ -152,6 +152,10 @@ ensureColumn('task_columns', 'archived', 'INTEGER NOT NULL DEFAULT 0');
 ensureColumn('task_columns', 'archived_at', 'INTEGER');
 ensureColumn('users', 'avatar_url', 'TEXT');
 ensureColumn('users', 'pin_code', 'TEXT');
+// Должность сотрудника. Не обязательна, по умолчанию пусто.
+ensureColumn('users', 'position', 'TEXT');
+// Наследование прав от родительской папки в сетевом диске.
+ensureColumn('files', 'parent_id', 'TEXT');
 
 // Инициализация базы данных с начальными пользователями
 async function initDatabase() {

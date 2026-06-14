@@ -92,16 +92,32 @@ ipcMain.handle('dialog:saveFile', async (event, options) => {
 // IPC handler для показа уведомлений через Electron (для правильного отображения имени)
 ipcMain.handle('show-notification', async (event, options) => {
   const { Notification } = require('electron');
-  
+
   const notification = new Notification({
     title: options.title,
     body: options.body,
     icon: options.icon || undefined,
     appName: 'SuperApp',
   });
-  
+
+  // Добавляем обработчик клика на уведомление
+  notification.on('click', () => {
+    console.log('Notification clicked in Electron main process');
+    // Раскрываем окно
+    if (mainWindow) {
+      if (mainWindow.isMinimized()) {
+        mainWindow.restore();
+      }
+      mainWindow.focus();
+    }
+    // Отправляем сообщение в renderer процесс для навигации
+    if (mainWindow) {
+      mainWindow.webContents.send('notification-clicked', '/mail/inbox');
+    }
+  });
+
   notification.show();
-  
+
   return { success: true };
 });
 

@@ -111,15 +111,16 @@ export const AssigneeFilter: React.FC<AssigneeFilterProps> = ({
         width: position.width,
         zIndex: 9999,
       }}
-      className="overflow-hidden rounded-2xl border border-white/70 bg-white/95 shadow-xl backdrop-blur-md"
+      className="overflow-hidden rounded-2xl border border-app-border glass-top shadow-xl backdrop-blur-md dark:border-gray-700"
     >
-      <div className="flex items-center justify-between px-3 py-2 text-[11px] font-semibold uppercase tracking-wide text-slate-500">
+      <div className="flex items-center justify-between px-3 py-2 text-[11px] font-semibold uppercase tracking-wide text-app-muted">
         <span>Фильтр</span>
         {activeCount > 0 && (
           <button
             type="button"
             onClick={clearAll}
-            className="text-[11px] font-semibold text-indigo-600 hover:text-indigo-800"
+            className="text-[11px] font-semibold hover:opacity-70"
+            style={{ color: 'var(--color-primary)' }}
           >
             Сбросить
           </button>
@@ -130,26 +131,27 @@ export const AssigneeFilter: React.FC<AssigneeFilterProps> = ({
         <button
           type="button"
           onClick={toggleMine}
-          className={`flex w-full items-center gap-3 border-t border-white/50 px-3 py-2 text-left transition-colors hover:bg-indigo-50/70 ${
-            isMineActive ? 'bg-indigo-50/60' : ''
+          className={`flex w-full items-center gap-3 px-3 py-2 text-left transition-colors hover:bg-surface-2 ${
+            isMineActive ? 'bg-surface-2' : ''
           }`}
         >
           <span
             className={`flex h-5 w-5 flex-shrink-0 items-center justify-center rounded-md border ${
               isMineActive
-                ? 'border-indigo-500 bg-indigo-500 text-white'
-                : 'border-slate-300 bg-white'
+                ? 'border-app-border bg-app-border text-white'
+                : 'border-app-border bg-surface-1'
             }`}
+            style={isMineActive ? { background: 'var(--color-primary)', borderColor: 'var(--color-primary)' } : {}}
           >
             {isMineActive && <Check size={12} />}
           </span>
-          <span className="flex-1 text-sm font-semibold text-indigo-700">Мои задачи</span>
+          <span className="flex-1 text-sm font-semibold text-app">Мои задачи</span>
         </button>
       )}
 
       <div className="max-h-64 overflow-y-auto">
         {otherUsers.length === 0 ? (
-          <div className="border-t border-white/50 px-3 py-3 text-sm text-slate-500">
+          <div className="px-3 py-3 text-sm text-app-muted">
             Других пользователей нет
           </div>
         ) : (
@@ -160,27 +162,28 @@ export const AssigneeFilter: React.FC<AssigneeFilterProps> = ({
                 key={user.id}
                 type="button"
                 onClick={() => toggleUser(user.id)}
-                className={`flex w-full items-center gap-3 border-t border-white/50 px-3 py-2 text-left transition-colors hover:bg-indigo-50/70 ${
-                  isSelected ? 'bg-indigo-50/40' : ''
+                className={`flex w-full items-center gap-3 px-3 py-2 text-left transition-colors hover:bg-surface-2 ${
+                  isSelected ? 'bg-surface-2' : ''
                 }`}
               >
                 <span
                   className={`flex h-5 w-5 flex-shrink-0 items-center justify-center rounded-md border ${
                     isSelected
-                      ? 'border-indigo-500 bg-indigo-500 text-white'
-                      : 'border-slate-300 bg-white'
+                      ? 'border-app-border bg-app-border text-white'
+                      : 'border-app-border bg-surface-1'
                   }`}
+                  style={isSelected ? { background: 'var(--color-primary)', borderColor: 'var(--color-primary)' } : {}}
                 >
                   {isSelected && <Check size={12} />}
                 </span>
                 {user.avatarUrl ? (
                   <img src={user.avatarUrl} alt={user.username} className="w-5 h-5 rounded-full object-cover" />
                 ) : (
-                  <UserCircle size={18} className="text-indigo-500/80" />
+                  <UserCircle size={18} style={{ color: 'var(--color-primary)' }} />
                 )}
-                <span className="flex-1 text-sm text-slate-700">
+                <span className="flex-1 text-sm text-app">
                   <span className="font-medium">{user.username}</span>
-                  <span className="ml-1 text-xs text-slate-400">{user.email}</span>
+                  <span className="ml-1 text-xs text-app-muted">{user.email}</span>
                 </span>
               </button>
             );
@@ -202,19 +205,20 @@ export const AssigneeFilter: React.FC<AssigneeFilterProps> = ({
           aria-expanded={isOpen}
         >
           <Filter
-            className="pointer-events-none absolute left-3 top-1/2 -translate-y-1/2 text-gray-400"
+            className="pointer-events-none absolute left-3 top-1/2 -translate-y-1/2 text-app-muted"
             size={16}
           />
           <span
             className={`flex-1 truncate ${
-              activeCount > 0 ? 'font-semibold text-indigo-700' : ''
+              activeCount > 0 ? 'font-semibold' : ''
             }`}
+            style={activeCount > 0 ? { color: 'var(--color-primary)' } : {}}
           >
             {labelText}
           </span>
           <ChevronDown
             size={14}
-            className={`text-gray-400 transition-transform ${isOpen ? 'rotate-180' : ''}`}
+            className={`text-app-muted transition-transform ${isOpen ? 'rotate-180' : ''}`}
           />
         </button>
       </div>

@@ -224,29 +224,101 @@ export const Sidebar: React.FC = () => {
           onClick={() => setIsCollapsed(!isCollapsed)}
           className="btn-icon"
           aria-label={isCollapsed ? 'Развернуть меню' : 'Свернуть меню'}
+          data-component-name="Sidebar"
         >
-          <div className="w-6 h-5 relative flex flex-col justify-center">
+          {/*
+            Морфинг бургер ↔ двойная стрелка вверх. Каждая из верхней/нижней
+            полосок — это два плеча, которые поворачиваются вокруг вершины в шеврон,
+            а средняя полоска исчезает. Всё на transform/opacity — плавный переход.
+          */}
+          <div className="relative" style={{ width: 24, height: 20 }}>
+            {/* Верхний шеврон / верхняя полоска */}
             <div
-              className="w-6 h-0.5 bg-current rounded-full origin-center"
+              className="absolute left-0 right-0"
               style={{
-                transform: isCollapsed ? 'rotate(-45deg) translateY(-4px)' : 'none',
+                top: 0,
+                height: 2,
+                transform: `translateY(${isCollapsed ? 2 : 4}px)`,
                 transition: 'transform 360ms cubic-bezier(0.16, 1, 0.3, 1)',
               }}
-            />
+            >
+              <div
+                className="absolute bg-current rounded-full"
+                style={{
+                  height: 2,
+                  width: 13,
+                  right: '50%',
+                  top: -1,
+                  marginRight: -0.5,
+                  transformOrigin: '100% 50%',
+                  transform: `rotate(${isCollapsed ? -45 : 0}deg)`,
+                  transition: 'transform 360ms cubic-bezier(0.16, 1, 0.3, 1)',
+                }}
+              />
+              <div
+                className="absolute bg-current rounded-full"
+                style={{
+                  height: 2,
+                  width: 13,
+                  left: '50%',
+                  top: -1,
+                  marginLeft: -0.5,
+                  transformOrigin: '0% 50%',
+                  transform: `rotate(${isCollapsed ? 45 : 0}deg)`,
+                  transition: 'transform 360ms cubic-bezier(0.16, 1, 0.3, 1)',
+                }}
+              />
+            </div>
+            {/* Средняя полоска — только в развёрнутом состоянии */}
             <div
-              className="w-6 h-0.5 bg-current rounded-full my-1"
+              className="absolute bg-current rounded-full"
               style={{
-                transform: isCollapsed ? 'rotate(45deg) translateY(-4px)' : 'none',
-                transition: 'transform 360ms cubic-bezier(0.16, 1, 0.3, 1)',
+                top: 0,
+                height: 2,
+                width: 26,
+                left: '50%',
+                transform: 'translate(-50%, 9px)',
+                opacity: isCollapsed ? 0 : 1,
+                transition: 'opacity 240ms cubic-bezier(0.16, 1, 0.3, 1)',
               }}
             />
+            {/* Нижний шеврон / нижняя полоска */}
             <div
-              className="w-6 h-0.5 bg-current rounded-full"
+              className="absolute left-0 right-0"
               style={{
-                transform: isCollapsed ? 'rotate(90deg) scale(0.75)' : 'none',
+                top: 0,
+                height: 2,
+                transform: `translateY(${isCollapsed ? 10 : 16}px)`,
                 transition: 'transform 360ms cubic-bezier(0.16, 1, 0.3, 1)',
               }}
-            />
+            >
+              <div
+                className="absolute bg-current rounded-full"
+                style={{
+                  height: 2,
+                  width: 13,
+                  right: '50%',
+                  top: -1,
+                  marginRight: -0.5,
+                  transformOrigin: '100% 50%',
+                  transform: `rotate(${isCollapsed ? -45 : 0}deg)`,
+                  transition: 'transform 360ms cubic-bezier(0.16, 1, 0.3, 1)',
+                }}
+              />
+              <div
+                className="absolute bg-current rounded-full"
+                style={{
+                  height: 2,
+                  width: 13,
+                  left: '50%',
+                  top: -1,
+                  marginLeft: -0.5,
+                  transformOrigin: '0% 50%',
+                  transform: `rotate(${isCollapsed ? 45 : 0}deg)`,
+                  transition: 'transform 360ms cubic-bezier(0.16, 1, 0.3, 1)',
+                }}
+              />
+            </div>
           </div>
         </button>
       </div>

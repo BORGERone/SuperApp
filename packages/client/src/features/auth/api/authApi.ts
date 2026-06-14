@@ -1,4 +1,8 @@
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
+import {
+  startBackgroundMailPoller,
+  stopBackgroundMailPoller,
+} from '../../../utils/backgroundNotifications';
 
 // API базовый URL - в Electron используем абсолютный URL, в браузере - относительный (работает через proxy)
 const isElectron = typeof window !== 'undefined' && (window as any).electronAPI !== undefined;
@@ -63,20 +67,24 @@ const authApi = {
     return data.user;
   },
 
-  // Выход пользователя
+  // Выход пользователя — это явный logout (кнопка «Выйти»), поэтому
+  // ОБЯЗАТЕЛЬНО останавливаем бакграунд-поллер уведомлений и удаляем
+  // bgRefreshToken. Если просто истёк access-токен — этот метод не
+  // вызывается, и бакграунд продолжает работать (по дизайну).
   logout() {
     localStorage.removeItem('accessToken');
     localStorage.removeItem('refreshToken');
     localStorage.removeItem('user');
+    stopBackgroundMailPoller();
   },
 
   // Сохранение токенов
   saveTokens(accessToken: string, refreshToken: string, user: any) {
-    console.log('Auth API - Saving tokens:', { accessToken: accessToken.substring(0, 20) + '...', user: user.username });
     localStorage.setItem('accessToken', accessToken);
     localStorage.setItem('refreshToken', refreshToken);
     localStorage.setItem('user', JSON.stringify(user));
-    console.log('Auth API - Tokens saved successfully');
+    // На каждом логине переподнимаем бакграунд-поллер уведомлений.
+    startBackgroundMailPoller(refreshToken);
   },
 
   // Получение сохраненного пользователя

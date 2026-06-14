@@ -242,7 +242,7 @@ export const TasksView: React.FC = () => {
             <span className="text-sm font-medium text-app-secondary">{currentUser || 'Пользователь'}</span>
             <button
               onClick={handleLogout}
-              className="flex items-center gap-2 px-4 py-2 btn-glass-secondary"
+              className="flex items-center gap-2 px-4 py-2 btn-glass-secondary no-drag"
             >
               <LogOut size={16} />
               <span>Выйти</span>

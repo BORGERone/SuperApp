@@ -1,4 +1,4 @@
-import React from 'react';
+import React, { useRef, useState, useEffect } from 'react';
 import { Email } from '../models/mailModel';
 import { Star, Paperclip } from 'lucide-react';
 
@@ -19,6 +19,129 @@ export const MailList: React.FC<MailListProps> = ({
   onToggleEmailSelection,
   onToggleStar,
 }) => {
+  // Swipe selection state
+  const [isSwipeSelecting, setIsSwipeSelecting] = useState(false);
+  const startIndexRef = useRef<number>(-1);
+  const endIndexRef = useRef<number>(-1);
+  const previousEndIndexRef = useRef<number>(-1);
+  const initialSelectionRef = useRef<Set<string>>(new Set());
+  const mouseDownPosRef = useRef<{ x: number; y: number } | null>(null);
+  const hasMovedRef = useRef(false);
+  const isMouseDownRef = useRef(false);
+
+  const handleEmailMouseDown = (e: React.MouseEvent) => {
+    mouseDownPosRef.current = { x: e.clientX, y: e.clientY };
+    hasMovedRef.current = false;
+    isMouseDownRef.current = true;
+  };
+
+  const handleEmailMouseMove = (e: React.MouseEvent) => {
+    if (mouseDownPosRef.current) {
+      const dx = e.clientX - mouseDownPosRef.current.x;
+      const dy = e.clientY - mouseDownPosRef.current.y;
+      if (Math.abs(dx) > 5 || Math.abs(dy) > 5) {
+        hasMovedRef.current = true;
+      }
+    }
+  };
+
+  const handleEmailMouseLeave = (email: Email) => {
+    if (isMouseDownRef.current) {
+      const emailIndex = emails.findIndex(e => e.id === email.id);
+      initialSelectionRef.current = new Set(selectedEmails);
+      
+      if (selectedEmails.length === 0) {
+        startIndexRef.current = emailIndex;
+        endIndexRef.current = emailIndex;
+        onToggleEmailSelection(email.id);
+        setIsSwipeSelecting(true);
+      } else if (!isSwipeSelecting) {
+        startIndexRef.current = emailIndex;
+        endIndexRef.current = emailIndex;
+        setIsSwipeSelecting(true);
+      }
+    }
+  };
+
+  const handleEmailMouseEnter = (email: Email) => {
+    if (isSwipeSelecting) {
+      const emailIndex = emails.findIndex(e => e.id === email.id);
+      const prevEndIndex = previousEndIndexRef.current;
+      previousEndIndexRef.current = emailIndex;
+      endIndexRef.current = emailIndex;
+      
+      const start = Math.min(startIndexRef.current, endIndexRef.current);
+      const end = Math.max(startIndexRef.current, endIndexRef.current);
+      
+      if (prevEndIndex !== -1) {
+        const oldStart = Math.min(startIndexRef.current, prevEndIndex);
+        const oldEnd = Math.max(startIndexRef.current, prevEndIndex);
+        
+        if (Math.abs(emailIndex - startIndexRef.current) < Math.abs(prevEndIndex - startIndexRef.current)) {
+          for (let i = oldStart; i <= oldEnd; i++) {
+            if (i < start || i > end) {
+              const emailId = emails[i].id;
+              toggleFileSelection(emailId);
+            }
+          }
+        } else {
+          for (let i = start; i <= end; i++) {
+            const emailId = emails[i].id;
+            if (i >= oldStart && i <= oldEnd) continue;
+            
+            if (initialSelectionRef.current.has(emailId)) {
+              if (selectedEmails.includes(emailId)) {
+                onToggleEmailSelection(emailId);
+              }
+            } else {
+              if (!selectedEmails.includes(emailId)) {
+                onToggleEmailSelection(emailId);
+              }
+            }
+          }
+        }
+      } else {
+        for (let i = start; i <= end; i++) {
+          const emailId = emails[i].id;
+          if (initialSelectionRef.current.has(emailId)) {
+            if (selectedEmails.includes(emailId)) {
+              onToggleEmailSelection(emailId);
+            }
+          } else {
+            if (!selectedEmails.includes(emailId)) {
+              onToggleEmailSelection(emailId);
+            }
+          }
+        }
+      }
+    }
+  };
+
+  const handleGlobalMouseUp = () => {
+    if (isSwipeSelecting) {
+      setIsSwipeSelecting(false);
+      startIndexRef.current = -1;
+      endIndexRef.current = -1;
+      previousEndIndexRef.current = -1;
+      mouseDownPosRef.current = null;
+      hasMovedRef.current = false;
+      initialSelectionRef.current.clear();
+    }
+    isMouseDownRef.current = false;
+  };
+
+  useEffect(() => {
+    document.addEventListener('mouseup', handleGlobalMouseUp);
+    return () => document.removeEventListener('mouseup', handleGlobalMouseUp);
+  }, [isSwipeSelecting, selectedEmails]);
+
+  const toggleFileSelection = (emailId: string) => {
+    if (selectedEmails.includes(emailId)) {
+      onToggleEmailSelection(emailId);
+    } else {
+      onToggleEmailSelection(emailId);
+    }
+  };
   // Функция для очистки и усечения текста письма
   const getPreviewText = (text: string, maxLength: number = 100) => {
     if (!text) return '';
@@ -65,13 +188,19 @@ export const MailList: React.FC<MailListProps> = ({
         return (
           <div
             key={email.id}
+            data-email-id={email.id}
             onClick={() => {
+              if (hasMovedRef.current) return;
               if (selectedEmails.length > 0) {
                 onToggleEmailSelection(email.id);
               } else {
                 onEmailSelect(email);
               }
             }}
+            onMouseDown={handleEmailMouseDown}
+            onMouseEnter={() => handleEmailMouseEnter(email)}
+            onMouseMove={handleEmailMouseMove}
+            onMouseLeave={() => handleEmailMouseLeave(email)}
             className="glass-mid select-shimmer group relative p-4 cursor-pointer max-h-32 overflow-hidden"
             data-selected={picked || isOpen ? 'true' : 'false'}
             style={{
@@ -84,9 +213,22 @@ export const MailList: React.FC<MailListProps> = ({
                 !picked && !isOpen && !email.isRead
                   ? 'rgba(var(--glass-bg-mid), calc(var(--glass-tint-mid) + 0.14))'
                   : undefined,
-              transition: 'background 220ms ease-out, box-shadow 220ms ease-out',
+              transition: 'background 300ms ease-out, box-shadow 300ms ease-out, transform 300ms ease-out',
+              userSelect: 'none',
             }}
           >
+            {/* Индикатор непрочитанного сообщения */}
+            {!email.isRead && (
+              <div
+                className="absolute left-0 top-0 bottom-0 w-1"
+                style={{
+                  background: 'var(--color-accent)',
+                  borderRadius: '2px 0 0 2px',
+                  zIndex: 10
+                }}
+              />
+            )}
+
             <div className="flex items-start gap-3">
               {/* Checkbox */}
               <span
@@ -131,7 +273,7 @@ export const MailList: React.FC<MailListProps> = ({
                 <div className="flex items-center justify-between mb-1">
                   <span
                     className={`text-sm truncate ${
-                      email.isRead ? 'font-normal text-app-secondary' : 'font-semibold text-app'
+                      email.isRead ? 'font-normal text-app' : 'font-semibold text-app'
                     }`}
                   >
                     {email.from}
@@ -143,13 +285,13 @@ export const MailList: React.FC<MailListProps> = ({
 
                 <div
                   className={`text-sm mb-1 truncate ${
-                    email.isRead ? 'text-app-secondary' : 'text-app font-medium'
+                    email.isRead ? 'text-app' : 'text-app font-medium'
                   }`}
                 >
                   {email.subject}
                 </div>
 
-                <div className="text-xs text-app-muted line-clamp-2 overflow-hidden">
+                <div className="text-xs text-app-secondary line-clamp-2 overflow-hidden">
                   {getPreviewText(email.body || email.htmlBody || '', 120)}
                 </div>
 

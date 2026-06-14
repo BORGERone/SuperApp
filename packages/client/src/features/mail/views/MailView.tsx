@@ -1,5 +1,5 @@
 import React, { useEffect, useState, useRef } from 'react';
-import { Search, Trash2, Star, Filter } from 'lucide-react';
+import { Search, Trash2, Star, Filter, CheckCircle2, Circle } from 'lucide-react';
 import { useMailStore } from '../viewmodels/mailViewModel';
 import { MailFolder, Email } from '../models/mailModel';
 import { MailList } from '../components/MailList';
@@ -8,7 +8,7 @@ import { ComposeModal } from '../components/ComposeModal';
 import { useEmails, useUpdateEmail, useDeleteEmail, useMoveEmail } from '../api/mailApi';
 import { useQueryClient } from '@tanstack/react-query';
 import { useLocation } from 'react-router-dom';
-import { showNotification, requestNotificationPermission } from '../../../utils/notifications';
+import { requestNotificationPermission } from '../../../utils/notifications';
 
 export const MailView: React.FC = () => {
   const location = useLocation();
@@ -34,6 +34,7 @@ export const MailView: React.FC = () => {
     setCurrentFolder,
     setFilters,
     openCompose,
+    openComposeForForward,
     closeCompose,
     deleteEmail,
     moveToFolder,
@@ -87,24 +88,10 @@ export const MailView: React.FC = () => {
 
   // Отслеживание новых писем и показ уведомлений
   useEffect(() => {
-    if (currentFolder === 'inbox' && emailsData.length > 0) {
-      const currentCount = emailsData.length;
-      
-      // Если количество писем увеличилось, показываем уведомление
-      if (currentCount > previousEmailsCount.current && previousEmailsCount.current > 0) {
-        const newEmailsCount = currentCount - previousEmailsCount.current;
-        const latestEmail = emailsData[0]; // Новые письма будут в начале массива
-        
-        showNotification(
-          `Новое письмо${newEmailsCount > 1 ? 'я' : ''}`,
-          `${latestEmail.from}: ${latestEmail.subject}`,
-          'email'
-        );
-      }
-      
-      previousEmailsCount.current = currentCount;
+    if (emailsData.length > 0) {
+      previousEmailsCount.current = emailsData.length;
     }
-  }, [emailsData, currentFolder]);
+  }, [emailsData]);
 
   
   const updateEmailMutation = useUpdateEmail();
@@ -225,6 +212,16 @@ export const MailView: React.FC = () => {
     }
   };
 
+  const handleSelectAll = () => {
+    if (selectedEmails.length > 0) {
+      // Снимаем выделение со всех
+      selectedEmails.forEach(id => toggleEmailSelection(id));
+    } else {
+      // Выделяем все
+      filteredEmails.forEach(email => toggleEmailSelection(email.id));
+    }
+  };
+
   const handleMoveToFolder = (folder: MailFolder) => {
     if (selectedEmails.length > 0) {
       selectedEmails.forEach(id => {
@@ -263,6 +260,18 @@ export const MailView: React.FC = () => {
         {!selectedEmail && (
           <div className="glass-deep p-3 slide-in-left">
             <div className="flex items-center gap-2">
+              <button
+                onClick={handleSelectAll}
+                className="btn-icon"
+                title={selectedEmails.length > 0 ? 'Снять выделение' : 'Выделить все'}
+              >
+                {selectedEmails.length > 0 ? (
+                  <CheckCircle2 size={18} className="text-primary" />
+                ) : (
+                  <Circle size={18} className="text-app" />
+                )}
+              </button>
+
               <div className="flex-1 relative no-drag">
                 <Search
                   className="absolute left-3 top-1/2 transform -translate-y-1/2 text-app-muted"
@@ -310,7 +319,7 @@ export const MailView: React.FC = () => {
         {/* Email List and Detail */}
         <div className="flex-1 flex flex-col min-h-0">
           {selectedEmail ? (
-            <div className="flex items-center gap-2 mb-3 slide-in-left">
+            <div className="flex items-center gap-2 mb-3 slide-in-left no-drag">
               <button
                 onClick={() => setSelectedEmail(null)}
                 className="btn-glass-secondary px-3 py-1.5 flex items-center gap-2"
@@ -330,7 +339,7 @@ export const MailView: React.FC = () => {
                 <MailItem
                   email={selectedEmail}
                   onReply={() => openCompose(selectedEmail)}
-                  onForward={() => openCompose(selectedEmail)}
+                  onForward={() => openComposeForForward()}
                   onDelete={() => {
                     deleteEmailMutation.mutate(selectedEmail.id);
                     setSelectedEmail(null);
@@ -342,8 +351,8 @@ export const MailView: React.FC = () => {
                 />
               </div>
             ) : (
-              <div className="glass-mid p-3 overflow-hidden flex flex-col h-full slide-in-left">
-                <div className="flex-1 overflow-y-auto">
+              <div className="glass-mid p-2 overflow-hidden flex flex-col h-full slide-in-left">
+                <div className="flex-1 overflow-y-auto px-1">
                   {filteredEmails.length === 0 ? (
                     <div className="flex items-center justify-center h-full">
                       <div className="text-app-muted text-center fade-in">

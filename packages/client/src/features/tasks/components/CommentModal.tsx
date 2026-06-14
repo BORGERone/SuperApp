@@ -13,6 +13,7 @@ import {
   useTaskComments,
 } from '../api/tasksApi';
 import { useUsers } from '../../auth/api/usersApi';
+import { useBodyModalOpen } from '../../../utils/useBodyModalOpen';
 
 // Функция для отправки логов на сервер
 const logToServer = async (message: string) => {
@@ -48,12 +49,7 @@ function formatDateTime(value: string): string {
 export const CommentModal: React.FC<CommentModalProps> = ({ card, currentUserId, onClose }) => {
   const { data: users = [], refetch } = useUsers();
 
-  useEffect(() => {
-    document.body.classList.add('has-modal-open');
-    return () => {
-      document.body.classList.remove('has-modal-open');
-    };
-  }, []);
+  useBodyModalOpen(true);
   
   // Принудительный сброс кэша при открытии модального окна
   useEffect(() => {
@@ -114,7 +110,12 @@ export const CommentModal: React.FC<CommentModalProps> = ({ card, currentUserId,
       onClick={onClose}
     >
       <div
-        className="glass-top scale-in relative flex max-h-[80vh] w-full max-w-2xl flex-col overflow-hidden rounded-3xl"
+        className="scale-in relative flex max-h-[80vh] w-full max-w-2xl flex-col overflow-hidden rounded-3xl compose-modal-solid"
+        style={{
+          maxHeight: 'calc(100vh - 64px)',
+          boxShadow: '0 10px 30px rgba(0,0,0,0.2)',
+          backdropFilter: 'none'
+        }}
         onClick={(event) => event.stopPropagation()}
       >
         <div className="flex items-center gap-3 px-6 py-5 relative">

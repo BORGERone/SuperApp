@@ -1,5 +1,6 @@
-import React, { useEffect } from 'react';
+import React from 'react';
 import { X } from 'lucide-react';
+import { useBodyModalOpen } from '../../../utils/useBodyModalOpen';
 
 interface GrantAccessModalProps {
   isOpen: boolean;
@@ -14,14 +15,7 @@ export const GrantAccessModal: React.FC<GrantAccessModalProps> = ({
   onConfirm,
   filesWithoutAccess,
 }) => {
-  useEffect(() => {
-    if (isOpen) {
-      document.body.classList.add('has-modal-open');
-      return () => {
-        document.body.classList.remove('has-modal-open');
-      };
-    }
-  }, [isOpen]);
+  useBodyModalOpen(isOpen);
 
   if (!isOpen) return null;
 

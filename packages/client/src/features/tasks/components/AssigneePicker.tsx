@@ -97,30 +97,30 @@ export const AssigneePicker: React.FC<AssigneePickerProps> = ({
   };
 
   const dropdownContent = (
-    <div className="bg-white/95 backdrop-blur-sm border border-gray-200/60 rounded-lg shadow-lg max-h-60 overflow-y-auto">
-      <div className="text-xs text-gray-400 p-2 border-b border-gray-200/60">
+    <div className="glass-top backdrop-blur-sm border border-app-border rounded-lg shadow-lg max-h-60 overflow-y-auto">
+      <div className="text-xs text-app-muted p-2 border-b border-app-border">
         Доступно пользователей: {filteredUsers.length}
       </div>
       {filteredUsers.length === 0 ? (
-        <div className="px-3 py-2 text-sm text-gray-500">Пользователи не найдены</div>
+        <div className="px-3 py-2 text-sm text-app-muted">Пользователи не найдены</div>
       ) : (
         filteredUsers.map((user) => (
           <div
             key={user.id}
             onClick={(event) => handleSelect(user, event)}
             onMouseDown={(event) => event.stopPropagation()}
-            className="flex items-center gap-3 px-3 py-2 hover:bg-blue-50/70 cursor-pointer transition-colors"
+            className="flex items-center gap-3 px-3 py-2 hover:bg-surface-2 cursor-pointer transition-colors"
           >
-            <div className="w-8 h-8 bg-blue-100 rounded-full flex items-center justify-center overflow-hidden">
+            <div className="w-8 h-8 rounded-full flex items-center justify-center overflow-hidden" style={{ background: 'rgba(var(--color-primary-rgb), 0.15)' }}>
               {user.avatarUrl ? (
                 <img src={user.avatarUrl} alt={user.username} className="w-full h-full object-cover" />
               ) : (
-                <UserIcon size={16} className="text-blue-600" />
+                <UserIcon size={16} style={{ color: 'var(--color-primary)' }} />
               )}
             </div>
             <div className="flex-1 min-w-0">
-              <div className="text-sm font-medium text-gray-900 truncate">{user.username}</div>
-              <div className="text-xs text-gray-500 truncate">{user.email}</div>
+              <div className="text-sm font-medium text-app truncate">{user.username}</div>
+              <div className="text-xs text-app-muted truncate">{user.email}</div>
             </div>
           </div>
         ))
@@ -138,7 +138,12 @@ export const AssigneePicker: React.FC<AssigneePickerProps> = ({
             return (
               <div
                 key={userId}
-                className="inline-flex items-center gap-2 px-3 py-1 bg-blue-100/70 text-blue-700 rounded-full text-sm"
+                className="inline-flex items-center gap-2 px-3 py-1 rounded-full text-sm ring-1"
+                style={{
+                  background: 'rgba(var(--color-primary-rgb), 0.15)',
+                  color: 'var(--color-primary)',
+                  borderColor: 'rgba(var(--color-primary-rgb), 0.4)'
+                }}
               >
                 {user?.avatarUrl ? (
                   <img src={user.avatarUrl} alt={label} className="w-4 h-4 rounded-full object-cover" />
@@ -149,7 +154,7 @@ export const AssigneePicker: React.FC<AssigneePickerProps> = ({
                 <button
                   type="button"
                   onClick={() => handleRemove(userId)}
-                  className="ml-1 text-blue-600 hover:text-blue-800"
+                  className="ml-1 hover:opacity-70"
                   aria-label="Убрать ответственного"
                 >
                   <X size={14} />
@@ -177,11 +182,11 @@ export const AssigneePicker: React.FC<AssigneePickerProps> = ({
             if (event.key === 'Escape') setIsOpen(false);
           }}
           placeholder={placeholder}
-          className="w-full px-3 py-2 pr-10 border border-gray-200/60 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-400 bg-white/80 text-gray-900"
+          className="glass-input w-full px-3 py-2 pr-10"
         />
         <ChevronDown
           size={16}
-          className="absolute right-3 top-1/2 -translate-y-1/2 text-gray-400 pointer-events-none"
+          className="absolute right-3 top-1/2 -translate-y-1/2 text-app-muted pointer-events-none"
         />
       </div>
 

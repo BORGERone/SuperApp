@@ -3,7 +3,7 @@ import React, { useRef, useState } from 'react';
 interface PinInputProps {
   value: string;
   onChange: (value: string) => void;
-  onComplete?: () => void;
+  onComplete?: (value: string) => void;
   isShaking?: boolean;
 }
 
@@ -24,7 +24,7 @@ export const PinInput: React.FC<PinInputProps> = ({ value, onChange, onComplete,
     onChange(numericValue);
 
     if (numericValue.length === 4) {
-      onComplete?.();
+      onComplete?.(numericValue);
       inputRef.current?.blur();
     }
   };

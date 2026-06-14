@@ -24,6 +24,7 @@ interface MailState {
   setCurrentFolder: (folder: MailFolder) => void;
   setFilters: (filters: Partial<MailFilters>) => void;
   openCompose: (replyTo?: Email) => void;
+  openComposeForForward: () => void;
   closeCompose: () => void;
   setSelectedEmail: (email: Email | null) => void;
   clearSelectedEmail: () => void;
@@ -91,11 +92,16 @@ export const useMailStore = create<MailState>((set, get) => ({
     filters: { ...state.filters, ...newFilters }
   })),
   
-  openCompose: (replyTo) => set({ 
-    isComposeOpen: true, 
-    replyEmail: replyTo || null 
+  openCompose: (replyTo) => set({
+    isComposeOpen: true,
+    replyEmail: replyTo || null
   }),
-  
+
+  openComposeForForward: () => set({
+    isComposeOpen: true,
+    replyEmail: null
+  }),
+
   closeCompose: () => set({
     isComposeOpen: false,
     replyEmail: null
