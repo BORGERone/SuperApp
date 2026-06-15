@@ -42,6 +42,22 @@ try { bun install } finally { Pop-Location }
 
 if ($Package) {
   # Сборка распространяемого установщика .exe.
+
+  # electron-builder обязателен для сборки .exe. На «перенесённых» node_modules
+  # обычный `bun install` иногда считает дерево готовым и не доустанавливает его —
+  # тогда сборка молча падает и .exe не появляется. Проверяем и при отсутствии
+  # чиним node_modules (`bun install --force`).
+  $bunDir = Join-Path $RepoRoot 'node_modules\.bun'
+  $ebPresent = $false
+  if (Test-Path $bunDir) {
+    $ebPresent = @(Get-ChildItem -Path $bunDir -Filter 'electron-builder@*' -Directory -ErrorAction SilentlyContinue).Count -gt 0
+  }
+  if (-not $ebPresent) {
+    Write-Host '-> electron-builder не найден в node_modules. Восстанавливаю зависимости (bun install --force)...' -ForegroundColor Yellow
+    Push-Location $RepoRoot
+    try { bun install --force } finally { Pop-Location }
+  }
+
   if ($ApiUrl) {
     $env:VITE_API_URL = $ApiUrl
     Write-Host ("-> Адрес сервера запекается в сборку: " + $ApiUrl)
@@ -49,17 +65,21 @@ if ($Package) {
     Write-Host '-> Адрес сервера НЕ запекается; задайте его на клиенте через'
     Write-Host '   config.json рядом с .exe или переменную SUPERAPP_API_URL.'
   }
+  $OutDir = Join-Path $ClientDir 'dist-electron'
   Push-Location $ClientDir
   try {
     Write-Host '-> Сборка установщика Electron (NSIS)...'
     bun run electron:build
-    Write-Host ("OK Установщик готов: " + (Join-Path $ClientDir 'dist-electron'))
+    if ($LASTEXITCODE -ne 0) { throw "electron-builder завершился с ошибкой ($LASTEXITCODE)." }
   } finally {
     Pop-Location
     if ($ApiUrl) { Remove-Item Env:\VITE_API_URL -ErrorAction SilentlyContinue }
   }
+
+  $exe = Get-ChildItem -Path $OutDir -Filter '*.exe' -File -ErrorAction SilentlyContinue | Sort-Object LastWriteTime -Descending | Select-Object -First 1
+  if (-not $exe) { throw "Сборка завершилась, но .exe не найден в $OutDir." }
   Write-Host ''
-  Write-Host '=== Готово. Установщик клиента собран. ===' -ForegroundColor Green
+  Write-Host ("=== Готово. Установщик: " + $exe.FullName + " ===") -ForegroundColor Green
   return
 }
 

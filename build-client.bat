@@ -2,21 +2,27 @@
 setlocal
 cd /d "%~dp0"
 chcp 65001 >nul
+set "PATH=%USERPROFILE%\.bun\bin;%PATH%"
 
 echo ============================================================
 echo   SuperApp - sborka ustanovshchika klienta (.exe, NSIS)
 echo ============================================================
 echo.
-echo Mozhno "zapech" adres servera v ustanovshchik, chtoby na
+echo Adres servera "zapekaetsya" v ustanovshchik, chtoby na
 echo kazhdoy mashine (vkl. Win7) ne pravit config.json vruchnuyu.
-echo Ostavte pustym, chtoby adres zadavalsya cherez config.json.
 echo.
-set "APIURL="
-set /p APIURL=Adres servera (naprimer http://192.168.1.10:3002), Enter = propustit: 
+echo Po umolchaniyu: https://prostroykrym.ru (Enter = ostavit).
+echo Vvedite drugoy adres, libo "none" chtoby NE zapekat (adres
+echo budet zadavatsya cherez config.json na kazhdoy mashine).
+echo.
+set "APIURL=https://prostroykrym.ru"
+set /p APIURL=Adres servera [%APIURL%]: 
 
-if "%APIURL%"=="" (
+if /I "%APIURL%"=="none" (
+  echo -^> Adres NE zapekaetsya (config.json na klientah).
   powershell -NoProfile -ExecutionPolicy Bypass -File "%~dp0installer\install-client.ps1" -Package
 ) else (
+  echo -^> Adres servera: %APIURL%
   powershell -NoProfile -ExecutionPolicy Bypass -File "%~dp0installer\install-client.ps1" -Package -ApiUrl "%APIURL%"
 )
 

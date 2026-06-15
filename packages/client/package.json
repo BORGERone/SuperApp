@@ -1,6 +1,8 @@
 {
   "name": "@superapp/client",
   "version": "0.1.0",
+  "description": "SuperApp desktop client",
+  "author": "SuperApp",
   "type": "module",
   "main": "electron/main.cjs",
   "scripts": {
