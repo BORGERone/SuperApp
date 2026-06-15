@@ -124,16 +124,23 @@ function Save-ServerEnv {
   Write-Log ("Записан .env -> " + $EnvPath + "  (PORT=" + $tbSrvPort.Text.Trim() + ", HOST=" + $tbSrvHost.Text.Trim() + ")")
 }
 
-function Save-ClientConfig {
+function Get-ClientApiBase {
   $proto = $cbProto.Text.Trim().ToLower()
   if ($proto -ne 'http' -and $proto -ne 'https') { $proto = 'https' }
   $h = $tbCliHost.Text.Trim()
   $p = [int]$tbCliPort.Text.Trim()
   if (($proto -eq 'https' -and $p -eq 443) -or ($proto -eq 'http' -and $p -eq 80)) {
-    $apiBase = "$proto`://$h"
-  } else {
-    $apiBase = "$proto`://$h`:$p"
+    return "$proto`://$h"
   }
+  return "$proto`://$h`:$p"
+}
+
+function Save-ClientConfig {
+  $proto = $cbProto.Text.Trim().ToLower()
+  if ($proto -ne 'http' -and $proto -ne 'https') { $proto = 'https' }
+  $h = $tbCliHost.Text.Trim()
+  $p = [int]$tbCliPort.Text.Trim()
+  $apiBase = Get-ClientApiBase
   $obj = [ordered]@{
     apiBaseUrl = $apiBase
     protocol   = $proto
@@ -159,6 +166,21 @@ function Start-ServerProc {
   $cmd = "set `"HOST=$h`" && set `"PORT=$p`" && echo Запуск Bun на $h`:$p ... && echo (окно не закрывать; остановка Ctrl+C) && echo. && bun run src\server.ts"
   Start-Console -Title "SuperApp server $h`:$p" -Command $cmd -WorkDir $ServerDir
   Write-Log ("Запущен Bun-сервер на " + $h + ":" + $p + " (отдельное окно — не закрывать).")
+}
+
+function Build-DesktopExe {
+  if (-not (Test-Bun)) { return }
+  $ps1 = Join-Path $ScriptDir 'install-client.ps1'
+  if (-not (Test-Path $ps1)) {
+    [System.Windows.Forms.MessageBox]::Show(
+      "Не найден скрипт сборки:`r`n$ps1",
+      'Нет install-client.ps1', 'OK', 'Warning') | Out-Null
+    return
+  }
+  $api = Get-ClientApiBase
+  $cmd = "powershell -NoProfile -ExecutionPolicy Bypass -File `"$ps1`" -Package -ApiUrl `"$api`""
+  Start-Console -Title 'SuperApp: сборка desktop .exe' -Command $cmd -WorkDir $RepoRoot
+  Write-Log ("Запущена сборка desktop-приложения (.exe). Адрес сервера запекается: " + $api + ". Готовый файл — в packages\client\dist-electron\ (первый запуск долгий: скачивает Electron ~97 МБ).")
 }
 
 function Build-Caddyfile {
@@ -319,17 +341,18 @@ $form.Controls.Add($gbCli)
 
 # Группа: Установка/сборка + запуск сервера
 $gbBuild = New-Object System.Windows.Forms.GroupBox
-$gbBuild.Text = '3. Установка, сборка и запуск сервера'
+$gbBuild.Text = '3. Установка, сборка и запуск'
 $gbBuild.Location = New-Object System.Drawing.Point(12, 260)
-$gbBuild.Size = New-Object System.Drawing.Size(620, 68)
-$gbBuild.Controls.Add((New-Button 'Установить зависимости и собрать клиент' 15 28 300 { Invoke-InstallBuild }))
-$gbBuild.Controls.Add((New-Button 'Запустить сервер (Bun)' 330 28 270 { Start-ServerProc }))
+$gbBuild.Size = New-Object System.Drawing.Size(620, 100)
+$gbBuild.Controls.Add((New-Button 'Установить зависимости и собрать веб-клиент' 15 26 300 { Invoke-InstallBuild }))
+$gbBuild.Controls.Add((New-Button 'Запустить сервер (Bun)' 330 26 270 { Start-ServerProc }))
+$gbBuild.Controls.Add((New-Button 'Собрать desktop-приложение (.exe, NSIS)' 15 62 585 { Build-DesktopExe }))
 $form.Controls.Add($gbBuild)
 
 # Группа: HTTPS (Caddy)
 $gbHttps = New-Object System.Windows.Forms.GroupBox
 $gbHttps.Text = '4. HTTPS (Caddy)'
-$gbHttps.Location = New-Object System.Drawing.Point(12, 332)
+$gbHttps.Location = New-Object System.Drawing.Point(12, 364)
 $gbHttps.Size = New-Object System.Drawing.Size(620, 168)
 $gbHttps.Controls.Add((New-Label 'Домен:' 15 28))
 $tbDomain = New-Text $DEF_DOMAIN 200 26 160; $gbHttps.Controls.Add($tbDomain)
@@ -347,7 +370,7 @@ $form.Controls.Add($gbHttps)
 # Группа: Сброс админа
 $gbAdm = New-Object System.Windows.Forms.GroupBox
 $gbAdm.Text = '5. Сброс пароля и PIN админа'
-$gbAdm.Location = New-Object System.Drawing.Point(12, 504)
+$gbAdm.Location = New-Object System.Drawing.Point(12, 536)
 $gbAdm.Size = New-Object System.Drawing.Size(620, 66)
 $gbAdm.Controls.Add((New-Label 'Логин:' 15 28 60))
 $tbAdmLogin = New-Text $DEF_ADMIN_LOGIN 75 26 110; $gbAdm.Controls.Add($tbAdmLogin)
@@ -359,7 +382,7 @@ $gbAdm.Controls.Add((New-Button 'Сбросить' 500 26 100 { Reset-Admin }))
 $form.Controls.Add($gbAdm)
 
 # Полная установка
-$btnFull = New-Button 'Полная установка (.env + config.json + сборка)' 12 578 400 { Invoke-FullInstall }
+$btnFull = New-Button 'Полная установка (.env + config.json + сборка)' 12 608 400 { Invoke-FullInstall }
 $btnFull.Height = 32
 $btnFull.BackColor = [System.Drawing.Color]::FromArgb(46, 125, 50)
 $btnFull.ForeColor = [System.Drawing.Color]::White
@@ -370,8 +393,8 @@ $tbLog = New-Object System.Windows.Forms.TextBox
 $tbLog.Multiline = $true
 $tbLog.ReadOnly = $true
 $tbLog.ScrollBars = 'Vertical'
-$tbLog.Location = New-Object System.Drawing.Point(12, 616)
-$tbLog.Size = New-Object System.Drawing.Size(620, 78)
+$tbLog.Location = New-Object System.Drawing.Point(12, 646)
+$tbLog.Size = New-Object System.Drawing.Size(620, 60)
 $tbLog.BackColor = [System.Drawing.Color]::White
 $form.Controls.Add($tbLog)
 
