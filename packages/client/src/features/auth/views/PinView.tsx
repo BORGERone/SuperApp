@@ -68,7 +68,7 @@ export const PinView: React.FC = () => {
 
   return (
     <div className="min-h-screen flex items-center justify-center relative overflow-hidden" style={{ background: 'var(--bg-base, #f7f8fc)' }}>
-      <div className="glass rounded-2xl p-12 w-full max-w-md border border-white/10 shadow-2xl relative z-10">
+      <div className="glass rounded-2xl p-12 w-full max-w-md border border-white/10 shadow-2xl relative z-10 scale-in">
         <div className="text-center mb-8">
           <h1 className="text-4xl font-bold mb-2 text-gradient">SuperApp</h1>
           <h2 className="text-sm text-gray-600">Подтверждение входа</h2>

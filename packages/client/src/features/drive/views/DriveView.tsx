@@ -284,7 +284,7 @@ export const DriveView: React.FC = () => {
   return (
     <div className="flex flex-col h-full p-3 gap-3 overflow-hidden">
       {/* Header */}
-      <div className="glass-deep blur-smooth-deep px-6 py-4 flex flex-col gap-3">
+      <div className="glass-deep blur-smooth-deep px-6 py-4 flex flex-col gap-3 slide-in-left">
         <div className="flex items-center justify-between">
           <h1 className="text-2xl font-semibold text-gradient flex items-center gap-2">
             <span aria-hidden="true">☁️</span>Сетевой диск
@@ -349,7 +349,7 @@ export const DriveView: React.FC = () => {
       </div>
 
       {/* File List — без фонового островка, файлы лежат прямо на app-bg */}
-      <div className="flex-1 overflow-hidden px-1">
+      <div className="flex-1 overflow-hidden px-1 slide-in-right">
         <div className="h-full overflow-y-auto">
           <FileList
             files={files}

@@ -114,7 +114,7 @@ export const LoginView: React.FC = () => {
           </button>
         </>
       )}
-      <div className="glass-deep rounded-2xl p-12 w-full max-w-md border border-white/10 shadow-2xl relative z-10">
+      <div className="glass-deep rounded-2xl p-12 w-full max-w-md border border-white/10 shadow-2xl relative z-10 scale-in">
         <div className="text-center mb-8">
           <h1 className="text-4xl font-bold mb-2 text-gradient">SuperApp</h1>
           <h2 className="text-sm text-app-secondary">Авторизация</h2>
