@@ -66,6 +66,24 @@ if ($Package) {
     Write-Host '   config.json рядом с .exe или переменную SUPERAPP_API_URL.'
   }
   $OutDir = Join-Path $ClientDir 'dist-electron'
+
+  # Запущенный SuperApp.exe держит файлы в win-unpacked (напр. d3dcompiler_47.dll),
+  # из-за чего electron-builder не может очистить каталог и падает с
+  # "Access is denied". Перед сборкой закрываем приложение и чистим dist-electron.
+  $running = Get-Process -Name 'SuperApp' -ErrorAction SilentlyContinue
+  if ($running) {
+    Write-Host '-> Закрываю запущенный SuperApp перед сборкой...' -ForegroundColor Yellow
+    $running | Stop-Process -Force -ErrorAction SilentlyContinue
+    Start-Sleep -Milliseconds 800
+  }
+  if (Test-Path $OutDir) {
+    Write-Host '-> Очищаю предыдущую сборку (dist-electron)...'
+    for ($i = 0; $i -lt 3; $i++) {
+      try { Remove-Item -Recurse -Force $OutDir -ErrorAction Stop; break }
+      catch { Start-Sleep -Milliseconds 700 }
+    }
+  }
+
   Push-Location $ClientDir
   try {
     Write-Host '-> Сборка установщика Electron (NSIS)...'
