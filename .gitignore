@@ -16,6 +16,11 @@ target/
 # Артефакты сборки установщиков (zip сервера, .exe клиента)
 installer/dist/
 
+# Рантайм HTTPS (setup-https.bat): скачанный Caddy и сгенерированный конфиг
+installer/caddy.exe
+installer/Caddyfile.local
+installer/caddy_data/
+
 # Environment variables
 .env
 .env.local
