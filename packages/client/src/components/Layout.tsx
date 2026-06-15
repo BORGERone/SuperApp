@@ -1,4 +1,5 @@
 import React, { useEffect, useState } from 'react';
+import { useLocation } from 'react-router-dom';
 import { Sidebar, SIDEBAR_WIDTH_COLLAPSED, SIDEBAR_WIDTH_EXPANDED, SIDEBAR_LEFT_MARGIN } from './Sidebar';
 import { TitleBar } from './TitleBar';
 import { MobileNav } from './MobileNav';
@@ -13,6 +14,11 @@ interface LayoutProps {
 export const Layout: React.FC<LayoutProps> = ({ children }) => {
   const { emails, setEmails } = useMailStore();
   const isMobile = useIsMobile();
+  const location = useLocation();
+  // Ключ верхнего раздела (drive/mail/tasks/settings). Меняется только при
+  // переходе между вкладками — тогда обёртка пересоздаётся и проигрывает
+  // плавный переход. Внутри одного раздела (напр. папки почты) не дёргается.
+  const sectionKey = location.pathname.split('/')[1] || 'home';
   const [isSidebarCollapsed, setIsSidebarCollapsed] = useState(() => {
     const saved = localStorage.getItem('sidebarCollapsed');
     return saved === 'true';
@@ -113,7 +119,9 @@ export const Layout: React.FC<LayoutProps> = ({ children }) => {
           className="flex-1 overflow-hidden"
           style={isMobile ? { paddingBottom: 'calc(64px + env(safe-area-inset-bottom))' } : undefined}
         >
-          {children}
+          <div key={sectionKey} className="h-full page-fade-in">
+            {children}
+          </div>
         </main>
         {isMobile && <MobileNav />}
       </div>
