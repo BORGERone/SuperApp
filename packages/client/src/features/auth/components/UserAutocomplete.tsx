@@ -1,6 +1,7 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { createPortal } from 'react-dom';
 import { useUsers } from '../api/usersApi';
+import { resolveAssetUrl } from '../../../lib/serverConfig';
 import { ChevronDown, User } from 'lucide-react';
 
 // Проверяем, запущено ли в Electron
@@ -106,7 +107,7 @@ export const UserAutocomplete: React.FC<UserAutocompleteProps> = ({
         style={{ background: 'var(--surface-2)' }}
       >
         {user.avatarUrl ? (
-          <img src={user.avatarUrl} alt={user.username} className="w-full h-full object-cover" />
+          <img src={resolveAssetUrl(user.avatarUrl)} alt={user.username} className="w-full h-full object-cover" />
         ) : (
           <User size={16} style={{ color: 'var(--color-primary)' }} />
         )}

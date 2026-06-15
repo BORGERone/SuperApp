@@ -1,4 +1,5 @@
 import React, { useEffect, useMemo, useRef, useState } from 'react';
+import { resolveAssetUrl } from '../../../lib/serverConfig';
 import {
   Calendar,
   CheckCircle2,
@@ -326,7 +327,7 @@ export const CardItem: React.FC<CardItemProps> = ({
                   title={user?.email || label}
                 >
                   {user?.avatarUrl ? (
-                    <img src={user.avatarUrl} alt={label} className="w-3 h-3 rounded-full object-cover" />
+                    <img src={resolveAssetUrl(user.avatarUrl)} alt={label} className="w-3 h-3 rounded-full object-cover" />
                   ) : (
                     <UserCircle size={11} />
                   )}

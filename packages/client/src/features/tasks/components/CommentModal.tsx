@@ -1,4 +1,5 @@
 import React, { useEffect, useMemo, useState } from 'react';
+import { resolveAssetUrl } from '../../../lib/serverConfig';
 import {
   MessageSquare,
   Send,
@@ -193,7 +194,7 @@ export const CommentModal: React.FC<CommentModalProps> = ({ card, currentUserId,
                     <div className="mb-1 flex items-center justify-between gap-2">
                       <div className="flex items-center gap-2 text-[12.5px] font-semibold text-app">
                         {author?.avatarUrl ? (
-                          <img src={author.avatarUrl} alt={authorLabel} className="w-4 h-4 rounded-full object-cover" />
+                          <img src={resolveAssetUrl(author.avatarUrl)} alt={authorLabel} className="w-4 h-4 rounded-full object-cover" />
                         ) : (
                           <UserIcon size={13} style={{ color: 'var(--color-primary)' }} />
                         )}

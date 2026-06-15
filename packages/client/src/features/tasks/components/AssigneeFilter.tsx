@@ -1,6 +1,7 @@
 import React, { useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react';
 import { createPortal } from 'react-dom';
 import { ChevronDown, Filter, UserCircle, Check } from 'lucide-react';
+import { resolveAssetUrl } from '../../../lib/serverConfig';
 
 interface UserLite {
   id: string;
@@ -177,7 +178,7 @@ export const AssigneeFilter: React.FC<AssigneeFilterProps> = ({
                   {isSelected && <Check size={12} />}
                 </span>
                 {user.avatarUrl ? (
-                  <img src={user.avatarUrl} alt={user.username} className="w-5 h-5 rounded-full object-cover" />
+                  <img src={resolveAssetUrl(user.avatarUrl)} alt={user.username} className="w-5 h-5 rounded-full object-cover" />
                 ) : (
                   <UserCircle size={18} style={{ color: 'var(--color-primary)' }} />
                 )}

@@ -58,3 +58,20 @@ export function getApiBase(): string {
 export function apiUrl(path: string): string {
   return `${getApiBase()}${path}`;
 }
+
+/**
+ * Абсолютная ссылка на статику сервера (аватары в `/uploads/...`).
+ *
+ * В вебе базовый адрес пустой и относительный путь работает (тот же origin
+ * через Caddy/прокси). В собранном Electron origin — `file://`, поэтому такой
+ * путь превращается в `file:///uploads/...` и картинка не грузится. Здесь
+ * подставляем абсолютный адрес сервера. Уже абсолютные (`http(s)://`,
+ * `data:`, `blob:`) ссылки возвращаем без изменений.
+ */
+export function resolveAssetUrl(url?: string | null): string {
+  if (!url) return '';
+  if (/^(https?:|data:|blob:)/i.test(url)) return url;
+  const base = getApiBase();
+  if (!base) return url;
+  return `${base}${url.startsWith('/') ? '' : '/'}${url}`;
+}

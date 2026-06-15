@@ -1047,6 +1047,31 @@ body.has-modal-open .titlebar {
   -webkit-app-region: no-drag;
 }
 
+/* Перетаскивание безрамочного окна (напр. зона сверху на экране входа). */
+.win-drag {
+  -webkit-app-region: drag;
+}
+
+/* Кнопка управления окном на экране входа (закрыть). */
+.login-winbtn {
+  width: 32px;
+  height: 32px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  border: 0;
+  border-radius: 8px;
+  background: transparent;
+  color: var(--text-secondary);
+  cursor: pointer;
+  transition: background 160ms var(--ease-standard), color 160ms var(--ease-standard);
+}
+
+.login-winbtn:hover {
+  background: var(--surface-2);
+  color: var(--text-primary);
+}
+
 /* =====================================================================
    Скроллбары
    ===================================================================== */
