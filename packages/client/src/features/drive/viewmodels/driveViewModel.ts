@@ -7,6 +7,7 @@ interface DriveViewModel extends DriveState {
   setFiles: (files: FileItem[]) => void;
   toggleFileSelection: (fileName: string) => void;
   selectFile: (fileName: string) => void;
+  setSelectedFiles: (fileNames: Set<string>) => void;
   clearSelection: () => void;
   setViewMode: (mode: ViewMode) => void;
   setCurrentUser: (user: string | null) => void;
@@ -50,6 +51,8 @@ export const useDriveStore = create<DriveViewModel>((set, get) => ({
     selectedFiles.add(fileName);
     set({ selectedFiles });
   },
+
+  setSelectedFiles: (fileNames) => set({ selectedFiles: new Set(fileNames) }),
 
   clearSelection: () => set({ selectedFiles: new Set() }),
 

@@ -42,6 +42,7 @@ export const MailView: React.FC = () => {
     markAsUnread,
     toggleStar,
     toggleEmailSelection,
+    setSelectedEmails,
     setSelectedEmail,
     clearSelectedEmail,
   } = useMailStore();
@@ -367,6 +368,7 @@ export const MailView: React.FC = () => {
                       selectedEmail={selectedEmail}
                       onEmailSelect={handleEmailSelect}
                       onToggleEmailSelection={toggleEmailSelection}
+                      onSetSelectedEmails={setSelectedEmails}
                       onToggleStar={handleToggleStar}
                     />
                   )}
