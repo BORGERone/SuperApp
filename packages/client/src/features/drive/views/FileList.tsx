@@ -211,7 +211,7 @@ export const FileList: React.FC<FileListProps> = ({
     );
   }
 
-  const gridClassName = viewMode === 'list' ? 'space-y-2' : 'grid grid-cols-4 gap-4';
+  const gridClassName = viewMode === 'list' ? 'space-y-2' : 'grid grid-cols-2 sm:grid-cols-4 gap-3 sm:gap-4';
 
   const CheckIcon = (
     <svg viewBox="0 0 16 16" aria-hidden="true">

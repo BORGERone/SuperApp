@@ -1,6 +1,8 @@
 import React, { useEffect, useState } from 'react';
-import { Sidebar, SIDEBAR_WIDTH_COLLAPSED, SIDEBAR_WIDTH_EXPANDED, SIDEBAR_LEFT_MARGIN, TITLEBAR_HEIGHT } from './Sidebar';
+import { Sidebar, SIDEBAR_WIDTH_COLLAPSED, SIDEBAR_WIDTH_EXPANDED, SIDEBAR_LEFT_MARGIN } from './Sidebar';
 import { TitleBar } from './TitleBar';
+import { MobileNav } from './MobileNav';
+import { useIsMobile } from '../hooks/useIsMobile';
 import { useMailStore } from '../features/mail/viewmodels/mailViewModel';
 import { getApiBase } from '../lib/serverConfig';
 
@@ -10,6 +12,7 @@ interface LayoutProps {
 
 export const Layout: React.FC<LayoutProps> = ({ children }) => {
   const { emails, setEmails } = useMailStore();
+  const isMobile = useIsMobile();
   const [isSidebarCollapsed, setIsSidebarCollapsed] = useState(() => {
     const saved = localStorage.getItem('sidebarCollapsed');
     return saved === 'true';
@@ -93,21 +96,26 @@ export const Layout: React.FC<LayoutProps> = ({ children }) => {
         <div className="app-bg__veil" />
       </div>
 
-      {/* Кастомный титлбар, визуально вкладывающийся в верх сайдбара */}
-      <TitleBar
-        collapsed={isSidebarCollapsed}
-        sidebarWidthCollapsed={SIDEBAR_WIDTH_COLLAPSED}
-        sidebarWidthExpanded={SIDEBAR_WIDTH_EXPANDED}
-        sidebarLeftMargin={SIDEBAR_LEFT_MARGIN}
-      />
+      {/* Кастомный титлбар, визуально вкладывающийся в верх сайдбара.
+          На телефонных разрешениях прячем его — навигация уходит вниз. */}
+      {!isMobile && (
+        <TitleBar
+          collapsed={isSidebarCollapsed}
+          sidebarWidthCollapsed={SIDEBAR_WIDTH_COLLAPSED}
+          sidebarWidthExpanded={SIDEBAR_WIDTH_EXPANDED}
+          sidebarLeftMargin={SIDEBAR_LEFT_MARGIN}
+        />
+      )}
 
-      <div
-        className="flex h-screen"
-      >
-        <Sidebar />
-        <main className="flex-1 overflow-hidden">
+      <div className={isMobile ? 'flex flex-col h-screen' : 'flex h-screen'}>
+        {!isMobile && <Sidebar />}
+        <main
+          className="flex-1 overflow-hidden"
+          style={isMobile ? { paddingBottom: 'calc(64px + env(safe-area-inset-bottom))' } : undefined}
+        >
           {children}
         </main>
+        {isMobile && <MobileNav />}
       </div>
     </>
   );
