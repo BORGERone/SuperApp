@@ -69,7 +69,89 @@ sqlite.exec(`
     updated_at INTEGER NOT NULL,
     FOREIGN KEY (owner_id) REFERENCES users(id)
   );
+
+  CREATE TABLE IF NOT EXISTS task_columns (
+    id TEXT PRIMARY KEY,
+    title TEXT NOT NULL,
+    deadline INTEGER,
+    position INTEGER NOT NULL DEFAULT 0,
+    owner_id TEXT NOT NULL,
+    archived INTEGER NOT NULL DEFAULT 0,
+    archived_at INTEGER,
+    created_at INTEGER NOT NULL,
+    updated_at INTEGER NOT NULL,
+    FOREIGN KEY (owner_id) REFERENCES users(id)
+  );
+
+  CREATE TABLE IF NOT EXISTS task_cards (
+    id TEXT PRIMARY KEY,
+    column_id TEXT NOT NULL,
+    title TEXT NOT NULL,
+    description TEXT,
+    deadline INTEGER,
+    completed INTEGER NOT NULL DEFAULT 0,
+    assignees TEXT,
+    position INTEGER NOT NULL DEFAULT 0,
+    owner_id TEXT NOT NULL,
+    created_at INTEGER NOT NULL,
+    updated_at INTEGER NOT NULL,
+    FOREIGN KEY (column_id) REFERENCES task_columns(id),
+    FOREIGN KEY (owner_id) REFERENCES users(id)
+  );
+
+  CREATE TABLE IF NOT EXISTS task_comments (
+    id TEXT PRIMARY KEY,
+    card_id TEXT NOT NULL,
+    author_id TEXT NOT NULL,
+    body TEXT NOT NULL,
+    created_at INTEGER NOT NULL,
+    FOREIGN KEY (card_id) REFERENCES task_cards(id),
+    FOREIGN KEY (author_id) REFERENCES users(id)
+  );
+
+  CREATE TABLE IF NOT EXISTS task_card_subtasks (
+    id TEXT PRIMARY KEY,
+    card_id TEXT NOT NULL,
+    title TEXT NOT NULL,
+    completed INTEGER NOT NULL DEFAULT 0,
+    position INTEGER NOT NULL DEFAULT 0,
+    created_at INTEGER NOT NULL,
+    updated_at INTEGER NOT NULL,
+    FOREIGN KEY (card_id) REFERENCES task_cards(id)
+  );
+
+  CREATE TABLE IF NOT EXISTS email_attachments (
+    id TEXT PRIMARY KEY,
+    email_id TEXT NOT NULL,
+    filename TEXT NOT NULL,
+    size INTEGER NOT NULL,
+    mime_type TEXT NOT NULL,
+    storage_type TEXT NOT NULL,
+    file_path TEXT NOT NULL,
+    drive_file_id TEXT,
+    owner_id TEXT NOT NULL,
+    created_at INTEGER NOT NULL,
+    FOREIGN KEY (email_id) REFERENCES emails(id),
+    FOREIGN KEY (owner_id) REFERENCES users(id)
+  );
 `);
+
+// Мини-миграции для существующих БД, созданных до добавления колонок архивирования
+function ensureColumn(table: string, column: string, definition: string) {
+  try {
+    const rows = sqlite.query(`PRAGMA table_info(${table})`).all() as Array<{ name: string }>;
+    if (!rows.some((row) => row.name === column)) {
+      sqlite.exec(`ALTER TABLE ${table} ADD COLUMN ${column} ${definition}`);
+    }
+  } catch (error) {
+    console.error(`Не удалось проверить/добавить колонку ${column} в ${table}:`, error);
+  }
+}
+
+ensureColumn('task_columns', 'archived', 'INTEGER NOT NULL DEFAULT 0');
+ensureColumn('task_columns', 'archived_at', 'INTEGER');
+ensureColumn('users', 'avatar_url', 'TEXT');
+ensureColumn('users', 'pin_code', 'TEXT');
 
 // Инициализация базы данных с начальными пользователями
 async function initDatabase() {
@@ -77,39 +159,55 @@ async function initDatabase() {
     // Проверяем, есть ли пользователи admin и user
     const existingAdmin = await db.select().from(users).where(eq(users.email, 'admin')).limit(1);
     const existingUser = await db.select().from(users).where(eq(users.email, 'user')).limit(1);
-    
+
     if (existingAdmin.length === 0 && existingUser.length === 0) {
       console.log('Creating initial users...');
-      
+
       const now = new Date();
-      
+
       // Создаем admin пользователя
       const adminPassword = await bcrypt.hash('admin123', 10);
+      const adminPinCode = await bcrypt.hash('1234', 10);
       await db.insert(users).values({
         id: crypto.randomUUID(),
         email: 'admin',
         username: 'admin',
         password: adminPassword,
+        pinCode: adminPinCode,
         role: 'admin',
         createdAt: now,
         updatedAt: now,
       } as any);
-      
+
       // Создаем обычного пользователя
       const userPassword = await bcrypt.hash('user123', 10);
+      const userPinCode = await bcrypt.hash('1234', 10);
       await db.insert(users).values({
         id: crypto.randomUUID(),
         email: 'user',
         username: 'user',
         password: userPassword,
+        pinCode: userPinCode,
         role: 'user',
         createdAt: now,
         updatedAt: now,
       } as any);
-      
+
       console.log('Initial users created:');
-      console.log('  - admin / admin123 (admin role)');
-      console.log('  - user / user123 (user role)');
+      console.log('  - admin / admin123 / PIN: 1234 (admin role)');
+      console.log('  - user / user123 / PIN: 1234 (user role)');
+    } else {
+      // Если пользователи существуют, но без пин-кода, добавляем им пин-код
+      if (existingAdmin.length > 0 && !existingAdmin[0].pinCode) {
+        const adminPinCode = await bcrypt.hash('1234', 10);
+        await db.update(users).set({ pinCode: adminPinCode, updatedAt: new Date() }).where(eq(users.email, 'admin'));
+        console.log('Added PIN code to admin user');
+      }
+      if (existingUser.length > 0 && !existingUser[0].pinCode) {
+        const userPinCode = await bcrypt.hash('1234', 10);
+        await db.update(users).set({ pinCode: userPinCode, updatedAt: new Date() }).where(eq(users.email, 'user'));
+        console.log('Added PIN code to user user');
+      }
     }
   } catch (error) {
     console.error('Database initialization error:', error);

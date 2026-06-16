@@ -6,6 +6,8 @@ export const users = sqliteTable('users', {
   email: text('email').notNull().unique(),
   username: text('username').notNull().unique(),
   password: text('password').notNull(),
+  avatarUrl: text('avatar_url'),
+  pinCode: text('pin_code'),
   role: text('role').notNull().$type<'admin' | 'user'>(),
   createdAt: integer('created_at', { mode: 'timestamp' }).notNull(),
   updatedAt: integer('updated_at', { mode: 'timestamp' }).notNull(),
@@ -51,25 +53,64 @@ export const emails = sqliteTable('emails', {
   updatedAt: integer('updated_at', { mode: 'timestamp' }).notNull(),
 });
 
-// Таблица досок задач
-export const boards = sqliteTable('boards', {
+// Таблица вложений писем
+export const emailAttachments = sqliteTable('email_attachments', {
   id: text('id').primaryKey(),
-  name: text('name').notNull(),
+  emailId: text('email_id').notNull().references(() => emails.id),
+  filename: text('filename').notNull(),
+  size: integer('size').notNull(),
+  mimeType: text('mime_type').notNull(),
+  storageType: text('storage_type').notNull().$type<'local' | 'drive'>(), // local - загружен с компьютера, drive - с сетевого диска
+  filePath: text('file_path').notNull(), // путь к файлу на сервере (для local: uploads/{id}-{filename}, для drive: uploads/{fileId}-{filename})
+  driveFileId: text('drive_file_id'), // ссылка на файл в таблице files (если storageType = drive)
+  ownerId: text('owner_id').notNull().references(() => users.id),
+  createdAt: integer('created_at', { mode: 'timestamp' }).notNull(),
+});
+
+// Таблица колонок задач (создаются пользователями)
+export const taskColumns = sqliteTable('task_columns', {
+  id: text('id').primaryKey(),
+  title: text('title').notNull(),
+  deadline: integer('deadline', { mode: 'timestamp' }),
+  position: integer('position').notNull().default(0),
+  ownerId: text('owner_id').notNull().references(() => users.id),
+  archived: integer('archived', { mode: 'boolean' }).notNull().default(false),
+  archivedAt: integer('archived_at', { mode: 'timestamp' }),
+  createdAt: integer('created_at', { mode: 'timestamp' }).notNull(),
+  updatedAt: integer('updated_at', { mode: 'timestamp' }).notNull(),
+});
+
+// Таблица карточек задач
+export const taskCards = sqliteTable('task_cards', {
+  id: text('id').primaryKey(),
+  columnId: text('column_id').notNull().references(() => taskColumns.id),
+  title: text('title').notNull(),
   description: text('description'),
+  deadline: integer('deadline', { mode: 'timestamp' }),
+  completed: integer('completed', { mode: 'boolean' }).notNull().default(false),
+  assignees: text('assignees'), // JSON массив идентификаторов пользователей
+  position: integer('position').notNull().default(0),
   ownerId: text('owner_id').notNull().references(() => users.id),
   createdAt: integer('created_at', { mode: 'timestamp' }).notNull(),
   updatedAt: integer('updated_at', { mode: 'timestamp' }).notNull(),
 });
 
-// Таблица задач
-export const tasks = sqliteTable('tasks', {
+// Таблица комментариев к карточкам
+export const taskComments = sqliteTable('task_comments', {
   id: text('id').primaryKey(),
+  cardId: text('card_id').notNull().references(() => taskCards.id),
+  authorId: text('author_id').notNull().references(() => users.id),
+  body: text('body').notNull(),
+  createdAt: integer('created_at', { mode: 'timestamp' }).notNull(),
+});
+
+// Таблица подпунктов (чек-листа) карточки
+export const taskCardSubtasks = sqliteTable('task_card_subtasks', {
+  id: text('id').primaryKey(),
+  cardId: text('card_id').notNull().references(() => taskCards.id),
   title: text('title').notNull(),
-  description: text('description'),
-  status: text('status').notNull().$type<'todo' | 'in_progress' | 'done'>(),
-  boardId: text('board_id').notNull().references(() => boards.id),
-  assigneeId: text('assignee_id').references(() => users.id),
-  ownerId: text('owner_id').notNull().references(() => users.id),
+  completed: integer('completed', { mode: 'boolean' }).notNull().default(false),
+  position: integer('position').notNull().default(0),
   createdAt: integer('created_at', { mode: 'timestamp' }).notNull(),
   updatedAt: integer('updated_at', { mode: 'timestamp' }).notNull(),
 });
@@ -79,5 +120,8 @@ export type User = typeof users.$inferSelect;
 export type File = typeof files.$inferSelect;
 export type FilePermission = typeof filePermissions.$inferSelect;
 export type Email = typeof emails.$inferSelect;
-export type Board = typeof boards.$inferSelect;
-export type Task = typeof tasks.$inferSelect;
+export type EmailAttachment = typeof emailAttachments.$inferSelect;
+export type TaskColumn = typeof taskColumns.$inferSelect;
+export type TaskCard = typeof taskCards.$inferSelect;
+export type TaskComment = typeof taskComments.$inferSelect;
+export type TaskCardSubtask = typeof taskCardSubtasks.$inferSelect;

@@ -1,8 +1,11 @@
 import { Hono } from 'hono';
 import { cors } from 'hono/cors';
+import { serveStatic } from 'hono/bun';
 import authRouter, { initializeTestUsers } from './features/auth/routes/authRoutes';
 import driveRouter from './features/drive/routes/driveRoutes';
 import { mail } from './features/mail/routes/mailRoutes';
+import { tasks } from './features/tasks/routes/tasksRoutes';
+import { userRouter } from './features/user';
 
 const app = new Hono();
 
@@ -40,6 +43,22 @@ app.route('/api/drive', driveRouter);
 
 // Mail routes
 app.route('/api/mail', mail);
+
+// Tasks routes
+app.route('/api/tasks', tasks);
+
+// User routes
+app.route('/api/user', userRouter);
+
+// Static files for avatars
+app.use('/uploads/*', serveStatic({ root: './' }));
+
+// Log endpoint for debugging
+app.post('/api/log', async (c) => {
+  const { message } = await c.req.json();
+  console.log('[Client Log]', message);
+  return c.json({ success: true });
+});
 
 // Initialize test users
 initializeTestUsers();

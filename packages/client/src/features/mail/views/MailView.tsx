@@ -1,16 +1,19 @@
-import React, { useEffect, useState, useCallback } from 'react';
-import { Search, Plus, Trash2, Star, Reply, Forward, Archive, Filter } from 'lucide-react';
+import React, { useEffect, useState, useRef } from 'react';
+import { Search, Trash2, Star, Filter } from 'lucide-react';
 import { useMailStore } from '../viewmodels/mailViewModel';
 import { MailFolder, Email } from '../models/mailModel';
 import { MailList } from '../components/MailList';
 import { MailItem } from '../components/MailItem';
 import { ComposeModal } from '../components/ComposeModal';
-import { useEmails, useSendEmail, useUpdateEmail, useDeleteEmail, useMoveEmail } from '../api/mailApi';
+import { useEmails, useUpdateEmail, useDeleteEmail, useMoveEmail } from '../api/mailApi';
 import { useQueryClient } from '@tanstack/react-query';
 import { useLocation } from 'react-router-dom';
+import { showNotification, requestNotificationPermission } from '../../../utils/notifications';
 
 export const MailView: React.FC = () => {
   const location = useLocation();
+  const previousEmailsCount = useRef(0);
+  const hasRequestedPermission = useRef(false);
   
   // Определяем текущую папку из URL параметров
   const getFolderFromPath = (): MailFolder => {
@@ -22,6 +25,7 @@ export const MailView: React.FC = () => {
   const {
     emails,
     selectedEmails,
+    selectedEmail,
     currentFolder,
     filters,
     isComposeOpen,
@@ -37,31 +41,36 @@ export const MailView: React.FC = () => {
     markAsUnread,
     toggleStar,
     toggleEmailSelection,
+    setSelectedEmail,
+    clearSelectedEmail,
   } = useMailStore();
 
   const [searchQuery, setSearchQuery] = useState(filters.search);
-  const [selectedEmail, setSelectedEmail] = useState<Email | null>(null);
 
   // Обновляем currentFolder при изменении URL
   useEffect(() => {
     const folder = getFolderFromPath();
     if (folder !== currentFolder) {
       setCurrentFolder(folder);
+      clearSelectedEmail();
     }
-  }, [location.pathname]);
-
-  // Сбрасываем selectedEmail при изменении пути (когда переходим между папками)
-  useEffect(() => {
-    setSelectedEmail(null);
-  }, [location.pathname]);
+  }, [location.pathname, currentFolder]);
 
   // API вызовы
-  const { data: emailsData = [], isEmailsLoading, error } = useEmails({
+  const { data: emailsData = [] } = useEmails({
     folder: currentFolder,
     search: filters.search,
     isUnreadOnly: filters.isUnreadOnly,
     isStarredOnly: filters.isStarredOnly,
   });
+
+  // Запрос разрешения на уведомления при первом рендере
+  useEffect(() => {
+    if (!hasRequestedPermission.current) {
+      requestNotificationPermission();
+      hasRequestedPermission.current = true;
+    }
+  }, []);
 
   // Периодическое обновление для папки inbox
   const queryClient = useQueryClient();
@@ -73,10 +82,31 @@ export const MailView: React.FC = () => {
 
       return () => clearInterval(interval);
     }
+    return undefined;
   }, [currentFolder, filters.search, queryClient]);
 
+  // Отслеживание новых писем и показ уведомлений
+  useEffect(() => {
+    if (currentFolder === 'inbox' && emailsData.length > 0) {
+      const currentCount = emailsData.length;
+      
+      // Если количество писем увеличилось, показываем уведомление
+      if (currentCount > previousEmailsCount.current && previousEmailsCount.current > 0) {
+        const newEmailsCount = currentCount - previousEmailsCount.current;
+        const latestEmail = emailsData[0]; // Новые письма будут в начале массива
+        
+        showNotification(
+          `Новое письмо${newEmailsCount > 1 ? 'я' : ''}`,
+          `${latestEmail.from}: ${latestEmail.subject}`,
+          'email'
+        );
+      }
+      
+      previousEmailsCount.current = currentCount;
+    }
+  }, [emailsData, currentFolder]);
+
   
-  const sendEmailMutation = useSendEmail();
   const updateEmailMutation = useUpdateEmail();
   const deleteEmailMutation = useDeleteEmail();
   const moveEmailMutation = useMoveEmail();
@@ -115,17 +145,6 @@ export const MailView: React.FC = () => {
   const handleSearch = (query: string) => {
     setSearchQuery(query);
     setFilters({ search: query });
-  };
-
-  const handleFolderChange = (folder: MailFolder) => {
-    // Если кликаем на ту же папку, ничего не делаем
-    if (currentFolder === folder) {
-      return;
-    }
-    
-    setCurrentFolder(folder);
-    setSelectedEmail(null);
-    // Не очищаем выделение при смене папки - сохраняем выбор пользователя
   };
 
   const handleEmailSelect = (email: Email) => {
@@ -239,53 +258,49 @@ export const MailView: React.FC = () => {
     <div className="flex h-full">
       
       {/* Main Content */}
-      <div className="flex-1 flex flex-col m-4">
+      <div className="flex-1 flex flex-col m-3 gap-3">
         {/* Toolbar - скрываем при открытом письме */}
         {!selectedEmail && (
-          <div className="glass-card rounded-lg p-4 mb-4">
-            <div className="flex items-center gap-4">
-              <div className="flex-1 relative">
-                <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400" size={20} />
+          <div className="glass-deep p-3 slide-in-left">
+            <div className="flex items-center gap-2">
+              <div className="flex-1 relative no-drag">
+                <Search
+                  className="absolute left-3 top-1/2 transform -translate-y-1/2 text-app-muted"
+                  size={18}
+                />
                 <input
                   type="text"
                   placeholder="Поиск писем..."
                   value={searchQuery}
                   onChange={(e) => handleSearch(e.target.value)}
-                  className="w-full pl-10 pr-4 py-2 rounded-lg border border-gray-200/50 focus:outline-none focus:ring-2 focus:ring-blue-400 bg-white/80"
+                  className="glass-input w-full pl-10 pr-4 py-2"
                 />
               </div>
 
               <button
                 onClick={() => setFilters({ isUnreadOnly: !filters.isUnreadOnly })}
-                className={`p-2 rounded-lg transition-colors ${
-                  filters.isUnreadOnly
-                    ? 'bg-blue-200/90 text-blue-700'
-                    : 'hover:bg-white/60 text-gray-600'
-                }`}
+                className={`btn-icon ${filters.isUnreadOnly ? 'is-active' : ''}`}
                 title="Только непрочитанные"
               >
-                <Filter size={20} />
+                <Filter size={18} />
               </button>
 
               <button
                 onClick={() => setFilters({ isStarredOnly: !filters.isStarredOnly })}
-                className={`p-2 rounded-lg transition-colors ${
-                  filters.isStarredOnly
-                    ? 'bg-blue-200/90 text-blue-700'
-                    : 'hover:bg-white/60 text-gray-600'
-                }`}
+                className={`btn-icon ${filters.isStarredOnly ? 'is-active' : ''}`}
                 title="Только избранные"
               >
-                <Star size={20} />
+                <Star size={18} />
               </button>
 
               {selectedEmails.length > 0 && (
                 <button
                   onClick={handleDelete}
-                  className="p-2 rounded-lg hover:bg-red-100/80 text-red-600 transition-colors"
+                  className="btn-icon text-red-500 hover:text-red-600"
                   title="Удалить выбранные"
+                  style={{ background: 'rgba(239,68,68,0.08)' }}
                 >
-                  <Trash2 size={20} />
+                  <Trash2 size={18} />
                 </button>
               )}
             </div>
@@ -295,30 +310,28 @@ export const MailView: React.FC = () => {
         {/* Email List and Detail */}
         <div className="flex-1 flex flex-col min-h-0">
           {selectedEmail ? (
-            <div className="flex items-center gap-2 mb-4">
+            <div className="flex items-center gap-2 mb-3 slide-in-left">
               <button
                 onClick={() => setSelectedEmail(null)}
-                className="p-2 rounded-lg hover:bg-white/60 transition-colors flex items-center gap-2"
+                className="btn-glass-secondary px-3 py-1.5 flex items-center gap-2"
               >
                 <span>←</span>
-                <span>К списку</span>
+                <span className="font-medium">К списку</span>
               </button>
-              <div className="flex-1" />
-              <span className="text-sm text-gray-500">
-                {selectedEmail.subject}
-              </span>
             </div>
           ) : null}
 
           <div className="flex-1 overflow-hidden">
             {selectedEmail ? (
-              <div className="glass-card rounded-lg p-6 overflow-hidden h-full">
+              <div
+                key={selectedEmail.id}
+                className="glass-mid p-6 overflow-hidden h-full slide-in-right"
+              >
                 <MailItem
                   email={selectedEmail}
                   onReply={() => openCompose(selectedEmail)}
                   onForward={() => openCompose(selectedEmail)}
                   onDelete={() => {
-                    console.log('MailItem onDelete called:', selectedEmail.id);
                     deleteEmailMutation.mutate(selectedEmail.id);
                     setSelectedEmail(null);
                   }}
@@ -329,11 +342,11 @@ export const MailView: React.FC = () => {
                 />
               </div>
             ) : (
-              <div className="glass-card rounded-lg p-4 overflow-hidden flex flex-col h-full">
+              <div className="glass-mid p-3 overflow-hidden flex flex-col h-full slide-in-left">
                 <div className="flex-1 overflow-y-auto">
                   {filteredEmails.length === 0 ? (
                     <div className="flex items-center justify-center h-full">
-                      <div className="text-gray-500 text-center">
+                      <div className="text-app-muted text-center fade-in">
                         <div className="text-4xl mb-2">📭</div>
                         <div>Писем не найдено</div>
                       </div>
@@ -359,7 +372,7 @@ export const MailView: React.FC = () => {
       {isComposeOpen && (
         <ComposeModal
           onClose={closeCompose}
-          replyTo={replyEmail}
+          replyTo={replyEmail || undefined}
         />
       )}
     </div>
