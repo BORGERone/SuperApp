@@ -191,27 +191,21 @@ export const AssigneePicker: React.FC<AssigneePickerProps> = ({
         />
       </div>
 
-      {isOpen && (isElectron ? (
-        <div className="absolute top-full left-0 right-0 mt-1 z-50">
+      {isOpen && createPortal(
+        <div
+          style={{
+            position: 'fixed',
+            top: dropdownPosition.top,
+            left: dropdownPosition.left,
+            width: dropdownPosition.width,
+            zIndex: 99999,
+          }}
+          onMouseDown={(event) => event.stopPropagation()}
+        >
           {dropdownContent}
-        </div>
-      ) : (
-        createPortal(
-          <div
-            style={{
-              position: 'fixed',
-              top: dropdownPosition.top,
-              left: dropdownPosition.left,
-              width: dropdownPosition.width,
-              zIndex: 99999,
-            }}
-            onMouseDown={(event) => event.stopPropagation()}
-          >
-            {dropdownContent}
-          </div>,
-          document.body
-        )
-      ))}
+        </div>,
+        document.body
+      )}
     </div>
   );
 };
