@@ -760,39 +760,46 @@ html.dark body.has-bg-image {
 .glass-range::-webkit-slider-runnable-track {
   height: 6px;
   border-radius: 999px;
-  background: linear-gradient(90deg,
-    rgba(var(--color-primary-rgb), 0.55) 0%,
-    rgba(var(--color-primary-rgb), 0.25) 100%);
-  border: 1px solid var(--glass-border-soft);
+  background: rgba(0, 0, 0, 0.15);
+  border: 1px solid rgba(0, 0, 0, 0.1);
+}
+.dark .glass-range::-webkit-slider-runnable-track {
+  background: rgba(255, 255, 255, 0.15);
+  border: 1px solid rgba(255, 255, 255, 0.1);
 }
 .glass-range::-moz-range-track {
   height: 6px;
   border-radius: 999px;
-  background: linear-gradient(90deg,
-    rgba(var(--color-primary-rgb), 0.55) 0%,
-    rgba(var(--color-primary-rgb), 0.25) 100%);
-  border: 1px solid var(--glass-border-soft);
+  background: rgba(0, 0, 0, 0.15);
+  border: 1px solid rgba(0, 0, 0, 0.1);
+}
+.dark .glass-range::-moz-range-track {
+  background: rgba(255, 255, 255, 0.15);
+  border: 1px solid rgba(255, 255, 255, 0.1);
 }
 .glass-range::-webkit-slider-thumb {
   -webkit-appearance: none;
   appearance: none;
-  width: 18px;
-  height: 18px;
+  width: 20px;
+  height: 20px;
   border-radius: 999px;
   background: #fff;
-  border: 1px solid var(--glass-border);
-  margin-top: -7px;
-  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.22), 0 0 0 3px rgba(var(--color-primary-rgb), 0.18);
-  transition: transform 160ms var(--ease-spring);
+  border: 2px solid var(--color-primary);
+  margin-top: -8px;
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.25), 0 0 0 4px rgba(var(--color-primary-rgb), 0.2);
+  transition: transform 160ms var(--ease-spring), box-shadow 160ms var(--ease-spring);
 }
-.glass-range::-webkit-slider-thumb:hover { transform: scale(1.08); }
+.glass-range::-webkit-slider-thumb:hover {
+  transform: scale(1.1);
+  box-shadow: 0 3px 12px rgba(0, 0, 0, 0.3), 0 0 0 5px rgba(var(--color-primary-rgb), 0.3);
+}
 .glass-range::-moz-range-thumb {
-  width: 18px;
-  height: 18px;
+  width: 20px;
+  height: 20px;
   border-radius: 999px;
   background: #fff;
-  border: 1px solid var(--glass-border);
-  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.22), 0 0 0 3px rgba(var(--color-primary-rgb), 0.18);
+  border: 2px solid var(--color-primary);
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.25), 0 0 0 4px rgba(var(--color-primary-rgb), 0.2);
 }
 
 @keyframes checkmarkDraw {

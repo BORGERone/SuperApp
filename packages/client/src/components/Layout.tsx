@@ -3,6 +3,7 @@ import { useLocation } from 'react-router-dom';
 import { Sidebar, SIDEBAR_WIDTH_COLLAPSED, SIDEBAR_WIDTH_EXPANDED, SIDEBAR_LEFT_MARGIN } from './Sidebar';
 import { TitleBar } from './TitleBar';
 import { MobileNav } from './MobileNav';
+import { MobileMailSubNav } from './MobileMailSubNav';
 import { useIsMobile } from '../hooks/useIsMobile';
 import { useMailStore } from '../features/mail/viewmodels/mailViewModel';
 import { getApiBase } from '../lib/serverConfig';
@@ -117,12 +118,13 @@ export const Layout: React.FC<LayoutProps> = ({ children }) => {
         {!isMobile && <Sidebar />}
         <main
           className="flex-1 overflow-hidden"
-          style={isMobile ? { paddingBottom: 'calc(64px + env(safe-area-inset-bottom))' } : undefined}
+          style={isMobile ? { paddingBottom: location.pathname.startsWith('/mail') ? 'calc(120px + env(safe-area-inset-bottom))' : 'calc(64px + env(safe-area-inset-bottom))' } : undefined}
         >
           <div key={sectionKey} className="h-full page-fade-in">
             {children}
           </div>
         </main>
+        {isMobile && location.pathname.startsWith('/mail') && <MobileMailSubNav />}
         {isMobile && <MobileNav />}
       </div>
     </>

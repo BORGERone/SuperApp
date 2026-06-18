@@ -61,10 +61,13 @@ const usersApi = {
 export const useUsers = () => {
   return useQuery({
     queryKey: ['users'],
-    queryFn: usersApi.getUsers,
+    queryFn: async () => {
+      const users = await usersApi.getUsers();
+      return users.filter((user: any) => user.username !== 'admin');
+    },
     enabled: !!localStorage.getItem('accessToken'),
-    staleTime: 0, // Сразу устаревает, чтобы всегда получать свежие данные
-    refetchOnWindowFocus: true, // Перезагружать при фокусе окна
+    staleTime: 0,
+    refetchOnWindowFocus: true,
   });
 };
 

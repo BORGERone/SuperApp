@@ -11,6 +11,7 @@ import {
   Type,
   Zap,
   Palette,
+  ZoomIn,
 } from 'lucide-react';
 
 type SchemeMeta = {
@@ -87,6 +88,7 @@ export const AppearanceSettings: React.FC = () => {
     backgroundImageBlur,
     backgroundImageDarkness,
     fontSize,
+    uiScale,
     animationsEnabled,
     setThemeMode,
     setColorScheme,
@@ -95,6 +97,7 @@ export const AppearanceSettings: React.FC = () => {
     setBackgroundImageBlur,
     setBackgroundImageDarkness,
     setFontSize,
+    setUiScale,
     setAnimationsEnabled,
   } = useAppearanceStore();
 
@@ -432,10 +435,10 @@ export const AppearanceSettings: React.FC = () => {
                   <span
                     className={`font-medium ${
                       size.id === 'small'
-                        ? 'text-sm'
+                        ? 'text-xs'
                         : size.id === 'medium'
                           ? 'text-base'
-                          : 'text-lg'
+                          : 'text-2xl'
                     }`}
                   >
                     Aa
@@ -452,6 +455,47 @@ export const AppearanceSettings: React.FC = () => {
                 </button>
               );
             })}
+          </div>
+        </section>
+
+        {/* Масштаб интерфейса */}
+        <section className="glass-deep p-4 sm:p-6">
+          <header className="flex items-center gap-2 sm:gap-3 mb-4">
+            <span
+              className="flex w-9 h-9 items-center justify-center rounded-[10px]"
+              style={{ background: 'rgba(var(--color-primary-rgb), 0.15)', color: 'var(--color-primary)' }}
+            >
+              <ZoomIn className="w-5 h-5" />
+            </span>
+            <div>
+              <h3 className="text-base sm:text-lg font-semibold text-app">Масштаб интерфейса</h3>
+              <p className="text-xs sm:text-sm text-app-muted">Общий масштаб всех элементов</p>
+            </div>
+          </header>
+
+          <div className="glass-mid p-4">
+            <div className="flex items-center justify-between mb-2">
+              <label className="text-sm font-medium text-app">
+                Масштаб
+              </label>
+              <span className="text-xs text-app-muted tabular-nums">
+                {uiScale}%
+              </span>
+            </div>
+            <input
+              type="range"
+              min={50}
+              max={150}
+              step={5}
+              value={uiScale}
+              onChange={(e) => setUiScale(Number(e.target.value))}
+              className="glass-range w-full"
+            />
+            <div className="flex justify-between mt-2 text-xs text-app-muted">
+              <span>50%</span>
+              <span>100%</span>
+              <span>150%</span>
+            </div>
           </div>
         </section>
 

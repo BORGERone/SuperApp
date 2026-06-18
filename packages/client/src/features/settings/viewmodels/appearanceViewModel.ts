@@ -29,6 +29,9 @@ interface AppearanceSettings {
   // Размер шрифта
   fontSize: 'small' | 'medium' | 'large';
   
+  // Масштаб интерфейса (50-150%)
+  uiScale: number;
+  
   // Анимации
   animationsEnabled: boolean;
   
@@ -40,6 +43,7 @@ interface AppearanceSettings {
   setBackgroundImageBlur: (value: number) => void;
   setBackgroundImageDarkness: (value: number) => void;
   setFontSize: (size: 'small' | 'medium' | 'large') => void;
+  setUiScale: (value: number) => void;
   setAnimationsEnabled: (enabled: boolean) => void;
 }
 
@@ -54,6 +58,7 @@ export const useAppearanceStore = create<AppearanceSettings>()(
       backgroundImageBlur: 0,
       backgroundImageDarkness: 0,
       fontSize: 'medium',
+      uiScale: 100,
       animationsEnabled: true,
       
       // Actions
@@ -64,6 +69,7 @@ export const useAppearanceStore = create<AppearanceSettings>()(
       setBackgroundImageBlur: (value) => set({ backgroundImageBlur: Math.max(0, Math.min(100, value)) }),
       setBackgroundImageDarkness: (value) => set({ backgroundImageDarkness: Math.max(0, Math.min(100, value)) }),
       setFontSize: (size) => set({ fontSize: size }),
+      setUiScale: (value) => set({ uiScale: Math.max(50, Math.min(150, value)) }),
       setAnimationsEnabled: (enabled) => set({ animationsEnabled: enabled }),
     }),
     {

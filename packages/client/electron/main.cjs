@@ -193,6 +193,14 @@ ipcMain.handle('window:isMaximized', () => {
   return mainWindow ? mainWindow.isMaximized() : false;
 });
 
+// IPC handler для изменения масштаба интерфейса
+ipcMain.handle('window:setZoom', async (_event, zoomFactor) => {
+  if (mainWindow) {
+    mainWindow.webContents.setZoomFactor(zoomFactor);
+  }
+  return { success: true };
+});
+
 // Свёрнуто ли окно (минимизировано ИЛИ спрятано в трей). Используется
 // фоновым поллером, чтобы решать, показывать ли уведомление бакграундом.
 ipcMain.handle('window:isMinimized', () => {
