@@ -405,7 +405,7 @@ export const CardModal: React.FC<CardModalProps> = ({ card, columns, onClose }) 
               )}
             </div>
 
-            <div className="mt-3 flex items-center gap-2">
+            <div className="sticky bottom-0 mt-3 flex items-center gap-2 pt-3" style={{ background: 'var(--surface)' }}>
               <input
                 type="text"
                 value={newSubtaskTitle}
