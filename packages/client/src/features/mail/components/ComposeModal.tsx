@@ -8,6 +8,7 @@ import { UserAutocomplete } from '../../auth/components/UserAutocomplete';
 import { DriveFileSelectorModal } from './DriveFileSelectorModal';
 import { GrantAccessModal } from './GrantAccessModal';
 import { useBodyModalOpen } from '../../../utils/useBodyModalOpen';
+import { useModal } from '../../../utils/useModal';
 
 interface ComposeModalProps {
   onClose: () => void;
@@ -17,6 +18,7 @@ interface ComposeModalProps {
 export const ComposeModal: React.FC<ComposeModalProps> = ({ onClose, replyTo }) => {
   const sendEmailMutation = useSendEmail();
   const { closeCompose } = useMailStore();
+  const { showModal } = useModal();
 
   // Скрываем глобальный тайтлбар, пока ComposeModal открыт. Используем
   // счетчик ссылок, чтобы дочерние модалки (например, выбор файла с диска)
@@ -117,7 +119,12 @@ export const ComposeModal: React.FC<ComposeModalProps> = ({ onClose, replyTo }) 
       }));
     } catch (error) {
       console.error('Failed to upload files:', error);
-      alert('Не удалось загрузить файлы');
+      void showModal({
+        type: 'alert',
+        title: 'Ошибка',
+        message: 'Не удалось загрузить файлы',
+        confirmText: 'OK',
+      });
     } finally {
       setIsUploading(false);
     }
@@ -187,7 +194,12 @@ export const ComposeModal: React.FC<ComposeModalProps> = ({ onClose, replyTo }) 
       }));
     } catch (error) {
       console.error('Failed to attach files from drive:', error);
-      alert('Не удалось прикрепить файлы с диска');
+      void showModal({
+        type: 'alert',
+        title: 'Ошибка',
+        message: 'Не удалось прикрепить файлы с диска',
+        confirmText: 'OK',
+      });
     } finally {
       setIsUploading(false);
     }
@@ -332,11 +344,21 @@ export const ComposeModal: React.FC<ComposeModalProps> = ({ onClose, replyTo }) 
         await sendEmail();
       } else {
         console.error('Failed to grant access:', response.statusText);
-        alert('Не удалось выдать доступ к файлам');
+        void showModal({
+          type: 'alert',
+          title: 'Ошибка',
+          message: 'Не удалось выдать доступ к файлам',
+          confirmText: 'OK',
+        });
       }
     } catch (error) {
       console.error('Failed to grant access:', error);
-      alert('Не удалось выдать доступ к файлам');
+      void showModal({
+        type: 'alert',
+        title: 'Ошибка',
+        message: 'Не удалось выдать доступ к файлам',
+        confirmText: 'OK',
+      });
     }
   };
 

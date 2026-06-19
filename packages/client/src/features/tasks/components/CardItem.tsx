@@ -16,6 +16,7 @@ import { useDeleteCard, useUpdateCard, useUpdateSubtask } from '../api/tasksApi'
 import { useUsers } from '../../auth/api/usersApi';
 import { CARD_DRAG_MIME, useCardDrag } from '../dnd/CardDragContext';
 import { useAppearanceStore } from '../../settings/viewmodels/appearanceViewModel';
+import { useModal } from '../../../utils/useModal';
 
 // Определяем, работаем ли в Electron
 const isElectron = typeof window !== 'undefined' && (window as any).electron !== undefined;
@@ -55,6 +56,7 @@ export const CardItem: React.FC<CardItemProps> = ({
   const deleteCard = useDeleteCard();
   const updateSubtask = useUpdateSubtask();
   const drag = useCardDrag();
+  const { showModal } = useModal();
   const cardRef = useRef<HTMLElement>(null);
   const [showSubtasks, setShowSubtasks] = useState(!card.completed);
   const { themeMode } = useAppearanceStore();
@@ -197,7 +199,14 @@ export const CardItem: React.FC<CardItemProps> = ({
 
   const handleDelete = async (event: React.MouseEvent) => {
     event.stopPropagation();
-    if (!window.confirm('Удалить карточку безвозвратно?')) return;
+    const confirmed = await showModal({
+      type: 'confirm',
+      title: 'Удаление карточки',
+      message: 'Удалить карточку безвозвратно?',
+      confirmText: 'Удалить',
+      cancelText: 'Отмена',
+    });
+    if (!confirmed) return;
     try {
       await deleteCard.mutateAsync(card.id);
     } catch (error) {

@@ -10,10 +10,12 @@ import { FileItem } from '../models/driveModel';
 import { api } from '../../../lib/apiClient';
 import { useQueryClient } from '@tanstack/react-query';
 import { useBodyModalOpen } from '../../../utils/useBodyModalOpen';
+import { useModal } from '../../../utils/useModal';
 
 export const DriveView: React.FC = () => {
   const navigate = useNavigate();
   const queryClient = useQueryClient();
+  const { showModal } = useModal();
   const {
     currentPath,
     selectedFiles,
@@ -57,7 +59,12 @@ export const DriveView: React.FC = () => {
       refetch();
     } catch (error) {
       console.error('Failed to create folder:', error);
-      alert('Не удалось создать папку');
+      void showModal({
+        type: 'alert',
+        title: 'Ошибка',
+        message: 'Не удалось создать папку',
+        confirmText: 'OK',
+      });
     } finally {
       setIsCreating(false);
     }
@@ -109,7 +116,12 @@ export const DriveView: React.FC = () => {
       }, 500);
     } catch (error) {
       console.error('Failed to upload files:', error);
-      alert('Не удалось загрузить файлы');
+      void showModal({
+        type: 'alert',
+        title: 'Ошибка',
+        message: 'Не удалось загрузить файлы',
+        confirmText: 'OK',
+      });
       setIsUploading(false);
       setUploadProgress(0);
       setUploadFileName('');
@@ -119,7 +131,14 @@ export const DriveView: React.FC = () => {
   const handleDeleteSelected = async () => {
     if (selectedFiles.size === 0) return;
     
-    if (!confirm(`Удалить ${selectedFiles.size} элементов?`)) return;
+    const confirmed = await showModal({
+      type: 'confirm',
+      title: 'Удаление файлов',
+      message: `Удалить ${selectedFiles.size} элементов?`,
+      confirmText: 'Удалить',
+      cancelText: 'Отмена',
+    });
+    if (!confirmed) return;
     
     try {
       for (const fileName of selectedFiles) {
@@ -129,7 +148,12 @@ export const DriveView: React.FC = () => {
       refetch();
     } catch (error) {
       console.error('Failed to delete files:', error);
-      alert('Не удалось удалить файлы');
+      await showModal({
+        type: 'alert',
+        title: 'Ошибка',
+        message: 'Не удалось удалить файлы',
+        confirmText: 'OK',
+      });
     }
   };
 
@@ -170,7 +194,12 @@ export const DriveView: React.FC = () => {
       }, 500);
     } catch (error) {
       console.error('Failed to download files:', error);
-      alert('Не удалось скачать файлы');
+      void showModal({
+        type: 'alert',
+        title: 'Ошибка',
+        message: 'Не удалось скачать файлы',
+        confirmText: 'OK',
+      });
       setIsDownloading(false);
       setDownloadProgress(0);
       setDownloadFileName('');
@@ -213,7 +242,12 @@ export const DriveView: React.FC = () => {
       setShowPermissionsModal(true);
     } catch (error) {
       console.error('Failed to load permissions:', error);
-      alert('Не удалось загрузить права доступа');
+      void showModal({
+        type: 'alert',
+        title: 'Ошибка',
+        message: 'Не удалось загрузить права доступа',
+        confirmText: 'OK',
+      });
     }
   };
 
@@ -247,7 +281,12 @@ export const DriveView: React.FC = () => {
       queryClient.invalidateQueries({ queryKey: ['files'] });
     } catch (error) {
       console.error('Failed to save permissions:', error);
-      alert('Не удалось сохранить права доступа');
+      void showModal({
+        type: 'alert',
+        title: 'Ошибка',
+        message: 'Не удалось сохранить права доступа',
+        confirmText: 'OK',
+      });
     }
   };
 

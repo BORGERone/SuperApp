@@ -2,6 +2,7 @@ import React from 'react';
 import { Email, MailFolder } from '../models/mailModel';
 import { Reply, Forward, Trash2, Star, Mail, Paperclip, User, Download } from 'lucide-react';
 import { getApiBase } from '../../../lib/serverConfig';
+import { useModal } from '../../../utils/useModal';
 
 interface MailItemProps {
   email: Email;
@@ -24,6 +25,8 @@ export const MailItem: React.FC<MailItemProps> = ({
   onMarkAsUnread,
   onMoveToFolder,
 }) => {
+  const { showModal } = useModal();
+
   const formatDate = (date: Date) => {
     return date.toLocaleString('ru-RU', {
       day: 'numeric',
@@ -84,7 +87,12 @@ export const MailItem: React.FC<MailItemProps> = ({
       console.log('Download completed successfully');
     } catch (error) {
       console.error('Failed to download attachment:', error);
-      alert('Не удалось скачать файл');
+      void showModal({
+        type: 'alert',
+        title: 'Ошибка',
+        message: 'Не удалось скачать файл',
+        confirmText: 'OK',
+      });
     }
   };
 
@@ -126,7 +134,12 @@ export const MailItem: React.FC<MailItemProps> = ({
       console.log('Download completed successfully');
     } catch (error) {
       console.error('Failed to download attachments:', error);
-      alert('Не удалось скачать файлы');
+      void showModal({
+        type: 'alert',
+        title: 'Ошибка',
+        message: 'Не удалось скачать файлы',
+        confirmText: 'OK',
+      });
     }
   };
 

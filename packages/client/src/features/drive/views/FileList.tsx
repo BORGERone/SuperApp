@@ -2,6 +2,7 @@ import React, { useState, useRef } from 'react';
 import { useDriveStore } from '../viewmodels/driveViewModel';
 import { FileItem } from '../models/driveModel';
 import { api } from '../../../lib/apiClient';
+import { useModal } from '../../../utils/useModal';
 
 interface FileListProps {
   files: FileItem[];
@@ -18,6 +19,7 @@ export const FileList: React.FC<FileListProps> = ({
   setDownloadProgress,
   setDownloadFileName,
 }) => {
+  const { showModal } = useModal();
   const { viewMode, toggleFileSelection, selectFile, setSelectedFiles, navigateToDirectory, selectedFiles } = useDriveStore();
   
   // Swipe selection state
@@ -164,7 +166,12 @@ export const FileList: React.FC<FileListProps> = ({
           }, 500);
         } catch (error) {
           console.error('Failed to download file:', error);
-          alert('Не удалось скачать файл');
+          void showModal({
+            type: 'alert',
+            title: 'Ошибка',
+            message: 'Не удалось скачать файл',
+            confirmText: 'OK',
+          });
           setDownloading(false);
           setDownloadProgress(0);
         }
