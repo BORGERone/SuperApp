@@ -1,6 +1,10 @@
 import jwt from 'jsonwebtoken';
+import { config } from '../../config';
 
-const JWT_SECRET = process.env.JWT_SECRET || 'superapp-secret-key';
+// Секрет берётся из централизованной конфигурации. В production сервер не
+// стартует без корректного JWT_SECRET (см. config.ts), поэтому здесь секрет
+// уже гарантированно безопасен в проде.
+const JWT_SECRET = config.jwtSecret;
 const ACCESS_TOKEN_EXPIRY = '15m';
 const REFRESH_TOKEN_EXPIRY = '7d';
 

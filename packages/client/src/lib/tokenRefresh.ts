@@ -12,9 +12,9 @@
 // Параллельные обращения схлопываем в один in-flight-промис, чтобы при
 // шквале 401 не плодить 10 одновременных POST /auth/refresh.
 
-const isElectron =
-  typeof window !== 'undefined' && (window as any).electronAPI !== undefined;
-const API_BASE = isElectron ? 'http://localhost:3002' : '';
+import { getApiBase } from './serverConfig';
+
+const API_BASE = getApiBase();
 
 let inFlight: Promise<boolean> | null = null;
 

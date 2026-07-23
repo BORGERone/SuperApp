@@ -2,10 +2,11 @@
 
 import { refreshAccessToken, clearAuthAndRedirect } from './tokenRefresh';
 import { playErrorSound } from '../utils/notifications';
+import { getApiBase } from './serverConfig';
 
-// API базовый URL - в Electron используем абсолютный URL, в браузере - относительный (работает через proxy)
-const isElectron = typeof window !== 'undefined' && (window as any).electronAPI !== undefined;
-const API_BASE_URL = (import.meta.env as any).VITE_API_URL || (isElectron ? 'http://localhost:3002' : '');
+// Базовый URL бэкенда: в Electron — абсолютный адрес сервера из config.json,
+// в браузере — относительный (через proxy Vite). См. serverConfig.ts.
+const API_BASE_URL = getApiBase();
 
 async function doFetch(endpoint: string, options: RequestInit): Promise<Response> {
   const url = `${API_BASE_URL}${endpoint}`;
@@ -86,4 +87,36 @@ export const api = {
       method: 'PUT',
       body: JSON.stringify({ allowedUsers }),
     }),
+
+  downloadFile: async (path: string): Promise<Blob> => {
+    const url = `${API_BASE_URL}/api/drive/download?path=${encodeURIComponent(path)}`;
+    const token = localStorage.getItem('accessToken');
+
+    const headers: Record<string, string> = {};
+    if (token) headers['Authorization'] = `Bearer ${token}`;
+
+    let response = await fetch(url, { headers });
+
+    // На 401 пробуем обменять refresh-токен на новый access
+    if (response.status === 401) {
+      const refreshed = await refreshAccessToken();
+      if (refreshed) {
+        const newToken = localStorage.getItem('accessToken');
+        if (newToken) headers['Authorization'] = `Bearer ${newToken}`;
+        response = await fetch(url, { headers });
+      }
+      if (!response.ok && response.status === 401) {
+        clearAuthAndRedirect();
+        throw new Error('Token expired');
+      }
+    }
+
+    if (!response.ok) {
+      const error = await response.json().catch(() => ({ error: 'Request failed' }));
+      playErrorSound();
+      throw new Error(error.error || 'Request failed');
+    }
+
+    return response.blob();
+  },
 };

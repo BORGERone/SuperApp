@@ -8,14 +8,27 @@ package-lock.json
 
 # Build outputs
 dist/
+dist-electron/
 build/
 target/
 *.log
+
+# Артефакты сборки установщиков (zip сервера, .exe клиента)
+installer/dist/
+
+# Рантайм HTTPS (setup-https.bat): скачанный Caddy и сгенерированный конфиг
+installer/caddy.exe
+installer/Caddyfile.local
+installer/caddy_data/
 
 # Environment variables
 .env
 .env.local
 .env.*.local
+!.env.example
+
+# Локальная конфигурация клиента (адрес сервера)
+packages/client/config.json
 
 # IDE
 .vscode/
@@ -46,3 +59,10 @@ server.log
 # Temporary files
 *.tmp
 *.temp
+packages/server/src/db/superapp.db
+SuperApp/
+SupperApp/
+packages/server/src/db/superapp.db
+packages/server/src/db/superapp.db
+packages/server/src/db/superapp.db
+packages/server/src/db/superapp.db

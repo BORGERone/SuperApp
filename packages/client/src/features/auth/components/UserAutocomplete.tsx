@@ -1,6 +1,7 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { createPortal } from 'react-dom';
 import { useUsers } from '../api/usersApi';
+import { resolveAssetUrl } from '../../../lib/serverConfig';
 import { ChevronDown, User } from 'lucide-react';
 
 // Проверяем, запущено ли в Electron
@@ -106,7 +107,7 @@ export const UserAutocomplete: React.FC<UserAutocompleteProps> = ({
         style={{ background: 'var(--surface-2)' }}
       >
         {user.avatarUrl ? (
-          <img src={user.avatarUrl} alt={user.username} className="w-full h-full object-cover" />
+          <img src={resolveAssetUrl(user.avatarUrl)} alt={user.username} className="w-full h-full object-cover" />
         ) : (
           <User size={16} style={{ color: 'var(--color-primary)' }} />
         )}
@@ -172,50 +173,40 @@ export const UserAutocomplete: React.FC<UserAutocompleteProps> = ({
       </div>
 
       {/* Dropdown */}
-      {isOpen && filteredUsers.length > 0 && (isElectron ? (
-        <div className={`absolute top-full left-0 right-0 mt-1 z-50 ${dropdownClasses}`}>
+      {isOpen && filteredUsers.length > 0 && createPortal(
+        <div
+          className={dropdownClasses}
+          style={{
+            position: 'fixed',
+            top: dropdownPosition.top,
+            left: dropdownPosition.left,
+            width: dropdownPosition.width,
+            zIndex: 99999,
+            pointerEvents: 'auto',
+          }}
+          onMouseDown={(e) => e.stopPropagation()}
+        >
           {dropdownContent}
-        </div>
-      ) : (
-        createPortal(
-          <div
-            className={`z-[99999] ${dropdownClasses}`}
-            style={{
-              position: 'fixed',
-              top: dropdownPosition.top,
-              left: dropdownPosition.left,
-              width: dropdownPosition.width,
-              pointerEvents: 'auto',
-            }}
-            onMouseDown={(e) => e.stopPropagation()}
-          >
-            {dropdownContent}
-          </div>,
-          document.body
-        )
-      ))}
+        </div>,
+        document.body
+      )}
 
       {/* Not found */}
-      {isOpen && value.trim() && filteredUsers.length === 0 && (isElectron ? (
-        <div className={`absolute top-full left-0 right-0 mt-1 z-50 ${dropdownClasses}`}>
+      {isOpen && value.trim() && filteredUsers.length === 0 && createPortal(
+        <div
+          className={dropdownClasses}
+          style={{
+            position: 'fixed',
+            top: dropdownPosition.top,
+            left: dropdownPosition.left,
+            width: dropdownPosition.width,
+            zIndex: 99999,
+          }}
+        >
           {notFoundContent}
-        </div>
-      ) : (
-        createPortal(
-          <div
-            className={`z-[9999] ${dropdownClasses}`}
-            style={{
-              position: 'fixed',
-              top: dropdownPosition.top,
-              left: dropdownPosition.left,
-              width: dropdownPosition.width,
-            }}
-          >
-            {notFoundContent}
-          </div>,
-          document.body
-        )
-      ))}
+        </div>,
+        document.body
+      )}
     </div>
   );
 };

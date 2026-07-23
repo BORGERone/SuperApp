@@ -2,6 +2,7 @@ import React, { useState, useEffect } from 'react';
 import { X, HardDrive, File, Folder, Check } from 'lucide-react';
 import { FileItem } from '../../drive/models/driveModel';
 import { useBodyModalOpen } from '../../../utils/useBodyModalOpen';
+import { getApiBase } from '../../../lib/serverConfig';
 
 interface DriveFileSelectorModalProps {
   onClose: () => void;
@@ -21,8 +22,7 @@ export const DriveFileSelectorModal: React.FC<DriveFileSelectorModalProps> = ({ 
     const loadFiles = async () => {
       try {
         setIsLoading(true);
-        const isElectron = typeof window !== 'undefined' && (window as any).electronAPI !== undefined;
-        const apiUrl = isElectron ? 'http://localhost:3002' : '';
+        const apiUrl = getApiBase();
 
         // Формируем путь для API: если localCurrentPath пустой, используем '/', иначе формируем путь
         const apiPath = localCurrentPath ? `/${localCurrentPath}` : '/';

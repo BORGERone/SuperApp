@@ -52,9 +52,9 @@ export const SettingsView: React.FC = () => {
 
   return (
     <div className="p-4 sm:p-8 h-[calc(100vh-2rem)] flex flex-col">
-      <h1 className="text-2xl sm:text-3xl font-bold text-app mb-4 sm:mb-6 flex-shrink-0">Настройки</h1>
+      <h1 className="text-2xl sm:text-3xl font-bold text-app mb-4 sm:mb-6 flex-shrink-0 slide-in-left">Настройки</h1>
 
-      <div className="glass-card rounded-lg p-4 sm:p-6 flex flex-col flex-1 min-h-0">
+      <div className="glass-card rounded-lg p-4 sm:p-6 flex flex-col flex-1 min-h-0 fade-in">
         {/* Вкладки сверху */}
         <div className="flex gap-2 mb-4 sm:mb-6 border-b border-app-border pb-4 flex-shrink-0 overflow-x-auto">
           {tabs.map((tab) => (
@@ -77,7 +77,7 @@ export const SettingsView: React.FC = () => {
         </div>
 
         {/* Контент вкладки с прокруткой */}
-        <div className="flex-1 overflow-y-auto min-h-0">
+        <div key={activeTab} className="flex-1 overflow-y-auto min-h-0 fade-in">
           {activeTab === 'profile' && (
             <div className="flex flex-col sm:flex-row gap-4 sm:gap-8">
               <div className="flex-shrink-0">

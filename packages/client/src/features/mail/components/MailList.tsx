@@ -8,6 +8,7 @@ interface MailListProps {
   selectedEmail: Email | null;
   onEmailSelect: (email: Email) => void;
   onToggleEmailSelection: (emailId: string) => void;
+  onSetSelectedEmails: (emailIds: string[]) => void;
   onToggleStar: (emailId: string) => void;
 }
 
@@ -17,13 +18,13 @@ export const MailList: React.FC<MailListProps> = ({
   selectedEmail,
   onEmailSelect,
   onToggleEmailSelection,
+  onSetSelectedEmails,
   onToggleStar,
 }) => {
   // Swipe selection state
   const [isSwipeSelecting, setIsSwipeSelecting] = useState(false);
   const startIndexRef = useRef<number>(-1);
   const endIndexRef = useRef<number>(-1);
-  const previousEndIndexRef = useRef<number>(-1);
   const initialSelectionRef = useRef<Set<string>>(new Set());
   const mouseDownPosRef = useRef<{ x: number; y: number } | null>(null);
   const hasMovedRef = useRef(false);
@@ -45,76 +46,46 @@ export const MailList: React.FC<MailListProps> = ({
     }
   };
 
-  const handleEmailMouseLeave = (email: Email) => {
-    if (isMouseDownRef.current) {
-      const emailIndex = emails.findIndex(e => e.id === email.id);
-      initialSelectionRef.current = new Set(selectedEmails);
-      
-      if (selectedEmails.length === 0) {
-        startIndexRef.current = emailIndex;
-        endIndexRef.current = emailIndex;
-        onToggleEmailSelection(email.id);
-        setIsSwipeSelecting(true);
-      } else if (!isSwipeSelecting) {
-        startIndexRef.current = emailIndex;
-        endIndexRef.current = emailIndex;
-        setIsSwipeSelecting(true);
+  // Детерминированно пересчитывает выделение для текущего диапазона swipe.
+  // Итоговое выделение = (выделение до начала swipe) XOR (письма диапазона).
+  // Считается каждый раз заново от неизменного initialSelectionRef, поэтому
+  // не зависит от промежуточного (устаревшего) состояния — якорь/первый
+  // элемент больше не «теряется через раз».
+  const applyRange = (endIndex: number) => {
+    const initial = initialSelectionRef.current;
+    const lo = Math.min(startIndexRef.current, endIndex);
+    const hi = Math.max(startIndexRef.current, endIndex);
+    const next = new Set(initial);
+    for (let i = lo; i <= hi; i++) {
+      const em = emails[i];
+      if (!em) continue;
+      if (initial.has(em.id)) {
+        next.delete(em.id);
+      } else {
+        next.add(em.id);
       }
     }
+    onSetSelectedEmails(Array.from(next));
+  };
+
+  const handleEmailMouseLeave = (email: Email) => {
+    if (!isMouseDownRef.current || isSwipeSelecting) return;
+    const emailIndex = emails.findIndex(e => e.id === email.id);
+    if (emailIndex === -1) return;
+
+    initialSelectionRef.current = new Set(selectedEmails);
+    startIndexRef.current = emailIndex;
+    endIndexRef.current = emailIndex;
+    setIsSwipeSelecting(true);
+    applyRange(emailIndex);
   };
 
   const handleEmailMouseEnter = (email: Email) => {
-    if (isSwipeSelecting) {
-      const emailIndex = emails.findIndex(e => e.id === email.id);
-      const prevEndIndex = previousEndIndexRef.current;
-      previousEndIndexRef.current = emailIndex;
-      endIndexRef.current = emailIndex;
-      
-      const start = Math.min(startIndexRef.current, endIndexRef.current);
-      const end = Math.max(startIndexRef.current, endIndexRef.current);
-      
-      if (prevEndIndex !== -1) {
-        const oldStart = Math.min(startIndexRef.current, prevEndIndex);
-        const oldEnd = Math.max(startIndexRef.current, prevEndIndex);
-        
-        if (Math.abs(emailIndex - startIndexRef.current) < Math.abs(prevEndIndex - startIndexRef.current)) {
-          for (let i = oldStart; i <= oldEnd; i++) {
-            if (i < start || i > end) {
-              const emailId = emails[i].id;
-              toggleFileSelection(emailId);
-            }
-          }
-        } else {
-          for (let i = start; i <= end; i++) {
-            const emailId = emails[i].id;
-            if (i >= oldStart && i <= oldEnd) continue;
-            
-            if (initialSelectionRef.current.has(emailId)) {
-              if (selectedEmails.includes(emailId)) {
-                onToggleEmailSelection(emailId);
-              }
-            } else {
-              if (!selectedEmails.includes(emailId)) {
-                onToggleEmailSelection(emailId);
-              }
-            }
-          }
-        }
-      } else {
-        for (let i = start; i <= end; i++) {
-          const emailId = emails[i].id;
-          if (initialSelectionRef.current.has(emailId)) {
-            if (selectedEmails.includes(emailId)) {
-              onToggleEmailSelection(emailId);
-            }
-          } else {
-            if (!selectedEmails.includes(emailId)) {
-              onToggleEmailSelection(emailId);
-            }
-          }
-        }
-      }
-    }
+    if (!isSwipeSelecting) return;
+    const emailIndex = emails.findIndex(e => e.id === email.id);
+    if (emailIndex === -1) return;
+    endIndexRef.current = emailIndex;
+    applyRange(emailIndex);
   };
 
   const handleGlobalMouseUp = () => {
@@ -122,10 +93,9 @@ export const MailList: React.FC<MailListProps> = ({
       setIsSwipeSelecting(false);
       startIndexRef.current = -1;
       endIndexRef.current = -1;
-      previousEndIndexRef.current = -1;
       mouseDownPosRef.current = null;
       hasMovedRef.current = false;
-      initialSelectionRef.current.clear();
+      initialSelectionRef.current = new Set();
     }
     isMouseDownRef.current = false;
   };
@@ -135,13 +105,6 @@ export const MailList: React.FC<MailListProps> = ({
     return () => document.removeEventListener('mouseup', handleGlobalMouseUp);
   }, [isSwipeSelecting, selectedEmails]);
 
-  const toggleFileSelection = (emailId: string) => {
-    if (selectedEmails.includes(emailId)) {
-      onToggleEmailSelection(emailId);
-    } else {
-      onToggleEmailSelection(emailId);
-    }
-  };
   // Функция для очистки и усечения текста письма
   const getPreviewText = (text: string, maxLength: number = 100) => {
     if (!text) return '';

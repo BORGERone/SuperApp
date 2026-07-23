@@ -35,6 +35,14 @@ ipcMain.handle('drag:start', async () => {
   return { success: true };
 });
 
+// IPC обработчик для изменения масштаба интерфейса
+ipcMain.handle('window:setZoom', async (_event, zoomFactor: number) => {
+  if (mainWindow) {
+    mainWindow.webContents.setZoomFactor(zoomFactor);
+  }
+  return { success: true };
+});
+
 app.on('ready', createWindow);
 
 app.on('window-all-closed', () => {

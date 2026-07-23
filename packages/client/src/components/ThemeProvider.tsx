@@ -107,6 +107,7 @@ export const ThemeProvider = ({ children }: { children: React.ReactNode }): Reac
     backgroundImageBlur,
     backgroundImageDarkness,
     fontSize,
+    uiScale,
     animationsEnabled,
   } = useAppearanceStore();
 
@@ -169,12 +170,19 @@ export const ThemeProvider = ({ children }: { children: React.ReactNode }): Reac
 
     // Размер шрифта
     const fontSizes: Record<typeof fontSize, string> = {
-      small: '14px',
+      small: '13px',
       medium: '16px',
-      large: '18px',
+      large: '20px',
     };
     root.style.setProperty('--font-size-base', fontSizes[fontSize]);
     document.body.style.fontSize = fontSizes[fontSize];
+
+    // Масштаб интерфейса — используем нативный zoom Electron
+    const zoomFactor = uiScale / 100;
+    const electron = (window as any).electron;
+    if (electron?.window?.setZoom) {
+      electron.window.setZoom(zoomFactor);
+    }
 
     // Анимации
     if (!animationsEnabled) {
@@ -184,7 +192,7 @@ export const ThemeProvider = ({ children }: { children: React.ReactNode }): Reac
       root.style.setProperty('--transition-duration', '200ms');
       document.body.classList.remove('no-animations');
     }
-  }, [themeMode, colorScheme, backgroundImage, backgroundImageEnabled, backgroundImageBlur, backgroundImageDarkness, fontSize, animationsEnabled]);
+  }, [themeMode, colorScheme, backgroundImage, backgroundImageEnabled, backgroundImageBlur, backgroundImageDarkness, fontSize, uiScale, animationsEnabled]);
 
   // Реакция на смену системной темы при режиме «auto»
   useEffect(() => {
