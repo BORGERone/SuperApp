@@ -40,9 +40,16 @@ prostroykrym.ru {
 		reverse_proxy 127.0.0.1:3002
 	}
 
-	# Всё остальное — собранный веб-клиент (SPA). Путь поправь под свой сервер.
+	# Всё остальное — собранный веб-клиент (SPA).
+	#
+	# Путь ниже — для этого сервера (проект лежит на диске E:). Если проект
+	# перенесут, поправь его здесь тоже.
+	# Обычно править вручную не нужно: и installer\setup-https.bat, и
+	# installer\SuperApp-Start.bat генерируют Caddyfile.local, подставляя
+	# реальный путь к dist. Этот Caddyfile нужен только для запуска вручную
+	# (caddy run --config installer\Caddyfile).
 	handle {
-		root * C:/SuperApp/packages/client/dist
+		root * E:/Server/SuperApp/packages/client/dist
 		try_files {path} /index.html
 		file_server
 	}

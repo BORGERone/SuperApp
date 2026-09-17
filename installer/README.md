@@ -6,6 +6,13 @@
 
 > Поддержка только Windows. Сервер требует [Bun](https://bun.sh) (Windows 10+).
 > Клиенты на Windows 7 ставятся готовым `.exe` (см. ниже) — Bun на них не нужен.
+>
+> **Пути.** На этом сервере проект лежит в **`E:\Server\SuperApp`** — в примерах
+> ниже используется именно он. Если проект перенесли, подставьте свой путь:
+> все скрипты (`SuperApp-Start.bat`, `db-backup.bat`, …) работают от своего
+> расположения (`%~dp0` / `$PSScriptRoot`), поэтому диск и глубина каталогов
+> значения не имеют: жёстко зашит путь только в шаблоне `installer\Caddyfile`,
+> а рабочий `Caddyfile.local` генерируется автоматически.
 
 ## Рекомендуется: единое окно настройки — `SuperApp-Setup.bat`
 
@@ -113,7 +120,7 @@ installer\SuperApp-Start.bat /window         два отдельных окна 
    видна любая ошибка; так же полезно, если `.bat` кажется битым):
 
    ```
-   cd /d C:\SuperApp\installer
+   cd /d E:\Server\SuperApp\installer
    powershell -NoProfile -ExecutionPolicy Bypass -File superapp-start.ps1
    ```
 
@@ -129,7 +136,7 @@ installer\SuperApp-Start.bat /window         два отдельных окна 
 - **Надёжнее (без входа в систему):** Планировщик заданий → «Создать задачу»:
   триггер «При запуске компьютера», действие — программа
   `C:\Windows\System32\cmd.exe` с аргументами
-  `/c "C:\SuperApp\installer\SuperApp-Start.bat"`, на вкладке «Общие» —
+  `/c "E:\Server\SuperApp\installer\SuperApp-Start.bat"`, на вкладке «Общие» —
   «Выполнять вне зависимости от того, зарегистрирован ли пользователь»
   (окна консоли в этом случае не видно, но сервер и Caddy работают).
 - **Как служба Windows:** см. вариант с NSSM в разделе «Установка СЕРВЕРА».
@@ -176,7 +183,7 @@ installer\SuperApp-Start.bat /window         два отдельных окна 
 Запуск как службы Windows (рекомендуется [NSSM](https://nssm.cc)):
 ```
 nssm install SuperAppServer "C:\Users\<user>\.bun\bin\bun.exe" "run src\server.ts"
-nssm set SuperAppServer AppDirectory "C:\path\to\packages\server"
+nssm set SuperAppServer AppDirectory "E:\Server\SuperApp\packages\server"
 nssm start SuperAppServer
 ```
 
@@ -321,7 +328,7 @@ Electron-клиенты указывают в `config.json` тот же `https:/
 числится в индексе:
 
 ```bat
-cd /d C:\SuperApp
+cd /d E:\Server\SuperApp
 installer\db-backup.bat                     :: 1) копия базы (на случай сбоя)
 git ls-files packages/server/src/db         :: 2) видно ли superapp.db в списке
 git rm --cached packages/server/src/db/superapp.db
