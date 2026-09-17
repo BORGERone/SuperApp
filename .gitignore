@@ -59,10 +59,22 @@ server.log
 # Temporary files
 *.tmp
 *.temp
-packages/server/src/db/superapp.db
 SuperApp/
 SupperApp/
-packages/server/src/db/superapp.db
-packages/server/src/db/superapp.db
-packages/server/src/db/superapp.db
-packages/server/src/db/superapp.db
+
+# Живая база данных SuperApp: файл лежит рядом с кодом, но живёт ТОЛЬКО на
+# сервере. В git его хранить нельзя — иначе каждый pull подменяет базу.
+# Подробности и порядок действий: installer\README.md, раздел
+# «База данных, загрузки и git».
+#
+# Вторая строка закрывает *.db-wal / *.db-shm / *.db-journal (режим WAL) и
+# *.db.before-restore — страховочную копию, которую делает installer\db-backup.bat.
+packages/server/src/db/*.db
+packages/server/src/db/*.db.*
+
+# Файлы, загруженные пользователями (рантайм-данные сервера, не код).
+packages/server/uploads/*
+!packages/server/uploads/.gitkeep
+
+# Локальные резервные копии базы (installer\db-backup.bat)
+installer/backups/

@@ -146,6 +146,7 @@ installer\SuperApp-Start.bat /window         два отдельных окна 
 | `installer\configure-server.bat`      | на сервере                   | Быстро (пере)записать только `.env` (порт/HOST/CORS/секрет)        |
 | `installer\configure-client.bat`      | на машине-клиенте            | Быстро (пере)записать только `config.json` (IP/порт сервера)       |
 | `installer\setup-https.bat`           | на сервере (открыты 80/443)  | В один клик: собирает веб-клиент `--base=/`, скачивает Caddy и запускает HTTPS (Let's Encrypt) для браузера |
+| `installer\db-backup.bat`             | на сервере                   | Копия живой базы данных (`installer\backups\`) и восстановление из неё (`/restore`). Запускать перед `git pull` |
 
 `installer\install-server.ps1`, `installer\install-client.ps1` и
 `installer\superapp-start.ps1` — это «движок» (проверка Bun, `bun install`,
@@ -289,6 +290,93 @@ Electron-клиенты указывают в `config.json` тот же `https:/
 > HTTP/3 (QUIC) — по желанию: добавь проброс UDP 443→8443.
 
 ---
+
+## База данных, загрузки и git
+
+Живые данные сервера лежат **рядом с кодом**, поэтому их легко случайно
+закоммитить. Так и случилось: файл базы `packages\server\src\db\superapp.db`
+одно время хранился в git — и при каждом `git pull` на сервере он подменялся
+версией из репозитория (база «сбрасывалась»). Сейчас в репозитории сделано так,
+чтобы это не повторялось:
+
+- в `.gitignore` добавлены `packages/server/src/db/*.db`, `*.db.*` (WAL-файлы и
+  страховочные копии), `packages/server/uploads/*` и `installer/backups/`;
+- в ветке `arena/01a0af11-superapp` файл базы **не отслеживается** (удалён из
+  индекса ещё в коммите `d6d6a6f`).
+
+> **Важно.** `.gitignore` не действует на файлы, которые **уже** в индексе git.
+> Пока база (или загрузки) числится в `git ls-files`, никакой `.gitignore` её
+> не защитит — от `git rm --cached` файл исчезает из индекса, но **остаётся на
+> диске** (это и нужно).
+
+Где база ещё отслеживается (по состоянию на сейчас): ветка **`master`** и
+ветки `devin/1778666981-tasks-trello-tab`, `devin/1778683228-tasks-feature`,
+`devin/1778683813-tasks-feature`, `devin/1779098923-glassmorphism-redesign`,
+`devin/1779784626-tasks-ux-fixes`. В `devin/1780410717-tray-session-notifications`
+и `arena/01a0af11-superapp` — уже нет.
+
+### Как навсегда убрать базу из git
+
+На сервере (в том каталоге, откуда вы делаете `git pull`), если база ещё
+числится в индексе:
+
+```bat
+cd /d C:\SuperApp
+installer\db-backup.bat                     :: 1) копия базы (на случай сбоя)
+git ls-files packages/server/src/db         :: 2) видно ли superapp.db в списке
+git rm --cached packages/server/src/db/superapp.db
+git commit -m "Untrack live SQLite database (keep it local, ignored)"
+git push
+```
+
+После этого `git ls-files packages/server/src/db` должен показывать только
+`index.ts` и `schema.ts`, а сам файл базы — существовать на диске и не
+фигурировать в `git status`.
+
+Что будет с другими машинами: при следующем `git pull` там файл базы будет
+**удалён** из рабочей копии (так работает git для отслеживаемых файлов). Если
+на такой машине есть живая база — сначала `installer\db-backup.bat`, потом pull,
+потом `installer\db-backup.bat /restore`.
+
+### Безопасный `git pull` на сервере
+
+```bat
+:: 1) остановить сервер — Ctrl+C в окне SuperApp-Start
+installer\db-backup.bat      :: 2) копия базы -> installer\backups\superapp-<дата>.db
+git pull                     :: 3) обновление
+:: 4) если после pull база пропала или «сбросилась»:
+installer\db-backup.bat /restore
+:: 5) запустить сервер: installer\SuperApp-Start.bat
+```
+
+`/restore` берёт **самую свежую** копию, а текущий файл сохраняет рядом под
+именем `superapp.db.before-restore` (в git он тоже не попадёт).
+
+### Загруженные пользователями файлы
+
+Та же история, что с базой: каталог `packages\server\uploads\` (документы, аудио,
+аватары) частично **был в git**. `.gitignore` теперь его закрывает, но уже
+закоммиченные файлы остаются отслеживаемыми, пока их не уберут так же:
+
+```bat
+git rm -r --cached packages/server/uploads
+git commit -m "Untrack user uploads (runtime data, not code)"
+git push
+```
+
+(перед этим полезно скопировать каталог `uploads` в безопасное место — на других
+машинах pull после такого коммита удалит эти файлы из рабочей копии).
+
+### Мелочи
+
+- SQLite сейчас работает в режиме журнала по умолчанию (без WAL), поэтому рядом
+  с базой обычно нет `-wal`/`-shm`. Если режим когда-нибудь включат, `db-backup.bat`
+  копирует и эти файлы, а `.gitignore` их уже игнорирует.
+- `packages\server\.env` и `packages\client\config.json` не в git и не должны
+  там появляться: секрет `JWT_SECRET` и адрес сервера задаются на месте
+  (см. `SuperApp-Setup.bat`).
+- Копии базы складываются в `installer\backups\` — этот каталог в `.gitignore`,
+  в репозиторий он не попадает. Старые копии можно удалять вручную.
 
 ## Безопасность
 
