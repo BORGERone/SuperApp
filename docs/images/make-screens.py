@@ -700,14 +700,50 @@ def draw_sidebar(img, active):
     text(d, (70, icy + 11), 'Настройки', 15.5, TEXT)
 
 
-def screen_head(img, title, user='Алексей Морозов', cloud=False):
+RAIL = 64                  # свёрнутый сайдбар: только иконки
+
+
+def draw_rail(img, active):
+    """Свёрнутый сайдбар — как в приложении при свёрнутом меню."""
     d = ImageDraw.Draw(img, 'RGBA')
-    x = SIDEBAR + 25
+    d.rectangle([0, 0, px(RAIL), px(H)], fill=CARD)
+    d.line([px(RAIL), 0, px(RAIL), px(H)], fill=BORDER, width=_lw(1))
+
+    # кнопка «развернуть» — там же, где в приложении
+    card(img, [14, 22, 50, 58], r=12, shadow=(10, 4, 14))
+    ic_chevron(d, 32, 40, 16, (75, 85, 99), w=1.9, down=False)
+
+    groups = [
+        [('mail', ic_envelope, 2), ('compose', ic_pencil, 0), ('inbox', ic_inbox, 2),
+         ('sent', ic_send, 0), ('trash', ic_trash, 0)],
+        [('drive', ic_hard_drive, 0), ('tasks', ic_check_square, 0)],
+    ]
+    y = 96
+    for gi, group in enumerate(groups):
+        if gi:
+            d.line([px(20), px(y - 20), px(RAIL - 20), px(y - 20)],
+                   fill=(240, 243, 250), width=_lw(1))
+        for key, icon, badge in group:
+            on = (key == active)
+            if on:
+                gradient_fill(img, [12, y - 6, RAIL - 12, y + 46], 13,
+                              (238, 240, 255), (243, 236, 255))
+            icon(d, 32, y + 20, 21, PRIMARY_DARK if on else (85, 95, 115))
+            if badge:
+                pastel_shape(img, [38, y + 1, 60, y + 23], 'disc', PASTELS['indigo'], fold=False)
+                text(d, (49, y + 12), str(badge), 11.5, (255, 255, 255), bold=True, anchor='mm')
+            y += 50
+
+    ic_gear(d, 32, H - 32, 21, TEXT_MUTED)
+
+
+def screen_head(img, title, x0=None, cloud=False):
+    d = ImageDraw.Draw(img, 'RGBA')
+    x = (SIDEBAR + 25) if x0 is None else x0
     if cloud:
         ic_cloud(d, x + 16, 44, 30, (129, 140, 248), w=2.2, fill=(165, 180, 252))
         x += 40
     gradient_text(img, (x, 26), title, 30, PRIMARY, VIOLET)
-    text(d, (W - 175, 36), user, 15, (75, 85, 99))
     card(img, [W - 130, 24, W - 25, 68], r=12, shadow=(10, 4, 18))
     ic_logout(d, W - 108, 46, 18, (55, 65, 81))
     text(d, (W - 94, 37), 'Выйти', 15, (55, 65, 81), bold=True)
@@ -773,8 +809,8 @@ def draw_mail():
     card(img, [rx0, 152, W - 25, H - 25], r=18, shadow=(16, 7, 24))
     pastel_shape(img, [rx0 + 34, 194, rx0 + 102, 262], 'disc', PASTELS['violet'], fold=False)
     person_glyph(img, rx0 + 68, 228, 28)
-    sk_bar(img, [rx0 + 120, 210, rx0 + 300, 224], fill=SK_DARK, r=7)
-    sk_bar(img, [rx0 + 120, 234, rx0 + 250, 244], fill=SK, r=5)
+    sk_bar(img, [rx0 + 120, 208, rx0 + 214, 222], fill=SK_DARK, r=7)
+    sk_bar(img, [rx0 + 120, 232, rx0 + 186, 242], fill=SK, r=5)
     for bx, ic, fill in ((W - 216, ic_send, None), (W - 168, ic_archive, None), (W - 120, ic_dots, None)):
         card(img, [bx, 194, bx + 40, 234], r=12, shadow=(10, 4, 16))
         ic(d, bx + 20, 214, 17, (107, 114, 128))
@@ -798,18 +834,18 @@ def draw_mail():
 def draw_drive():
     img = Image.new('RGBA', (W * S, H * S), BG + (255,))
     d = ImageDraw.Draw(img, 'RGBA')
-    draw_sidebar(img, 'drive')
-    screen_head(img, 'Сетевой диск', cloud=True)
+    draw_rail(img, 'drive')
+    x0 = RAIL + 24
+    screen_head(img, 'Сетевой диск', x0=x0, cloud=True)
 
-    x0 = SIDEBAR + 25
     # панель действий
     gradient_fill(img, [x0, 96, x0 + 214, 144], 12, GRAD_A, GRAD_B)
     ic_upload(d, x0 + 32, 120, 20, (255, 255, 255))
     text(d, (x0 + 52, 120), 'Загрузить файл', 15, (255, 255, 255), bold=True, anchor='lm')
     pill(img, [x0 + 230, 96, x0 + 424, 144], 'Создать папку', icon=ic_plus)
-    pill(img, [x0 + 440, 96, x0 + 590, 144], 'Обновить', icon=ic_refresh)
-    card(img, [x0 + 606, 96, x0 + 652, 144], r=12, shadow=(12, 5, 20))
-    ic_list(d, x0 + 629, 120, 20, (107, 114, 128))
+    pill(img, [x0 + 440, 96, x0 + 592, 144], 'Обновить', icon=ic_refresh)
+    card(img, [x0 + 608, 96, x0 + 654, 144], r=12, shadow=(12, 5, 20))
+    ic_list(d, x0 + 631, 120, 20, (107, 114, 128))
 
     # хлебные крошки
     card(img, [x0, 164, x0 + 160, 208], r=12, shadow=(10, 4, 16))
@@ -818,33 +854,29 @@ def draw_drive():
     text(d, (x0 + 178, 186), '/', 16, (156, 163, 175), anchor='lm')
     sk_bar(img, [x0 + 196, 181, x0 + 300, 191], fill=SK)
 
-    # плитки папок
-    fw, fh, fgap = 198, 152, 18
-    folders = ['indigo', 'teal', 'amber', 'rose', 'blue']
+    # одна сетка на все плитки: 6 колонок, папки — двумя рядами, файлы — третьим
+    gap, cols = 16, 6
+    tw = ((W - 25) - x0 - gap * (cols - 1)) // cols
+    folders = ['indigo', 'teal', 'amber', 'rose', 'blue', 'violet',
+               'coral', 'indigo', 'teal', 'amber', 'rose', 'blue']
     for i, key in enumerate(folders):
-        x = x0 + i * (fw + fgap)
-        box = [x, 232, x + fw, 232 + fh]
+        col, row = i % cols, i // cols
+        x, y = x0 + col * (tw + gap), 232 + row * 166
         selected = (i == 0)
-        card(img, box, r=16, shadow=(14, 6, 22),
-             outline=(129, 140, 248) if selected else BORDER, width=1.6 if selected else 1)
-        pastel_shape(img, [x + 34, 252, x + fw - 34, 322], 'folder', PASTELS[key])
-        sk_bar(img, [x + 46, 342, x + fw - 46, 352], fill=SK)
-        pastel_shape(img, [x + 40, 358, x + 100, 370], 'squircle', PASTELS['slate'], fold=False)
+        card(img, [x, y, x + tw, y + 150], r=16, shadow=(14, 6, 22),
+             outline=(196, 205, 245) if selected else BORDER, width=1.6 if selected else 1)
+        pastel_shape(img, [x + 30, y + 36, x + tw - 30, y + 114], 'folder', PASTELS[key])
         if selected:
-            pastel_shape(img, [x + 12, 12 + 232, x + 36, 36 + 232], 'disc', PASTELS['indigo'], fold=False)
-            ic_check(d, x + 24, 244, 14, (255, 255, 255), w=2.0)
+            pastel_shape(img, [x + 12, y + 12, x + 36, y + 36], 'disc', PASTELS['indigo'], fold=False)
+            ic_check(d, x + 24, y + 24, 13, (255, 255, 255), w=2.0)
 
-    # плитки файлов
-    tw, th2, tgap = 170, 148, 14
-    files = [('rose', 'image'), ('teal', 'grid'), ('indigo', 'chart'), ('violet', 'lines'),
-             ('coral', 'play'), ('blue', 'code')]
+    files = [('rose', 'image'), ('teal', 'grid'), ('indigo', 'chart'),
+             ('violet', 'lines'), ('coral', 'play'), ('blue', 'code')]
     for i, (key, glyph) in enumerate(files):
-        x = x0 + i * (tw + tgap)
-        box = [x, 402, x + tw, 402 + th2]
-        card(img, box, r=16, shadow=(14, 6, 22))
-        pastel_shape(img, [x + tw / 2 - 30, 420, x + tw / 2 + 30, 500], 'doc', PASTELS[key])
-        pastel_glyph(img, x + tw / 2, 458, 17, glyph, alpha=170)
-        sk_bar(img, [x + 32, 516, x + tw - 32, 526], fill=SK)
+        x, y = x0 + i * (tw + gap), 564
+        card(img, [x, y, x + tw, y + 150], r=16, shadow=(14, 6, 22))
+        pastel_shape(img, [x + tw / 2 - 30, y + 20, x + tw / 2 + 30, y + 100], 'doc', PASTELS[key])
+        pastel_glyph(img, x + tw / 2, y + 58, 17, glyph, alpha=170)
 
     # панель выбранного
     px0, py0 = W - 325, H - 156
@@ -860,113 +892,139 @@ def draw_drive():
 
 # --- кадр «Задачи» ------------------------------------------------------------
 
-def pastel_chip(img, x, cy, label=None, glyph=None, pair=('amber',), w=None, size=13):
-    """Чип с пастельным градиентом: значок и/или короткая подпись."""
-    key = pair[0]
-    bw = w if w is not None else (text_w(label, size, True) + 44 if glyph and label else
-                                  (34 if glyph else text_w(label, size, True) + 26))
-    box = [x, cy - 13, x + bw, cy + 13]
-    gradient_fill(img, box, 13, PASTELS[key][0], PASTELS[key][1])
+def soft_pair(key, k=0.55):
+    """Мягкая пастель: цвет подмешивается к белому."""
+    return (lerp(PASTELS[key][0], (255, 255, 255), k),
+            lerp(PASTELS[key][1], (255, 255, 255), k))
+
+
+def chip_fg(key):
+    """Цвет текста и значка для мягкого чипа."""
+    return lerp(PASTELS[key][0], (34, 40, 74), 0.45)
+
+
+def task_chip(img, x, cy, label=None, glyph=None, pair='amber', size=13):
+    """Мягкий пастельный чип: значок и/или короткая подпись."""
     d = ImageDraw.Draw(img, 'RGBA')
+    bw = text_w(label, size, True) + (42 if glyph and label else (30 if glyph else 22))
+    box = [x, cy - 13, x + bw, cy + 13]
+    a, b = soft_pair(pair)
+    gradient_fill(img, box, 13, a, b)
+    fg = chip_fg(pair)
     if glyph:
-        glyph(d, x + 17, cy, 15, (255, 255, 255))
-        tx = x + 30
+        glyph(d, x + 16, cy, 14, fg)
+        tx = x + 28
     else:
-        tx = x + 13
+        tx = x + 11
     if label:
-        text(d, (tx, cy), label, size, (255, 255, 255), bold=True, anchor='lm')
+        text(d, (tx, cy), label, size, fg, bold=True, anchor='lm')
     return x + bw + 8
 
 
-def task_card(img, box, chips, title_w, items, done=False, key='indigo', tint=None):
-    """Карточка задачи: чипы, заголовок, подзадачи, прогресс и исполнители."""
-    card(img, box, r=14, fill=tint or CARD,
-         outline=(233, 240, 252) if not done else (214, 244, 234), shadow=(12, 5, 18))
-    d = ImageDraw.Draw(img, 'RGBA')
+def task_card(img, box, chips, title_w, items, done=False, key='indigo', tint=None, tilt=None):
+    """Карточка задачи в старом мягком стиле: чипы, строки-скелетон, подзадачи,
+    полоска прогресса и кружки исполнителей."""
     x0, y0, x1, y1 = box
-    cx = x0 + 14
-    cy = y0 + 26
-    if done:
-        pastel_chip(img, cx, cy, 'Выполнено', glyph=ic_check, pair=('teal',))
-    else:
-        for label, glyph, pair in chips:
-            cx = pastel_chip(img, cx, cy, label, glyph=glyph, pair=(pair,)) 
+    w, h = x1 - x0, y1 - y0
 
-    # заголовок — скелетон-строки
-    ty = y0 + 48
-    sk_bar(img, [x0 + 14, ty, x0 + 14 + title_w, ty + 11], fill=SK_DARK if not done else SK)
-    sk_bar(img, [x0 + 14, ty + 18, x0 + 14 + title_w * 0.62, ty + 27],
-           fill=SK if not done else SK_SOFT, r=5)
+    def draw(target, bx0, by0):
+        b = [bx0, by0, bx0 + w, by0 + h]
+        card(target, b, r=14, fill=tint or CARD, outline=(236, 241, 250),
+             shadow=None if tilt is not None else (12, 5, 18))
+        d = ImageDraw.Draw(target, 'RGBA')
+        cx, cy = bx0 + 14, by0 + 29
+        if done:
+            task_chip(target, cx, cy, 'Выполнено', glyph=ic_check, pair='teal')
+        else:
+            for label, glyph, pair in chips:
+                cx = task_chip(target, cx, cy, label, glyph=glyph, pair=pair)
 
-    # подзадачи
-    sy = ty + 44
-    for i, (label_w, ok) in enumerate(items):
-        pastel_shape(img, [x0 + 14, sy - 1, x0 + 30, sy + 15], 'disc',
-                     PASTELS['teal' if ok else 'slate'], fold=False)
-        if ok:
-            ic_check(d, x0 + 22, sy + 7, 11, (255, 255, 255), w=2.0)
-        sk_bar(img, [x0 + 38, sy + 2, x0 + 38 + label_w, sy + 12],
-               fill=SK_SOFT if ok else SK)
-        sy += 24
+        ty = by0 + 48
+        sk_bar(target, [bx0 + 14, ty, bx0 + 14 + title_w, ty + 11], fill=SK_DARK)
+        sk_bar(target, [bx0 + 14, ty + 18, bx0 + 14 + title_w * 0.6, ty + 27], fill=SK, r=5)
 
-    # прогресс и исполнители
-    py = sy + 6
-    bar_w = (x1 - 24) - (x0 + 14) - 74
-    sk_bar(img, [x0 + 14, py, x0 + 14 + bar_w, py + 6], fill=(238, 241, 248), r=3)
-    gradient_fill(img, [x0 + 14, py, x0 + 14 + bar_w * (0.72 if not done else 1.0), py + 6],
-                  3, PASTELS['teal' if done else key][0], PASTELS['teal' if done else key][1])
-    for i in range(2 if not done else 1):
-        ax = x1 - 22 - i * 20
-        pastel_shape(img, [ax - 16, py - 10, ax + 16, py + 22], 'disc',
-                     PASTELS['rose' if i == 0 else 'blue'], fold=False)
-        person_glyph(img, ax, py + 6, 11)
-    return py + 22
+        sy = by0 + 88
+        for label_w, ok in items:
+            pastel_shape(target, [bx0 + 14, sy, bx0 + 30, sy + 16], 'disc',
+                         PASTELS['teal' if ok else 'slate'], fold=False)
+            if ok:
+                ic_check(d, bx0 + 22, sy + 8, 11, (255, 255, 255), w=2.0)
+            sk_bar(target, [bx0 + 38, sy + 3, bx0 + 38 + label_w, sy + 13],
+                   fill=SK_SOFT if ok else SK)
+            sy += 24
+
+        py = sy + 6
+        bar_w = (bx0 + w - 24) - (bx0 + 14) - 74
+        sk_bar(target, [bx0 + 14, py, bx0 + 14 + bar_w, py + 7], fill=(238, 241, 248), r=3)
+        a, b2 = PASTELS['teal' if done else key]
+        gradient_fill(target, [bx0 + 14, py, bx0 + 14 + bar_w * (1.0 if done else 0.7), py + 7],
+                      3, lerp(a, (255, 255, 255), 0.15), lerp(b2, (255, 255, 255), 0.15))
+        for i in range(1 if done else 2):
+            ax = bx0 + w - 22 - i * 20
+            pastel_shape(target, [ax - 16, py - 10, ax + 16, py + 22], 'disc',
+                         PASTELS['rose' if i == 0 else 'blue'], fold=False)
+            person_glyph(target, ax, py + 6, 11)
+        return py + 22
+
+    if tilt is None:
+        draw(img, x0, y0)
+        return y0 + h
+
+    # карточку «в движении» рисуем на отдельном слое и наклоняем
+    m = 26
+    tmp = Image.new('RGBA', (px(w + 2 * m), px(h + 2 * m)), (0, 0, 0, 0))
+    draw(tmp, m, m)
+    rot = tmp.rotate(tilt, resample=Image.BICUBIC, expand=False)
+    img.alpha_composite(rot, (px(x0 - m), px(y0 - m)))
+    return y0 + h
 
 
 def draw_tasks():
     img = Image.new('RGBA', (W * S, H * S), BG + (255,))
     d = ImageDraw.Draw(img, 'RGBA')
-    draw_sidebar(img, 'tasks')
-    screen_head(img, 'Задачи')
+    draw_rail(img, 'tasks')
+    x0 = RAIL + 24
+    screen_head(img, 'Задачи', x0=x0)
 
-    x0 = SIDEBAR + 25
     # панель инструментов
     card(img, [x0, 88, x0 + 250, 136], r=14, shadow=(12, 5, 18))
     ic_search(d, x0 + 28, 112, 18, (156, 163, 175))
     text(d, (x0 + 48, 112), 'Поиск карточек', 14.5, TEXT_SOFT, anchor='lm')
-    pill(img, [x0 + 266, 88, x0 + 470, 136], 'Все ответственные',
-         icon=ic_funnel, size=14.5)
+    pill(img, [x0 + 266, 88, x0 + 470, 136], 'Все ответственные', icon=ic_funnel, size=14.5)
     ic_chevron(d, x0 + 448, 112, 14, (107, 114, 128))
     pill(img, [x0 + 486, 88, x0 + 630, 136], 'Обновить', icon=ic_refresh, size=14.5)
     pill(img, [x0 + 646, 88, x0 + 770, 136], 'Архив', icon=ic_archive, size=14.5)
 
     # статистика — чипами, как в клиенте
     sx = stat_chip(img, x0, 162, 'Колонок: 3', icon=ic_users)
-    stat_chip(img, sx, 162, 'Карточек: 7')
+    stat_chip(img, sx, 162, 'Карточек: 9')
 
     columns = [
         ('В работе', 'indigo', [
-            dict(chips=[('17.09', ic_calendar, 'amber'), ('1/2', None, 'indigo')], title=190,
+            dict(chips=[('17.09', ic_calendar, 'amber'), ('1/2', None, 'indigo')], title=178,
                  items=[(150, True), (120, False)], key='indigo'),
-            dict(chips=[('19.09', ic_calendar, 'amber'), ('0/3', None, 'indigo')], title=210,
-                 items=[(120, False), (140, False)], key='amber',
-                 tint=(255, 253, 246)),
-            dict(chips=[('22.09', ic_calendar, 'amber'), ('0/2', None, 'indigo')], title=160,
-                 items=[(130, False)], key='rose'),
+            dict(chips=[('19.09', ic_calendar, 'amber'), ('0/3', None, 'indigo')], title=196,
+                 items=[(120, False), (135, False)], key='amber', tint=(255, 253, 247)),
+            dict(chips=[('22.09', ic_calendar, 'rose'), ('0/2', None, 'violet')], title=156,
+                 items=[(135, False), (105, False)], key='rose'),
         ]),
         ('На проверке', 'rose', [
-            dict(chips=[('17.09', ic_calendar, 'coral'), ('0/3', None, 'indigo')], title=200,
-                 items=[(110, False), (130, False)], key='coral', tint=(255, 250, 250)),
-            dict(chips=[('20.09', ic_calendar, 'amber'), ('2/2', None, 'indigo')], title=170,
-                 items=[(140, True), (120, True)], key='teal'),
+            dict(chips=[('17.09', ic_calendar, 'coral'), ('0/3', None, 'indigo')], title=188,
+                 items=[(115, False), (130, False)], key='coral', tint=(255, 251, 251)),
+            dict(chips=[('20.09', ic_calendar, 'amber'), ('2/2', None, 'teal')], title=166,
+                 items=[(140, True), (118, True)], key='teal', tilt=-6),
+            dict(chips=[('23.09', ic_calendar, 'amber'), ('0/1', None, 'violet')], title=172,
+                 items=[(128, False), (112, False)], key='violet'),
         ]),
         ('Выполнено', 'teal', [
-            dict(done=True, title=180, items=[(170, True), (140, True)]),
+            dict(done=True, title=176, items=[(170, True), (140, True)]),
+            dict(done=True, title=150, items=[(132, True)]),
+            dict(done=True, title=182, items=[(160, True), (124, True)]),
         ]),
     ]
 
-    cw, gap = 270, 16
-    col_top, col_h = 188, 640
+    gap, col_top, col_h = 16, 188, 680
+    cw = ((W - 25) - x0 - gap * 3) // 4
     for ci, (title, accent, cards) in enumerate(columns):
         x = x0 + ci * (cw + gap)
         card(img, [x, col_top, x + cw, col_top + col_h], r=18, fill=(251, 251, 254),
@@ -975,32 +1033,28 @@ def draw_tasks():
         pastel_shape(img, [x + 18, col_top + 16, x + 32, col_top + 30], 'disc',
                      PASTELS[accent], fold=False)
         text(d, (x + 40, col_top + 16), title, 15, (31, 41, 55), bold=True)
-        cnt = len(cards)
-        label = str(cnt)
-        chip_w = 26
         tx = x + 40 + text_w(title, 15, True) + 8
-        card(img, [tx, col_top + 12, tx + chip_w, col_top + 40], r=8, fill=(238, 241, 248),
+        card(img, [tx, col_top + 12, tx + 26, col_top + 40], r=8, fill=(238, 241, 248),
              outline=(238, 241, 248), shadow=False)
-        text(d, (tx + chip_w / 2, col_top + 26), label, 13, (100, 116, 139), bold=True, anchor='mm')
+        text(d, (tx + 13, col_top + 26), str(len(cards)), 13, (100, 116, 139), bold=True, anchor='mm')
         ic_trash(d, x + cw - 24, col_top + 26, 16, (176, 186, 202))
 
-        y = col_top + 52
+        y = col_top + 48
         for c in cards:
-            h = 176 if not c.get('done') else 168
-            h = 168 + (len(c['items']) - 1) * 24
+            h = 128 + 24 * len(c['items'])
             end = task_card(img, [x + 12, y, x + cw - 12, y + h], c.get('chips', []),
                             c['title'], c['items'], done=c.get('done', False),
-                            key=c.get('key', 'indigo'), tint=c.get('tint'))
-            y = end + 12
+                            key=c.get('key', 'indigo'), tint=c.get('tint'), tilt=c.get('tilt'))
+            y = end + 10
 
         # «Добавить карточку» — пунктирная кнопка
         dash_box = [x + 12, col_top + col_h - 62, x + cw - 12, col_top + col_h - 18]
         dashed_round_rect(ImageDraw.Draw(img, 'RGBA'), dash_box, 14, (206, 214, 228))
-        ic_plus(d, dash_box[0] + 62, dash_box[1] + 22, 15, (107, 114, 128))
-        text(d, (dash_box[0] + 78, dash_box[1] + 22), 'Добавить карточку', 14,
+        ic_plus(d, dash_box[0] + (cw - 150) / 2, dash_box[1] + 22, 15, (107, 114, 128))
+        text(d, (dash_box[0] + (cw - 150) / 2 + 16, dash_box[1] + 22), 'Добавить карточку', 14,
              (107, 114, 128), bold=True, anchor='lm')
 
-    # панель «Новая колонка» — уходит за правый край, как в приложении
+    # панель «Новая колонка» — четвёртая колонка доски
     nx = x0 + 3 * (cw + gap)
     card(img, [nx, col_top, nx + cw, col_top + 320], r=18, shadow=(16, 7, 24))
     text(d, (nx + 18, col_top + 18), 'Новая колонка', 15.5, TEXT, bold=True)
@@ -1040,7 +1094,7 @@ def draw_login():
               outline=(255, 255, 255, 120))
     pastel_shape(img, [W / 2 - 37, cy + 34, W / 2 + 37, cy + 108], 'disc', PASTELS['indigo'], fold=False)
     person_glyph(img, W / 2, cy + 71, 30, alpha=210)
-    text(d, (W / 2, cy + 124), 'SuperApp', 30, (58, 62, 148), bold=True, anchor='ma')
+    gradient_text(img, (W / 2, cy + 124), 'SuperApp', 32, PRIMARY, VIOLET, anchor='ma')
 
     y = cy + 176
     for label in ('Логин', 'Пароль'):
