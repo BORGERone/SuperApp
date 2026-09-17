@@ -7,7 +7,7 @@
 
   Обычный запуск — двойной клик по installer\SuperApp-Start.bat.
   Вручную:
-      powershell -NoProfile -ExecutionPolicy Bypass -File installer\start-superapp.ps1
+      powershell -NoProfile -ExecutionPolicy Bypass -File installer\superapp-start.ps1
 
   По умолчанию всё стартует В ОДНОМ ОКНЕ (это окно = супервизор): логи обоих
   процессов видны здесь же, Ctrl+C (или закрытие окна) останавливает всё.
