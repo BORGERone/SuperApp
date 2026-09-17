@@ -55,24 +55,28 @@ function Write-Step {
   param([string]$Message)
   Write-Host ('[' + (Get-Date).ToString('HH:mm:ss') + '] ') -ForegroundColor DarkGray -NoNewline
   Write-Host $Message
+  Write-LogLine ('[' + (Get-Date).ToString('HH:mm:ss') + ']      ' + $Message)
 }
 
 function Write-Ok {
   param([string]$Message)
   Write-Host ('[' + (Get-Date).ToString('HH:mm:ss') + '] OK  ') -ForegroundColor Green -NoNewline
   Write-Host $Message -ForegroundColor Green
+  Write-LogLine ('[' + (Get-Date).ToString('HH:mm:ss') + '] OK   ' + $Message)
 }
 
 function Write-Warn {
   param([string]$Message)
   Write-Host ('[' + (Get-Date).ToString('HH:mm:ss') + '] !   ') -ForegroundColor Yellow -NoNewline
   Write-Host $Message -ForegroundColor Yellow
+  Write-LogLine ('[' + (Get-Date).ToString('HH:mm:ss') + '] !    ' + $Message)
 }
 
 function Write-Fail {
   param([string]$Message)
   Write-Host ('[' + (Get-Date).ToString('HH:mm:ss') + '] X   ') -ForegroundColor Red -NoNewline
   Write-Host $Message -ForegroundColor Red
+  Write-LogLine ('[' + (Get-Date).ToString('HH:mm:ss') + '] X    ' + $Message)
 }
 
 function Show-Usage {
@@ -92,21 +96,48 @@ function Show-Usage {
     '  /https-port <n>    внутренний HTTPS-порт Caddy  (8443)',
     '  /backend <n>       порт бэкенда для Caddy       (= порт Bun)',
     '  /dist <путь>       каталог веб-клиента          (packages\client\dist)',
+    '  /diag              показать окружение и ничего не запускать',
     '  /help              эта справка'
   ) | ForEach-Object { Write-Host $_ }
   Write-Rule
+}
+
+# --- Журнал в файл ----------------------------------------------------------
+# Всё, что печатает скрипт, дублируется в installer\SuperApp-Start.log: даже
+# если окно закроется, причина останется в файле (его можно прислать).
+$script:LogPath  = $null
+$script:LogReady = $false
+
+function Write-LogLine {
+  param([string]$Text)
+  if (-not $script:LogReady) { return }
+  try { Add-Content -LiteralPath $script:LogPath -Value $Text -Encoding UTF8 } catch { }
+}
+
+# Страховка: любая необработанная ошибка — на экран, в журнал и выход с кодом 1.
+trap {
+  $errText = ('НЕОБРАБОТАННАЯ ОШИБКА: ' + $_.Exception.Message)
+  Write-Fail $errText
+  if ($_.ScriptStackTrace) { Write-Host ('      ' + $_.ScriptStackTrace) -ForegroundColor DarkGray }
+  Write-LogLine $errText
+  Write-LogLine ([string]$_.ScriptStackTrace)
+  if (Get-Command Stop-StartedProcesses -ErrorAction SilentlyContinue) {
+    try { Stop-StartedProcesses } catch { }
+  }
+  exit 1
 }
 
 # ===========================================================================
 #  Разбор ключей командной строки
 #  ($args, а не param(): так работают и cmd-стиль «/window», и «-Window»)
 # ===========================================================================
-$sw  = @{ Window = $false; Restart = $false; Open = $false; NoCaddy = $false; Help = $false }
+$sw  = @{ Window = $false; Restart = $false; Open = $false; NoCaddy = $false; Help = $false; Diag = $false }
 $cli = @{}
 
 $switchMap = @{
   'window' = 'Window'; 'restart' = 'Restart'; 'reload' = 'Restart'; 'open' = 'Open'
   'nocaddy' = 'NoCaddy'; 'no-caddy' = 'NoCaddy'; 'help' = 'Help'; 'h' = 'Help'; '?' = 'Help'
+  'diag' = 'Diag'; 'diagnose' = 'Diag'
 }
 $valueMap = @{
   'domain' = 'Domain'; 'port' = 'Port'; 'host' = 'BindHost'; 'http-port' = 'HttpPort'
@@ -417,6 +448,78 @@ if (-not $bindHost) { $bindHost = '127.0.0.1' }
 if (-not $domain)   { $domain = 'prostroykrym.ru' }
 
 # ===========================================================================
+#  Журнал запуска (дублирует всё, что печатается в окно)
+# ===========================================================================
+$script:LogPath  = Join-Path $ScriptDir 'SuperApp-Start.log'
+$script:LogReady = $true
+Write-LogLine ''
+Write-LogLine ('==== ' + (Get-Date).ToString('yyyy-MM-dd HH:mm:ss') + '  SuperApp-Start ====')
+Write-LogLine ('проект    : ' + $RepoRoot)
+Write-LogLine ('аргументы : ' + ((@($args) -join ' ')))
+Write-LogLine ('настройки : Bun ' + $bindHost + ':' + $bunPort + ', HTTPS ' + $domain + ' (' + $httpPort + '/' + $httpsPort + ' -> ' + $backendPort + '), dist ' + $distDir)
+
+# --- /diag: показать окружение и ничего не запускать ------------------------
+function Show-Diagnostics {
+  Write-Rule
+  Write-Host ' Диагностика SuperApp-Start (ничего не запускается)' -ForegroundColor White
+  Write-Rule
+  Write-Host ('   PowerShell : ' + $PSVersionTable.PSVersion.ToString())
+  Write-Host ('   Каталог    : ' + $ScriptDir)
+  Write-Host ('   Проект     : ' + $RepoRoot)
+
+  $ps1Path = Join-Path $ScriptDir 'superapp-start.ps1'
+  $caddyLocal = $BundledCaddy
+  Write-Host '   Файлы      :'
+  Write-Host ('     superapp-start.ps1 : ' + (Test-Path -LiteralPath $ps1Path))
+  Write-Host ('     packages\server\.env : ' + (Test-Path -LiteralPath $EnvFile))
+  Write-Host ('     Caddyfile          : ' + (Test-Path -LiteralPath (Join-Path $ScriptDir 'Caddyfile')))
+  Write-Host ('     Caddyfile.local    : ' + (Test-Path -LiteralPath $CaddyfileLocal))
+  Write-Host ('     caddy.exe          : ' + (Test-Path -LiteralPath $caddyLocal))
+  Write-Host ('     dist\index.html    : ' + (Test-Path -LiteralPath (Join-Path $distDir 'index.html')))
+  Write-Host ('     node_modules       : ' + (Test-Path -LiteralPath (Join-Path $RepoRoot 'node_modules')))
+  Write-Host ('   Журнал     : ' + $script:LogPath)
+
+  $bun = Get-BunExe
+  if ($bun) {
+    $bunVersion = '?'
+    try { $bunVersion = (& $bun --version 2>$null | Select-Object -First 1) } catch { }
+    Write-Host ('   Bun        : ' + $bun + '  (версия ' + $bunVersion + ')')
+  } else {
+    Write-Host '   Bun        : НЕ НАЙДЕН — установите: powershell -c "irm bun.sh/install.ps1 | iex"' -ForegroundColor Red
+  }
+
+  $envMap2 = @{}
+  try { $envMap2 = Read-DotEnvFile $EnvFile } catch { }
+  if ($envMap2.Count -gt 0) {
+    $keys = @($envMap2.Keys | Sort-Object)
+    $jwtLen = 0
+    if ($envMap2.ContainsKey('JWT_SECRET')) { $jwtLen = ([string]$envMap2['JWT_SECRET']).Length }
+    Write-Host ('   .env       : ' + ($keys -join ', ') + '  (длина JWT_SECRET: ' + $jwtLen + ')')
+  } else {
+    Write-Host '   .env       : пусто или не читается' -ForegroundColor Yellow
+  }
+
+  foreach ($port in @($bunPort, $httpsPort)) {
+    $owner = Get-PortOwner -Port $port
+    if ($owner) {
+      Write-Host ('   Порт ' + $port + '  : слушает ' + $owner.Name + ' (PID ' + $owner.Pid + ')')
+    } else {
+      Write-Host ('   Порт ' + $port + '  : свободен')
+    }
+  }
+
+  $health = Test-Health -Address '127.0.0.1' -Port $bunPort
+  Write-Host ('   /api/health: ' + $health)
+  Write-Rule
+}
+
+if ($sw.Diag) {
+  Show-Diagnostics
+  Write-LogLine 'режим /diag — запуск не выполнялся'
+  exit 0
+}
+
+# ===========================================================================
 #  Проверки перед запуском
 # ===========================================================================
 Write-Rule
@@ -494,6 +597,7 @@ if (-not $sw.NoCaddy) {
 if ($fatal) {
   Write-Rule
   Write-Fail 'Запуск отменён — сначала устраните ошибки выше.'
+  Write-LogLine '==== завершено: не пройдены проверки, запуск отменён ===='
   exit 1
 }
 
@@ -693,6 +797,7 @@ try {
   }
   Stop-StartedProcesses
   Write-Rule
+  Write-LogLine ('==== завершено с ошибкой, код ' + $exitCode + ' ====')
   exit $exitCode
 }
 
@@ -705,7 +810,8 @@ $nothingStarted = ((-not $startBun) -and (-not $startCaddy))
 
 Write-Rule
 if ($nothingStarted) {
-  Write-Host ' SuperApp уже работает (новых процессов не запускалось).' -ForegroundColor Yellow
+  Write-Host ' SuperApp УЖЕ ЗАПУЩЕН — новых процессов не запускалось.' -ForegroundColor Yellow
+  Write-Host '   (если это не то, что нужно: остановите старое или запустите /restart)' -ForegroundColor DarkGray
 } else {
   Write-Host ' SuperApp запущен.' -ForegroundColor Green
 }
@@ -741,6 +847,7 @@ if ($modeWindow) {
   Write-Host '   Режим       : два отдельных окна (сервер и Caddy). Это окно можно закрыть.' -ForegroundColor DarkGray
   Write-Rule
   if ($sw.Open) { Start-Process ('https://' + $domain) | Out-Null }
+  Write-LogLine '==== завершено (/window: сервисы в отдельных окнах) ===='
   exit 0
 }
 
@@ -759,6 +866,7 @@ if ($sw.Open) {
 if ($startedNames.Count -eq 0) {
   # Ничего не запускали — присматривать не за чем.
   Write-Step 'Завершаю (запускать было нечего).'
+  Write-LogLine '==== завершено: запускать было нечего ===='
   exit 0
 }
 
@@ -799,4 +907,5 @@ if ($exitCode -eq 0) {
   Write-Fail 'SuperApp остановлен из-за ошибки (см. сообщения выше).'
 }
 Write-Rule
+Write-LogLine ('==== завершено, код ' + $exitCode + ' ====')
 exit $exitCode
