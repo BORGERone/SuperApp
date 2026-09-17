@@ -1,6 +1,7 @@
 import React, { useEffect, useMemo, useRef, useState } from 'react';
 import { createPortal } from 'react-dom';
 import { ChevronDown, User as UserIcon, X } from 'lucide-react';
+import { resolveAssetUrl } from '../../../lib/serverConfig';
 import { useUsers } from '../../auth/api/usersApi';
 
 const isElectron = typeof window !== 'undefined' && (window as any).electronAPI !== undefined;
@@ -113,7 +114,7 @@ export const AssigneePicker: React.FC<AssigneePickerProps> = ({
           >
             <div className="w-8 h-8 rounded-full flex items-center justify-center overflow-hidden" style={{ background: 'rgba(var(--color-primary-rgb), 0.15)' }}>
               {user.avatarUrl ? (
-                <img src={user.avatarUrl} alt={user.username} className="w-full h-full object-cover" />
+                <img src={resolveAssetUrl(user.avatarUrl)} alt={user.username} className="w-full h-full object-cover" />
               ) : (
                 <UserIcon size={16} style={{ color: 'var(--color-primary)' }} />
               )}
@@ -146,7 +147,7 @@ export const AssigneePicker: React.FC<AssigneePickerProps> = ({
                 }}
               >
                 {user?.avatarUrl ? (
-                  <img src={user.avatarUrl} alt={label} className="w-4 h-4 rounded-full object-cover" />
+                  <img src={resolveAssetUrl(user.avatarUrl)} alt={label} className="w-4 h-4 rounded-full object-cover" />
                 ) : (
                   <UserIcon size={14} />
                 )}
@@ -190,27 +191,21 @@ export const AssigneePicker: React.FC<AssigneePickerProps> = ({
         />
       </div>
 
-      {isOpen && (isElectron ? (
-        <div className="absolute top-full left-0 right-0 mt-1 z-50">
+      {isOpen && createPortal(
+        <div
+          style={{
+            position: 'fixed',
+            top: dropdownPosition.top,
+            left: dropdownPosition.left,
+            width: dropdownPosition.width,
+            zIndex: 99999,
+          }}
+          onMouseDown={(event) => event.stopPropagation()}
+        >
           {dropdownContent}
-        </div>
-      ) : (
-        createPortal(
-          <div
-            style={{
-              position: 'fixed',
-              top: dropdownPosition.top,
-              left: dropdownPosition.left,
-              width: dropdownPosition.width,
-              zIndex: 99999,
-            }}
-            onMouseDown={(event) => event.stopPropagation()}
-          >
-            {dropdownContent}
-          </div>,
-          document.body
-        )
-      ))}
+        </div>,
+        document.body
+      )}
     </div>
   );
 };

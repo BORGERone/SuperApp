@@ -1,6 +1,8 @@
 import React, { useState, useRef } from 'react';
 import { useDriveStore } from '../viewmodels/driveViewModel';
 import { FileItem } from '../models/driveModel';
+import { api } from '../../../lib/apiClient';
+import { useModal } from '../../../utils/useModal';
 
 interface FileListProps {
   files: FileItem[];
@@ -17,13 +19,13 @@ export const FileList: React.FC<FileListProps> = ({
   setDownloadProgress,
   setDownloadFileName,
 }) => {
-  const { viewMode, toggleFileSelection, selectFile, navigateToDirectory, selectedFiles } = useDriveStore();
+  const { showModal } = useModal();
+  const { viewMode, toggleFileSelection, selectFile, setSelectedFiles, navigateToDirectory, selectedFiles } = useDriveStore();
   
   // Swipe selection state
   const [isSwipeSelecting, setIsSwipeSelecting] = useState(false);
-  const startIndexRef = useRef<number>(-1); // Индекс начального элемента
+  const startIndexRef = useRef<number>(-1); // Индекс начального (якорного) элемента
   const endIndexRef = useRef<number>(-1); // Индекс текущего элемента
-  const previousEndIndexRef = useRef<number>(-1); // Индекс предыдущего элемента
   const initialSelectionRef = useRef<Set<string>>(new Set()); // Выделение до начала swipe-selection
   const mouseDownPosRef = useRef<{ x: number; y: number } | null>(null);
   const hasMovedRef = useRef(false);
@@ -77,27 +79,40 @@ export const FileList: React.FC<FileListProps> = ({
     }
   };
 
-  const handleFileMouseLeave = (file: FileItem) => {
-    // Активируем swipe-selection только если ЛКМ зажата
-    if (isMouseDownRef.current) {
-      const fileIndex = sortedFiles.findIndex(f => f.name === file.name);
-      
-      // Сохраняем текущее выделение перед началом swipe-selection
-      initialSelectionRef.current = new Set(selectedFiles);
-      
-      // Если нет выделенных файлов, начинаем с этого элемента
-      if (selectedFiles.size === 0) {
-        startIndexRef.current = fileIndex;
-        endIndexRef.current = fileIndex;
-        selectFile(file.name);
-        setIsSwipeSelecting(true);
-      } else if (!isSwipeSelecting) {
-        // Если есть выделенные файлы, начинаем с этого элемента
-        startIndexRef.current = fileIndex;
-        endIndexRef.current = fileIndex;
-        setIsSwipeSelecting(true);
+  // Детерминированно пересчитывает выделение для текущего диапазона swipe.
+  // Итоговое выделение = (выделение до начала swipe) XOR (элементы диапазона).
+  // Считается каждый раз заново от неизменного initialSelectionRef, поэтому
+  // не зависит от промежуточного (устаревшего) состояния — якорь/первый
+  // элемент больше не «теряется через раз».
+  const applyRange = (endIndex: number) => {
+    const initial = initialSelectionRef.current;
+    const lo = Math.min(startIndexRef.current, endIndex);
+    const hi = Math.max(startIndexRef.current, endIndex);
+    const next = new Set(initial);
+    for (let i = lo; i <= hi; i++) {
+      const f = sortedFiles[i];
+      if (!f) continue;
+      if (initial.has(f.name)) {
+        next.delete(f.name);
+      } else {
+        next.add(f.name);
       }
     }
+    setSelectedFiles(next);
+  };
+
+  const handleFileMouseLeave = (file: FileItem) => {
+    // Активируем swipe-selection только если ЛКМ зажата и swipe ещё не начат.
+    if (!isMouseDownRef.current || isSwipeSelecting) return;
+    const fileIndex = sortedFiles.findIndex(f => f.name === file.name);
+    if (fileIndex === -1) return;
+
+    // Запоминаем выделение на момент старта и фиксируем якорь.
+    initialSelectionRef.current = new Set(selectedFiles);
+    startIndexRef.current = fileIndex;
+    endIndexRef.current = fileIndex;
+    setIsSwipeSelecting(true);
+    applyRange(fileIndex);
   };
 
   const handleFileClick = async (file: FileItem) => {
@@ -131,46 +146,9 @@ export const FileList: React.FC<FileListProps> = ({
         setDownloadProgress(0);
 
         try {
-          // В Electron используем абсолютный URL, в браузере - относительный (через proxy)
-          const isElectron = typeof window !== 'undefined' && (window as any).electronAPI !== undefined;
-          const apiUrl = isElectron ? 'http://localhost:3002' : '';
+          const blob = await api.downloadFile(filePath);
 
-          const response = await fetch(`${apiUrl}/api/drive/download?path=${encodeURIComponent(filePath)}`, {
-            headers: {
-              'Authorization': `Bearer ${localStorage.getItem('accessToken')}`,
-            },
-          });
-
-          if (!response.ok) {
-            throw new Error('Failed to download file');
-          }
-
-          // Получаем размер файла из заголовка Content-Length
-          const contentLength = response.headers.get('Content-Length');
-          const totalSize = contentLength ? parseInt(contentLength, 10) : 0;
-          let downloadedSize = 0;
-
-          // Читаем поток данных
-          const reader = response.body?.getReader();
-          const chunks: Uint8Array[] = [];
-
-          if (reader) {
-            while (true) {
-              const { done, value } = await reader.read();
-              if (done) break;
-
-              chunks.push(value);
-              downloadedSize += value.length;
-
-              if (totalSize > 0) {
-                const progress = (downloadedSize / totalSize) * 100;
-                setDownloadProgress(progress);
-              }
-            }
-          }
-
-          // Создаем blob из чанков
-          const blob = new Blob(chunks as BlobPart[]);
+          // Создаем URL для скачивания
           const url = URL.createObjectURL(blob);
           const a = document.createElement('a');
           a.href = url;
@@ -188,7 +166,12 @@ export const FileList: React.FC<FileListProps> = ({
           }, 500);
         } catch (error) {
           console.error('Failed to download file:', error);
-          alert('Не удалось скачать файл');
+          void showModal({
+            type: 'alert',
+            title: 'Ошибка',
+            message: 'Не удалось скачать файл',
+            confirmText: 'OK',
+          });
           setDownloading(false);
           setDownloadProgress(0);
         }
@@ -197,73 +180,11 @@ export const FileList: React.FC<FileListProps> = ({
   };
 
   const handleFileMouseEnter = (file: FileItem) => {
-    if (isSwipeSelecting) {
-      const fileIndex = sortedFiles.findIndex(f => f.name === file.name);
-      
-      // Сохраняем предыдущий индекс
-      const prevEndIndex = previousEndIndexRef.current;
-      previousEndIndexRef.current = fileIndex;
-      
-      // Обновляем конечный индекс
-      endIndexRef.current = fileIndex;
-      
-      // Вычисляем диапазон от start до end
-      const start = Math.min(startIndexRef.current, endIndexRef.current);
-      const end = Math.max(startIndexRef.current, endIndexRef.current);
-      
-      if (prevEndIndex !== -1) {
-        const oldStart = Math.min(startIndexRef.current, prevEndIndex);
-        const oldEnd = Math.max(startIndexRef.current, prevEndIndex);
-        
-        // Если движемся назад (уменьшаем диапазон)
-        if (Math.abs(fileIndex - startIndexRef.current) < Math.abs(prevEndIndex - startIndexRef.current)) {
-          // Для файлов которые вышли за пределы нового диапазона - инвертируем состояние
-          for (let i = oldStart; i <= oldEnd; i++) {
-            if (i < start || i > end) {
-              const fileName = sortedFiles[i].name;
-              // Инвертируем состояние (toggle)
-              toggleFileSelection(fileName);
-            }
-          }
-        } else {
-          // Если движемся вперед (увеличиваем диапазон)
-          // Добавляем или вычитаем файлы в зависимости от начального выделения
-          for (let i = start; i <= end; i++) {
-            const fileName = sortedFiles[i].name;
-            // Если файл был в старом диапазоне, пропускаем
-            if (i >= oldStart && i <= oldEnd) continue;
-            
-            if (initialSelectionRef.current.has(fileName)) {
-              // Если файл был в начальном выделении - вычитаем (снимаем)
-              if (selectedFiles.has(fileName)) {
-                toggleFileSelection(fileName);
-              }
-            } else {
-              // Если файл не был в начальном выделении - добавляем
-              if (!selectedFiles.has(fileName)) {
-                selectFile(fileName);
-              }
-            }
-          }
-        }
-      } else {
-        // Первый заход - применяем XOR к диапазону
-        for (let i = start; i <= end; i++) {
-          const fileName = sortedFiles[i].name;
-          if (initialSelectionRef.current.has(fileName)) {
-            // Если файл был в начальном выделении - вычитаем
-            if (selectedFiles.has(fileName)) {
-              toggleFileSelection(fileName);
-            }
-          } else {
-            // Если файл не был в начальном выделении - добавляем
-            if (!selectedFiles.has(fileName)) {
-              selectFile(fileName);
-            }
-          }
-        }
-      }
-    }
+    if (!isSwipeSelecting) return;
+    const fileIndex = sortedFiles.findIndex(f => f.name === file.name);
+    if (fileIndex === -1) return;
+    endIndexRef.current = fileIndex;
+    applyRange(fileIndex);
   };
 
   const handleGlobalMouseUp = () => {
@@ -271,10 +192,9 @@ export const FileList: React.FC<FileListProps> = ({
       setIsSwipeSelecting(false);
       startIndexRef.current = -1;
       endIndexRef.current = -1;
-      previousEndIndexRef.current = -1;
       mouseDownPosRef.current = null;
       hasMovedRef.current = false;
-      initialSelectionRef.current.clear();
+      initialSelectionRef.current = new Set();
     }
     isMouseDownRef.current = false;
   };
@@ -298,7 +218,7 @@ export const FileList: React.FC<FileListProps> = ({
     );
   }
 
-  const gridClassName = viewMode === 'list' ? 'space-y-2' : 'grid grid-cols-4 gap-4';
+  const gridClassName = viewMode === 'list' ? 'space-y-2' : 'grid grid-cols-2 sm:grid-cols-4 gap-3 sm:gap-4';
 
   const CheckIcon = (
     <svg viewBox="0 0 16 16" aria-hidden="true">

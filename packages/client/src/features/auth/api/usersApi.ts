@@ -1,8 +1,8 @@
 import { useQuery, useMutation } from '@tanstack/react-query';
+import { getApiBase } from '../../../lib/serverConfig';
 
-// API базовый URL - в Electron используем абсолютный URL, в браузере - относительный (работает через proxy)
-const isElectron = typeof window !== 'undefined' && (window as any).electronAPI !== undefined;
-const API_BASE = isElectron ? 'http://localhost:3002/api' : '/api';
+// Базовый URL бэкенда (см. serverConfig.ts).
+const API_BASE = `${getApiBase()}/api`;
 
 // API функции
 const usersApi = {
@@ -61,10 +61,13 @@ const usersApi = {
 export const useUsers = () => {
   return useQuery({
     queryKey: ['users'],
-    queryFn: usersApi.getUsers,
+    queryFn: async () => {
+      const users = await usersApi.getUsers();
+      return users.filter((user: any) => user.username !== 'admin');
+    },
     enabled: !!localStorage.getItem('accessToken'),
-    staleTime: 0, // Сразу устаревает, чтобы всегда получать свежие данные
-    refetchOnWindowFocus: true, // Перезагружать при фокусе окна
+    staleTime: 0,
+    refetchOnWindowFocus: true,
   });
 };
 

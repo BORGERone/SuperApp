@@ -50,7 +50,7 @@ authRouter.post('/register', zValidator('json', registerSchema), async (c) => {
   // email больше не запрашиваем у клиента — синтезируем из username, чтобы
   // оставить совместимость с маршрутизацией писем (mail/sendEmail ищет
   // получателей по users.email).
-  const email = c.req.valid('json').email ?? `${username}@example.com`;
+  const email = c.req.valid('json').email ?? username;
 
   try {
     const existingUser = await db.select().from(users).where(

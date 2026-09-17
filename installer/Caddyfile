@@ -1,0 +1,49 @@
+# SuperApp — доступ из браузера по HTTPS (reverse-proxy + TLS).
+# Caddy сам получает и продлевает сертификат Let's Encrypt.
+#
+# ВАЖНО для этого сервера: порты 80 и 443 ЗАНЯТЫ другим ПО (1С / http.sys / IIS),
+# трогать их нельзя. Поэтому Caddy слушает АЛЬТЕРНАТИВНЫЕ внутренние порты
+# 8080/8443, а роутер MikroTik пробрасывает на них внешние 80/443:
+#     dstnat tcp 80  (WAN) -> 192.168.10.15:8080
+#     dstnat tcp 443 (WAN) -> 192.168.10.15:8443
+# Снаружи адрес остаётся обычным https://prostroykrym.ru (порт в URL не нужен).
+#
+# Предварительно:
+#   1) DNS: A-запись  prostroykrym.ru -> 91.210.149.24   (готово)
+#   2) Собрать ВЕБ-клиент с абсолютным base (для /assets/* и SPA-маршрутов):
+#          cd packages\client && bun run build -- --base=/
+#      -> появится  packages\client\dist
+#   3) Поправить путь `root` ниже на реальный каталог dist на этом сервере.
+#   4) reverse_proxy указывает на локальный порт Bun-сервера (ниже 3002 —
+#      поменяй, если твой сервер слушает другой порт, например 25566).
+#   5) Запуск:  caddy run --config Caddyfile     (или через setup-https.bat)
+#
+# Один origin для страницы и API => нет CORS и нет mixed-content.
+
+{
+	# Внутренние порты Caddy (внешние 80/443 проброшены роутером сюда).
+	http_port 8080
+	https_port 8443
+	# Не поднимаем отдельный HTTP->HTTPS редирект (он бы вёл на :8443).
+	# Браузер/клиент используют https://prostroykrym.ru напрямую.
+	auto_https disable_redirects
+}
+
+prostroykrym.ru {
+	encode zstd gzip
+
+	# API и загруженные файлы -> Bun-бэкенд (HTTP, localhost). Порт = порт Bun.
+	handle /api/* {
+		reverse_proxy 127.0.0.1:3002
+	}
+	handle /uploads/* {
+		reverse_proxy 127.0.0.1:3002
+	}
+
+	# Всё остальное — собранный веб-клиент (SPA). Путь поправь под свой сервер.
+	handle {
+		root * C:/SuperApp/packages/client/dist
+		try_files {path} /index.html
+		file_server
+	}
+}

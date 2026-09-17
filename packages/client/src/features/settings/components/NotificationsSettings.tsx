@@ -120,7 +120,7 @@ export const NotificationsSettings: React.FC = () => {
                   max="100"
                   value={soundVolume}
                   onChange={(e) => handleVolumeChange(Number(e.target.value))}
-                  className="flex-1 h-2 bg-surface-2 rounded-lg appearance-none cursor-pointer accent-purple-500"
+                  className="glass-range flex-1"
                 />
               </div>
             </div>

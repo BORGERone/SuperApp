@@ -1,4 +1,5 @@
 import React, { useState, useRef, useEffect } from 'react';
+import { apiUrl, resolveAssetUrl } from '../../../lib/serverConfig';
 
 export const AvatarSettings: React.FC = () => {
   const [avatarUrl, setAvatarUrl] = useState('');
@@ -10,7 +11,7 @@ export const AvatarSettings: React.FC = () => {
     // Загрузка текущего аватара
     const loadAvatar = async () => {
       try {
-        const response = await fetch('/api/user/profile', {
+        const response = await fetch(apiUrl('/api/user/profile'), {
           headers: {
             'Authorization': `Bearer ${localStorage.getItem('accessToken')}`,
           },
@@ -41,7 +42,7 @@ export const AvatarSettings: React.FC = () => {
     formData.append('avatar', file);
 
     try {
-      const response = await fetch('/api/user/avatar', {
+      const response = await fetch(apiUrl('/api/user/avatar'), {
         method: 'POST',
         headers: {
           'Authorization': `Bearer ${localStorage.getItem('accessToken')}`,
@@ -69,7 +70,7 @@ export const AvatarSettings: React.FC = () => {
     setMessage('');
 
     try {
-      const response = await fetch('/api/user/avatar', {
+      const response = await fetch(apiUrl('/api/user/avatar'), {
         method: 'DELETE',
         headers: {
           'Authorization': `Bearer ${localStorage.getItem('accessToken')}`,
@@ -103,7 +104,7 @@ export const AvatarSettings: React.FC = () => {
             title="Нажмите, чтобы загрузить новый аватар"
           >
             {avatarUrl ? (
-              <img src={avatarUrl} alt="Avatar" className="w-full h-full object-cover" />
+              <img src={resolveAssetUrl(avatarUrl)} alt="Avatar" className="w-full h-full object-cover" />
             ) : (
               <span className="text-4xl">👤</span>
             )}

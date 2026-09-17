@@ -1,6 +1,7 @@
 import React, { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useDriveStore } from '../viewmodels/driveViewModel';
+import { getApiBase } from '../../../lib/serverConfig';
 import { useAuthStore } from '../../../store';
 import { FileList } from './FileList';
 import { useFilesList } from '../api/driveHooks';
@@ -9,10 +10,12 @@ import { FileItem } from '../models/driveModel';
 import { api } from '../../../lib/apiClient';
 import { useQueryClient } from '@tanstack/react-query';
 import { useBodyModalOpen } from '../../../utils/useBodyModalOpen';
+import { useModal } from '../../../utils/useModal';
 
 export const DriveView: React.FC = () => {
   const navigate = useNavigate();
   const queryClient = useQueryClient();
+  const { showModal } = useModal();
   const {
     currentPath,
     selectedFiles,
@@ -56,7 +59,12 @@ export const DriveView: React.FC = () => {
       refetch();
     } catch (error) {
       console.error('Failed to create folder:', error);
-      alert('Не удалось создать папку');
+      void showModal({
+        type: 'alert',
+        title: 'Ошибка',
+        message: 'Не удалось создать папку',
+        confirmText: 'OK',
+      });
     } finally {
       setIsCreating(false);
     }
@@ -72,8 +80,7 @@ export const DriveView: React.FC = () => {
 
     try {
       // В Electron используем абсолютный URL, в браузере - относительный (через proxy)
-      const isElectron = typeof window !== 'undefined' && (window as any).electronAPI !== undefined;
-      const apiUrl = isElectron ? 'http://localhost:3002' : '';
+      const apiUrl = getApiBase();
 
       for (const file of files) {
         setUploadFileName(file.name);
@@ -109,7 +116,12 @@ export const DriveView: React.FC = () => {
       }, 500);
     } catch (error) {
       console.error('Failed to upload files:', error);
-      alert('Не удалось загрузить файлы');
+      void showModal({
+        type: 'alert',
+        title: 'Ошибка',
+        message: 'Не удалось загрузить файлы',
+        confirmText: 'OK',
+      });
       setIsUploading(false);
       setUploadProgress(0);
       setUploadFileName('');
@@ -119,7 +131,14 @@ export const DriveView: React.FC = () => {
   const handleDeleteSelected = async () => {
     if (selectedFiles.size === 0) return;
     
-    if (!confirm(`Удалить ${selectedFiles.size} элементов?`)) return;
+    const confirmed = await showModal({
+      type: 'confirm',
+      title: 'Удаление файлов',
+      message: `Удалить ${selectedFiles.size} элементов?`,
+      confirmText: 'Удалить',
+      cancelText: 'Отмена',
+    });
+    if (!confirmed) return;
     
     try {
       for (const fileName of selectedFiles) {
@@ -129,7 +148,12 @@ export const DriveView: React.FC = () => {
       refetch();
     } catch (error) {
       console.error('Failed to delete files:', error);
-      alert('Не удалось удалить файлы');
+      await showModal({
+        type: 'alert',
+        title: 'Ошибка',
+        message: 'Не удалось удалить файлы',
+        confirmText: 'OK',
+      });
     }
   };
 
@@ -141,28 +165,14 @@ export const DriveView: React.FC = () => {
     let downloadedCount = 0;
 
     try {
-      // В Electron используем абсолютный URL, в браузере - относительный (через proxy)
-      const isElectron = typeof window !== 'undefined' && (window as any).electronAPI !== undefined;
-      const apiUrl = isElectron ? 'http://localhost:3002' : '';
-
       setIsDownloading(true);
       setDownloadFileName(`${totalFiles} файлов`);
       setDownloadProgress(0);
 
       for (const file of filesArray) {
         const filePath = currentPath === '/' ? `/${file}` : `${currentPath}/${file}`;
-        const response = await fetch(`${apiUrl}/api/drive/download?path=${encodeURIComponent(filePath)}`, {
-          headers: {
-            'Authorization': `Bearer ${localStorage.getItem('accessToken')}`,
-          },
-        });
+        const blob = await api.downloadFile(filePath);
 
-        if (!response.ok) {
-          console.error(`Failed to download file: ${file}`);
-          continue;
-        }
-
-        const blob = await response.blob();
         const url = URL.createObjectURL(blob);
         const a = document.createElement('a');
         a.href = url;
@@ -184,7 +194,12 @@ export const DriveView: React.FC = () => {
       }, 500);
     } catch (error) {
       console.error('Failed to download files:', error);
-      alert('Не удалось скачать файлы');
+      void showModal({
+        type: 'alert',
+        title: 'Ошибка',
+        message: 'Не удалось скачать файлы',
+        confirmText: 'OK',
+      });
       setIsDownloading(false);
       setDownloadProgress(0);
       setDownloadFileName('');
@@ -196,8 +211,7 @@ export const DriveView: React.FC = () => {
 
     try {
       // В Electron используем абсолютный URL, в браузере - относительный (через proxy)
-      const isElectron = typeof window !== 'undefined' && (window as any).electronAPI !== undefined;
-      const apiUrl = isElectron ? 'http://localhost:3002' : '';
+      const apiUrl = getApiBase();
 
       const usersResponse = await fetch(`${apiUrl}/api/drive/users`, {
         headers: {
@@ -228,7 +242,12 @@ export const DriveView: React.FC = () => {
       setShowPermissionsModal(true);
     } catch (error) {
       console.error('Failed to load permissions:', error);
-      alert('Не удалось загрузить права доступа');
+      void showModal({
+        type: 'alert',
+        title: 'Ошибка',
+        message: 'Не удалось загрузить права доступа',
+        confirmText: 'OK',
+      });
     }
   };
 
@@ -237,8 +256,7 @@ export const DriveView: React.FC = () => {
 
     try {
       // В Electron используем абсолютный URL, в браузере - относительный (через proxy)
-      const isElectron = typeof window !== 'undefined' && (window as any).electronAPI !== undefined;
-      const apiUrl = isElectron ? 'http://localhost:3002' : '';
+      const apiUrl = getApiBase();
 
       const filesArray = Array.from(selectedFiles);
 
@@ -259,10 +277,16 @@ export const DriveView: React.FC = () => {
       
       setShowPermissionsModal(false);
       useDriveStore.getState().clearSelection();
-      refetch();
+      // Инвалидируем все кэши файлов, чтобы права обновились у всех пользователей
+      queryClient.invalidateQueries({ queryKey: ['files'] });
     } catch (error) {
       console.error('Failed to save permissions:', error);
-      alert('Не удалось сохранить права доступа');
+      void showModal({
+        type: 'alert',
+        title: 'Ошибка',
+        message: 'Не удалось сохранить права доступа',
+        confirmText: 'OK',
+      });
     }
   };
 
@@ -289,10 +313,17 @@ export const DriveView: React.FC = () => {
     refetch();
   }, [currentPath, refetch]);
 
+  // Также обновляем список при закрытии модального окна прав доступа
+  React.useEffect(() => {
+    if (!showPermissionsModal) {
+      refetch();
+    }
+  }, [showPermissionsModal, refetch]);
+
   return (
     <div className="flex flex-col h-full p-3 gap-3 overflow-hidden">
       {/* Header */}
-      <div className="glass-deep blur-smooth-deep px-6 py-4 flex flex-col gap-3">
+      <div className="glass-deep blur-smooth-deep px-6 py-4 flex flex-col gap-3 slide-in-left">
         <div className="flex items-center justify-between">
           <h1 className="text-2xl font-semibold text-gradient flex items-center gap-2">
             <span aria-hidden="true">☁️</span>Сетевой диск
@@ -357,7 +388,7 @@ export const DriveView: React.FC = () => {
       </div>
 
       {/* File List — без фонового островка, файлы лежат прямо на app-bg */}
-      <div className="flex-1 overflow-hidden px-1">
+      <div className="flex-1 overflow-hidden px-1 slide-in-right">
         <div className="h-full overflow-y-auto">
           <FileList
             files={files}

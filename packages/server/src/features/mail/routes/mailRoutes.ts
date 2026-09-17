@@ -86,13 +86,17 @@ mail.get('/', authMiddleware, async (c) => {
       .limit(50)
       .execute();
 
-    // Получаем вложения для каждого письма
+    // Получаем вложения для каждого письма. Если писем нет, не дергаем БД:
+    // inArray с пустым массивом генерирует невалидный SQL `IN ()` и роняет
+    // запрос (500) — например, для пустой папки.
     const emailIds = emailList.map(e => e.id);
-    const attachments = await db
-      .select()
-      .from(emailAttachments)
-      .where(inArray(emailAttachments.emailId, emailIds))
-      .execute();
+    const attachments = emailIds.length > 0
+      ? await db
+          .select()
+          .from(emailAttachments)
+          .where(inArray(emailAttachments.emailId, emailIds))
+          .execute()
+      : [];
 
     // Группируем вложения по emailId
     const attachmentsByEmail = attachments.reduce((acc, att) => {

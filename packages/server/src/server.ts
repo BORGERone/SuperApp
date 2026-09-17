@@ -1,6 +1,7 @@
 import { Hono } from 'hono';
 import { cors } from 'hono/cors';
 import { serveStatic } from 'hono/bun';
+import { config } from './config';
 import authRouter, { initializeTestUsers } from './features/auth/routes/authRoutes';
 import driveRouter from './features/drive/routes/driveRoutes';
 import { mail } from './features/mail/routes/mailRoutes';
@@ -9,10 +10,11 @@ import { userRouter } from './features/user';
 
 const app = new Hono();
 
-// CORS middleware
+// CORS middleware. Список источников и режим credentials берутся из конфигурации
+// (CORS_ORIGINS). По умолчанию поведение прежнее: localhost:8080 / localhost:3000.
 app.use('*', cors({
-  origin: ['http://localhost:8080', 'http://localhost:3000'],
-  credentials: true,
+  origin: config.corsOrigins,
+  credentials: config.corsCredentials,
 }));
 
 // Увеличиваем лимит размера тела запроса для загрузки больших файлов
@@ -64,14 +66,14 @@ app.post('/api/log', async (c) => {
 initializeTestUsers();
 
 // Start server
-const port = parseInt(process.env.PORT || '3002');
-console.log(`Server starting on port ${port}...`);
+console.log(`Server starting on ${config.host}:${config.port} (NODE_ENV=${process.env.NODE_ENV || 'development'})...`);
 
 export default {
-  port,
+  port: config.port,
+  hostname: config.host,
   fetch: app.fetch,
-  // Увеличиваем лимит размера тела запроса до 500MB для загрузки больших файлов
-  maxRequestBodySize: 500 * 1024 * 1024,
-  // Увеличиваем лимит размера ответа до 500MB для скачивания больших файлов
-  maxResponseBodySize: 500 * 1024 * 1024,
+  // Лимит размера тела запроса (по умолчанию 500MB) для загрузки больших файлов
+  maxRequestBodySize: config.maxBodyBytes,
+  // Лимит размера ответа (по умолчанию 500MB) для скачивания больших файлов
+  maxResponseBodySize: config.maxBodyBytes,
 };

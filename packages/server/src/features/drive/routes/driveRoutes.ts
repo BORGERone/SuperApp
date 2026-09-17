@@ -4,7 +4,7 @@ import { z } from 'zod';
 import { db } from '../../../db';
 import { files, filePermissions, users } from '../../../db/schema';
 import { authMiddleware } from '../../../shared/middleware/auth';
-import { eq, and, inArray } from 'drizzle-orm';
+import { eq, and, inArray, or } from 'drizzle-orm';
 
 const driveRouter = new Hono();
 
@@ -104,6 +104,38 @@ const createItemSchema = z.object({
 const updatePermissionsSchema = z.object({
   allowedUsers: z.array(z.string()),
 });
+
+/**
+ * Разрешает произвольный идентификатор пользователя в реальный `users.id`.
+ *
+ * Права доступа к файлам хранятся по `users.id`, но получатели письма
+ * приходят с клиента как `username` (а у legacy-писем — как `email`).
+ * Поэтому при выдаче прав идентификаторы нужно привести к `users.id`,
+ * иначе в `file_permissions` попадут строки-имена, которые никогда не
+ * совпадут с настоящим id получателя — и он так и не получит доступ.
+ *
+ * Принимает id | username | email, отбрасывает неизвестных, дедуплицирует.
+ */
+async function resolveUserIds(identifiers: string[]): Promise<string[]> {
+  const resolved = new Set<string>();
+  for (const raw of identifiers) {
+    const ident = (raw || '').trim();
+    if (!ident) continue;
+    const match = await db
+      .select({ id: users.id })
+      .from(users)
+      .where(
+        or(
+          eq(users.id, ident),
+          eq(users.username, ident),
+          eq(users.email, ident),
+        ),
+      )
+      .limit(1);
+    if (match.length > 0) resolved.add(match[0].id);
+  }
+  return Array.from(resolved);
+}
 
 // Получить список пользователей
 driveRouter.get('/users', async (c) => {
@@ -349,6 +381,8 @@ driveRouter.get('/download', async (c) => {
   const user = c.get('user') as any;
   const filePath = c.req.query('path');
 
+  console.log('Download request:', { filePath, userId: user.userId, role: user.role });
+
   if (!filePath) {
     return c.json({ error: 'Path is required' }, 400);
   }
@@ -359,6 +393,8 @@ driveRouter.get('/download', async (c) => {
     const fileName = parts.pop();
     const parentPath = parts.join('/') || '/';
 
+    console.log('Parsed path:', { fileName, parentPath });
+
     if (!fileName) {
       return c.json({ error: 'Invalid path' }, 400);
     }
@@ -367,6 +403,11 @@ driveRouter.get('/download', async (c) => {
     const file = await db.select().from(files).where(
       and(eq(files.name, fileName), eq(files.path, parentPath))
     ).limit(1);
+
+    console.log('Found files:', file.length);
+    if (file.length > 0) {
+      console.log('File details:', { id: file[0].id, name: file[0].name, path: file[0].path, type: file[0].type });
+    }
 
     if (file.length === 0) {
       return c.json({ error: 'File not found' }, 404);
@@ -541,7 +582,21 @@ driveRouter.get('/permissions-by-id', async (c) => {
 
     const allowedUsers = permissions.map((p: any) => p.userId);
 
-    return c.json({ allowedUsers });
+    // Помимо id отдаём username/email разрешённых пользователей: получатели
+    // письма на клиенте известны как username/email, поэтому сверять доступ
+    // нужно именно по ним, а не по id (иначе ложно «нет прав»).
+    let allowedUsernames: string[] = [];
+    let allowedEmails: string[] = [];
+    if (allowedUsers.length > 0) {
+      const allowedUserRows = await db
+        .select({ id: users.id, username: users.username, email: users.email })
+        .from(users)
+        .where(inArray(users.id, allowedUsers));
+      allowedUsernames = allowedUserRows.map((u: any) => u.username);
+      allowedEmails = allowedUserRows.map((u: any) => u.email);
+    }
+
+    return c.json({ allowedUsers, allowedUsernames, allowedEmails });
   } catch (error) {
     console.error('Get permissions by ID error:', error);
     return c.json({ error: 'Failed to get permissions' }, 500);
@@ -569,13 +624,19 @@ driveRouter.post('/grant-access', zValidator('json', z.object({
       return c.json({ error: 'Permission denied' }, 403);
     }
 
+    // Приводим идентификатор (id | username | email) к настоящему users.id.
+    const [resolvedUserId] = await resolveUserIds([userId]);
+    if (!resolvedUserId) {
+      return c.json({ error: 'User not found' }, 404);
+    }
+
     // Проверяем, нет ли уже прав доступа
     const existingPermission = await db.select()
       .from(filePermissions)
       .where(
         and(
           eq(filePermissions.fileId, fileId),
-          eq(filePermissions.userId, userId)
+          eq(filePermissions.userId, resolvedUserId)
         )
       )
       .limit(1);
@@ -588,7 +649,7 @@ driveRouter.post('/grant-access', zValidator('json', z.object({
     await db.insert(filePermissions).values({
       id: crypto.randomUUID(),
       fileId,
-      userId,
+      userId: resolvedUserId,
       createdAt: new Date(),
     });
 
@@ -624,10 +685,15 @@ driveRouter.post('/grant-access-batch', zValidator('json', z.object({
       }
     }
 
+    // Приводим идентификаторы получателей (username/email/id) к настоящим
+    // users.id, иначе в file_permissions попадут строки-имена и получатель
+    // фактически не получит доступ к файлу.
+    const resolvedUserIds = await resolveUserIds(userIds);
+
     // Выдаем права доступа для каждого файла и каждого пользователя
     let grantedCount = 0;
     for (const fileId of fileIds) {
-      for (const userId of userIds) {
+      for (const userId of resolvedUserIds) {
         // Проверяем, нет ли уже прав доступа
         const existingPermission = await db.select()
           .from(filePermissions)

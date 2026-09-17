@@ -2,6 +2,7 @@ import React, { useState } from 'react';
 import { createPortal } from 'react-dom';
 import { useUsers, useDeleteUser, useUpdateUserRole } from '../../auth/api/usersApi';
 import { useAuthStore } from '../../../store';
+import { useModal } from '../../../utils/useModal';
 
 interface User {
   id: string;
@@ -17,6 +18,7 @@ export const UserManagement: React.FC = () => {
   const deleteUserMutation = useDeleteUser();
   const updateUserRoleMutation = useUpdateUserRole();
   const checkAuth = useAuthStore((state) => state.checkAuth);
+  const { showModal } = useModal();
 
   const [showAddUserModal, setShowAddUserModal] = useState(false);
   const [newUsername, setNewUsername] = useState('');
@@ -31,14 +33,26 @@ export const UserManagement: React.FC = () => {
   const [editPosition, setEditPosition] = useState('');
 
   const handleDeleteUser = async (userId: string) => {
-    if (!confirm('Вы уверены, что хотите удалить этого пользователя?')) return;
+    const confirmed = await showModal({
+      type: 'confirm',
+      title: 'Удаление пользователя',
+      message: 'Вы уверены, что хотите удалить этого пользователя?',
+      confirmText: 'Удалить',
+      cancelText: 'Отмена',
+    });
+    if (!confirmed) return;
 
     try {
       await deleteUserMutation.mutateAsync(userId);
       refetch();
     } catch (error) {
       console.error('Failed to delete user:', error);
-      alert('Не удалось удалить пользователя');
+      void showModal({
+        type: 'alert',
+        title: 'Ошибка',
+        message: 'Не удалось удалить пользователя',
+        confirmText: 'OK',
+      });
     }
   };
 
@@ -66,13 +80,23 @@ export const UserManagement: React.FC = () => {
           // Обновляем состояние в store
           checkAuth();
 
-          alert(`Ваша роль изменена на ${updatedUser.role === 'admin' ? 'администратор' : 'пользователь'}. Страница будет перезагружена.`);
+          void showModal({
+            type: 'alert',
+            title: 'Информация',
+            message: `Ваша роль изменена на ${updatedUser.role === 'admin' ? 'администратор' : 'пользователь'}. Страница будет перезагружена.`,
+            confirmText: 'OK',
+          });
           window.location.reload();
         }
       }
     } catch (error) {
       console.error('Failed to update user role:', error);
-      alert('Не удалось изменить роль пользователя');
+      void showModal({
+        type: 'alert',
+        title: 'Ошибка',
+        message: 'Не удалось изменить роль пользователя',
+        confirmText: 'OK',
+      });
     }
   };
 
@@ -105,7 +129,12 @@ export const UserManagement: React.FC = () => {
       }
 
       if (Object.keys(payload).length === 0) {
-        alert('Нет изменений для сохранения');
+        void showModal({
+          type: 'alert',
+          title: 'Информация',
+          message: 'Нет изменений для сохранения',
+          confirmText: 'OK',
+        });
         return;
       }
 
@@ -135,7 +164,12 @@ export const UserManagement: React.FC = () => {
       refetch();
     } catch (error) {
       console.error('Failed to update user:', error);
-      alert(error instanceof Error ? error.message : 'Не удалось обновить пользователя');
+      void showModal({
+        type: 'alert',
+        title: 'Ошибка',
+        message: error instanceof Error ? error.message : 'Не удалось обновить пользователя',
+        confirmText: 'OK',
+      });
     }
   };
 
@@ -149,14 +183,24 @@ export const UserManagement: React.FC = () => {
       }
       if (editPassword) {
         if (editPassword.length < 8) {
-          alert('Пароль должен содержать минимум 8 символов');
+          void showModal({
+            type: 'alert',
+            title: 'Ошибка',
+            message: 'Пароль должен содержать минимум 8 символов',
+            confirmText: 'OK',
+          });
           return;
         }
         payload.password = editPassword;
       }
       if (editPinCode) {
         if (!/^\d{4}$/.test(editPinCode)) {
-          alert('PIN-код должен состоять из 4 цифр');
+          void showModal({
+            type: 'alert',
+            title: 'Ошибка',
+            message: 'PIN-код должен состоять из 4 цифр',
+            confirmText: 'OK',
+          });
           return;
         }
         payload.pinCode = editPinCode;
@@ -193,7 +237,12 @@ export const UserManagement: React.FC = () => {
       refetch();
     } catch (error) {
       console.error('Failed to update user:', error);
-      alert(error instanceof Error ? error.message : 'Не удалось обновить пользователя');
+      void showModal({
+        type: 'alert',
+        title: 'Ошибка',
+        message: error instanceof Error ? error.message : 'Не удалось обновить пользователя',
+        confirmText: 'OK',
+      });
     }
   };
 
@@ -201,12 +250,22 @@ export const UserManagement: React.FC = () => {
     e.preventDefault();
 
     if (newPinCode.length !== 4) {
-      alert('PIN-код должен состоять из 4 цифр');
+      void showModal({
+        type: 'alert',
+        title: 'Ошибка',
+        message: 'PIN-код должен состоять из 4 цифр',
+        confirmText: 'OK',
+      });
       return;
     }
 
     if (newPassword.length < 8) {
-      alert('Пароль должен содержать минимум 8 символов');
+      void showModal({
+        type: 'alert',
+        title: 'Ошибка',
+        message: 'Пароль должен содержать минимум 8 символов',
+        confirmText: 'OK',
+      });
       return;
     }
 
@@ -256,7 +315,12 @@ export const UserManagement: React.FC = () => {
       refetch();
     } catch (error) {
       console.error('Failed to create user:', error);
-      alert(error instanceof Error ? error.message : 'Не удалось создать пользователя');
+      void showModal({
+        type: 'alert',
+        title: 'Ошибка',
+        message: error instanceof Error ? error.message : 'Не удалось создать пользователя',
+        confirmText: 'OK',
+      });
     }
   };
 
@@ -494,8 +558,15 @@ export const UserManagement: React.FC = () => {
 
                   <button
                     type="button"
-                    onClick={() => {
-                      if (confirm(`Вы уверены, что хотите удалить пользователя ${selectedUser.username}?`)) {
+                    onClick={async () => {
+                      const confirmed = await showModal({
+                        type: 'confirm',
+                        title: 'Удаление пользователя',
+                        message: `Вы уверены, что хотите удалить пользователя ${selectedUser.username}?`,
+                        confirmText: 'Удалить',
+                        cancelText: 'Отмена',
+                      });
+                      if (confirmed) {
                         handleDeleteUser(selectedUser.id);
                         setShowEditUserModal(false);
                         setSelectedUser(null);
@@ -514,9 +585,16 @@ export const UserManagement: React.FC = () => {
                     </label>
                     <button
                       type="button"
-                      onClick={() => {
+                      onClick={async () => {
                         const newRole = selectedUser.role === 'admin' ? 'user' : 'admin';
-                        if (confirm(`Вы уверены, что хотите изменить роль пользователя на ${newRole}?`)) {
+                        const confirmed = await showModal({
+                          type: 'confirm',
+                          title: 'Смена роли',
+                          message: `Вы уверены, что хотите изменить роль пользователя на ${newRole}?`,
+                          confirmText: 'Изменить',
+                          cancelText: 'Отмена',
+                        });
+                        if (confirmed) {
                           handleToggleRole(selectedUser.id, selectedUser.role);
                           setSelectedUser({ ...selectedUser, role: newRole });
                         }

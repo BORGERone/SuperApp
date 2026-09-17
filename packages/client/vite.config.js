@@ -3,6 +3,9 @@ import react from '@vitejs/plugin-react'
 
 export default defineConfig({
   clearScreen: false,
+  // Относительный base обязателен для desktop-сборки: Electron в production
+  // грузит index.html через file://, и абсолютные пути /assets/* не находятся.
+  base: './',
   plugins: [react()],
   css: {
     postcss: './postcss.config.js',

@@ -21,6 +21,15 @@ export const LoginView: React.FC = () => {
 
   const loginMutation = useLogin();
 
+  // В собранном Electron окно безрамочное: на экране входа нет титлбара,
+  // поэтому добавляем невидимую зону сверху для перетаскивания окна и
+  // кнопку закрытия в углу. В вебе ничего не показываем.
+  const isElectron =
+    typeof window !== 'undefined' && Boolean((window as any).electron?.window);
+  const handleCloseWindow = () => {
+    (window as any).electron?.window?.close();
+  };
+
   const handleSubmit = async (e?: React.FormEvent, overridePinCode?: string) => {
     if (e) e.preventDefault();
     setError('');
@@ -78,7 +87,34 @@ export const LoginView: React.FC = () => {
 
   return (
     <div className="min-h-screen flex items-center justify-center relative overflow-hidden" style={{ background: 'var(--bg-base, #f7f8fc)' }}>
-      <div className="glass-deep rounded-2xl p-12 w-full max-w-md border border-white/10 shadow-2xl relative z-10">
+      {isElectron && (
+        <>
+          {/* Невидимая зона для перетаскивания окна (под карточкой входа) */}
+          <div
+            className="win-drag"
+            style={{ position: 'fixed', top: 0, left: 0, right: 0, height: 44, zIndex: 5 }}
+          />
+          {/* Кнопка закрытия программы */}
+          <button
+            type="button"
+            onClick={handleCloseWindow}
+            aria-label="Закрыть окно"
+            title="Закрыть"
+            className="no-drag login-winbtn"
+            style={{ position: 'fixed', top: 8, right: 8, zIndex: 30 }}
+          >
+            <svg width="14" height="14" viewBox="0 0 12 12" aria-hidden="true">
+              <path
+                d="M2.5 2.5 L9.5 9.5 M9.5 2.5 L2.5 9.5"
+                stroke="currentColor"
+                strokeWidth="1.4"
+                strokeLinecap="round"
+              />
+            </svg>
+          </button>
+        </>
+      )}
+      <div className="glass-deep rounded-2xl p-12 w-full max-w-md border border-white/10 shadow-2xl relative z-10 scale-in">
         <div className="text-center mb-8">
           <h1 className="text-4xl font-bold mb-2 text-gradient">SuperApp</h1>
           <h2 className="text-sm text-app-secondary">Авторизация</h2>

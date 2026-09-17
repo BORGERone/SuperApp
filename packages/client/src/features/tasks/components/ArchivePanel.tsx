@@ -6,6 +6,7 @@ import {
   useUnarchiveColumn,
 } from '../api/tasksApi';
 import { useBodyModalOpen } from '../../../utils/useBodyModalOpen';
+import { useModal } from '../../../utils/useModal';
 
 interface ArchivePanelProps {
   onClose: () => void;
@@ -25,6 +26,7 @@ function formatDate(value: string | null): string {
 }
 
 export const ArchivePanel: React.FC<ArchivePanelProps> = ({ onClose }) => {
+  const { showModal } = useModal();
   const { data: archived = [], isLoading } = useArchivedTaskColumns(true);
   const unarchive = useUnarchiveColumn();
   const deleteColumn = useDeleteColumn();
@@ -40,7 +42,14 @@ export const ArchivePanel: React.FC<ArchivePanelProps> = ({ onClose }) => {
   };
 
   const handlePurge = async (id: string, title: string) => {
-    if (!window.confirm(`Удалить колонку «${title}» из архива безвозвратно вместе со всеми карточками и комментариями?`)) return;
+    const confirmed = await showModal({
+      type: 'confirm',
+      title: 'Удаление колонки',
+      message: `Удалить колонку «${title}» из архива безвозвратно вместе со всеми карточками и комментариями?`,
+      confirmText: 'Удалить',
+      cancelText: 'Отмена',
+    });
+    if (!confirmed) return;
     try {
       await deleteColumn.mutateAsync(id);
     } catch (error) {

@@ -3,10 +3,12 @@ import { X, Send, Paperclip, HardDrive } from 'lucide-react';
 import { Email, ComposeEmail, PendingAttachment } from '../models/mailModel';
 import { useMailStore } from '../viewmodels/mailViewModel';
 import { useSendEmail } from '../api/mailApi';
+import { getApiBase } from '../../../lib/serverConfig';
 import { UserAutocomplete } from '../../auth/components/UserAutocomplete';
 import { DriveFileSelectorModal } from './DriveFileSelectorModal';
 import { GrantAccessModal } from './GrantAccessModal';
 import { useBodyModalOpen } from '../../../utils/useBodyModalOpen';
+import { useModal } from '../../../utils/useModal';
 
 interface ComposeModalProps {
   onClose: () => void;
@@ -16,6 +18,7 @@ interface ComposeModalProps {
 export const ComposeModal: React.FC<ComposeModalProps> = ({ onClose, replyTo }) => {
   const sendEmailMutation = useSendEmail();
   const { closeCompose } = useMailStore();
+  const { showModal } = useModal();
 
   // Скрываем глобальный тайтлбар, пока ComposeModal открыт. Используем
   // счетчик ссылок, чтобы дочерние модалки (например, выбор файла с диска)
@@ -80,8 +83,7 @@ export const ComposeModal: React.FC<ComposeModalProps> = ({ onClose, replyTo }) 
 
     try {
       // В Electron используем абсолютный URL, в браузере - относительный (через proxy)
-      const isElectron = typeof window !== 'undefined' && (window as any).electronAPI !== undefined;
-      const apiUrl = isElectron ? 'http://localhost:3002' : '';
+      const apiUrl = getApiBase();
 
       const newAttachments: PendingAttachment[] = [];
 
@@ -117,7 +119,12 @@ export const ComposeModal: React.FC<ComposeModalProps> = ({ onClose, replyTo }) 
       }));
     } catch (error) {
       console.error('Failed to upload files:', error);
-      alert('Не удалось загрузить файлы');
+      void showModal({
+        type: 'alert',
+        title: 'Ошибка',
+        message: 'Не удалось загрузить файлы',
+        confirmText: 'OK',
+      });
     } finally {
       setIsUploading(false);
     }
@@ -136,8 +143,7 @@ export const ComposeModal: React.FC<ComposeModalProps> = ({ onClose, replyTo }) 
 
     try {
       // В Electron используем абсолютный URL, в браузере - относительный (через proxy)
-      const isElectron = typeof window !== 'undefined' && (window as any).electronAPI !== undefined;
-      const apiUrl = isElectron ? 'http://localhost:3002' : '';
+      const apiUrl = getApiBase();
 
       console.log('Attaching files from drive:', files);
       const newAttachments: PendingAttachment[] = [];
@@ -188,7 +194,12 @@ export const ComposeModal: React.FC<ComposeModalProps> = ({ onClose, replyTo }) 
       }));
     } catch (error) {
       console.error('Failed to attach files from drive:', error);
-      alert('Не удалось прикрепить файлы с диска');
+      void showModal({
+        type: 'alert',
+        title: 'Ошибка',
+        message: 'Не удалось прикрепить файлы с диска',
+        confirmText: 'OK',
+      });
     } finally {
       setIsUploading(false);
     }
@@ -227,8 +238,7 @@ export const ComposeModal: React.FC<ComposeModalProps> = ({ onClose, replyTo }) 
 
     if (driveAttachments.length > 0) {
       try {
-        const isElectron = typeof window !== 'undefined' && (window as any).electronAPI !== undefined;
-        const apiUrl = isElectron ? 'http://localhost:3002' : '';
+        const apiUrl = getApiBase();
 
         // Получаем список пользователей-получателей
         const recipientEmails = [...email.to, ...(email.cc || []), ...(email.bcc || [])];
@@ -256,12 +266,20 @@ export const ComposeModal: React.FC<ComposeModalProps> = ({ onClose, replyTo }) 
 
           if (response.ok) {
             const data = await response.json();
-            const allowedUsers = data.allowedUsers || [];
-            console.log('Allowed users for file:', attachment.file.name, allowedUsers);
+            // Получатели на клиенте — это username (или email у legacy),
+            // а права на диске хранятся по id. Сервер теперь отдаёт ещё и
+            // username/email разрешённых пользователей — сверяем по ним,
+            // иначе доступ ложно считается отсутствующим.
+            const allowedIdentifiers = new Set<string>([
+              ...(data.allowedUsers || []),
+              ...(data.allowedUsernames || []),
+              ...(data.allowedEmails || []),
+            ]);
+            console.log('Allowed identifiers for file:', attachment.file.name, [...allowedIdentifiers]);
 
             // Проверяем, есть ли доступ у всех получателей
-            const hasAllAccess = recipientEmails.every(email =>
-              allowedUsers.includes(email)
+            const hasAllAccess = recipientEmails.every(recipient =>
+              allowedIdentifiers.has(recipient)
             );
 
             console.log('Has all access:', hasAllAccess, 'for recipients:', recipientEmails);
@@ -301,8 +319,7 @@ export const ComposeModal: React.FC<ComposeModalProps> = ({ onClose, replyTo }) 
 
   const handleGrantAccessConfirm = async () => {
     try {
-      const isElectron = typeof window !== 'undefined' && (window as any).electronAPI !== undefined;
-      const apiUrl = isElectron ? 'http://localhost:3002' : '';
+      const apiUrl = getApiBase();
 
       // Получаем список пользователей-получателей
       const recipientEmails = [...email.to, ...(email.cc || []), ...(email.bcc || [])];
@@ -327,11 +344,21 @@ export const ComposeModal: React.FC<ComposeModalProps> = ({ onClose, replyTo }) 
         await sendEmail();
       } else {
         console.error('Failed to grant access:', response.statusText);
-        alert('Не удалось выдать доступ к файлам');
+        void showModal({
+          type: 'alert',
+          title: 'Ошибка',
+          message: 'Не удалось выдать доступ к файлам',
+          confirmText: 'OK',
+        });
       }
     } catch (error) {
       console.error('Failed to grant access:', error);
-      alert('Не удалось выдать доступ к файлам');
+      void showModal({
+        type: 'alert',
+        title: 'Ошибка',
+        message: 'Не удалось выдать доступ к файлам',
+        confirmText: 'OK',
+      });
     }
   };
 

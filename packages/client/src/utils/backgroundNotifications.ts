@@ -21,13 +21,66 @@
 // «выкинут» (pathname === '/login') либо окно скрыто (document.hidden).
 
 import { playNotificationSound, showNotification } from './notifications';
+import { getApiBase } from '../lib/serverConfig';
 
-const isElectron =
-  typeof window !== 'undefined' && (window as any).electronAPI !== undefined;
-const API_BASE = isElectron ? 'http://localhost:3002' : '';
+const API_BASE = getApiBase();
 const POLL_INTERVAL_MS = 30 * 1000;
 const BG_REFRESH_KEY = 'bgRefreshToken';
 const LAST_UNREAD_KEY = 'bgLastUnreadCount';
+
+// Долгоживущий refresh-токен фоновых уведомлений держим в зашифрованном
+// средствами ОС хранилище Electron (safeStorage), а не в localStorage, чтобы
+// его нельзя было вытащить XSS-ом. В браузере (web/dev) безопасного хранилища
+// нет — прозрачный фолбэк на localStorage (поведение как раньше).
+const secureStore =
+  (typeof window !== 'undefined' && (window as any).electron?.secureStore) || null;
+let bgRefreshToken: string | null = null;
+
+async function persistBgRefreshToken(token: string): Promise<void> {
+  bgRefreshToken = token;
+  if (secureStore) {
+    try { await secureStore.set(BG_REFRESH_KEY, token); } catch {}
+    try { localStorage.removeItem(BG_REFRESH_KEY); } catch {}
+  } else {
+    try { localStorage.setItem(BG_REFRESH_KEY, token); } catch {}
+  }
+}
+
+async function loadBgRefreshToken(): Promise<string | null> {
+  if (bgRefreshToken) return bgRefreshToken;
+  if (secureStore) {
+    try {
+      const v = await secureStore.get(BG_REFRESH_KEY);
+      if (v) { bgRefreshToken = v; return v; }
+    } catch {}
+    // Миграция legacy-токена из localStorage в зашифрованное хранилище.
+    try {
+      const legacy = localStorage.getItem(BG_REFRESH_KEY);
+      if (legacy) {
+        await secureStore.set(BG_REFRESH_KEY, legacy);
+        localStorage.removeItem(BG_REFRESH_KEY);
+        bgRefreshToken = legacy;
+        return legacy;
+      }
+    } catch {}
+    return null;
+  }
+  try {
+    const v = localStorage.getItem(BG_REFRESH_KEY);
+    bgRefreshToken = v;
+    return v;
+  } catch {
+    return null;
+  }
+}
+
+async function clearBgRefreshToken(): Promise<void> {
+  bgRefreshToken = null;
+  if (secureStore) {
+    try { await secureStore.delete(BG_REFRESH_KEY); } catch {}
+  }
+  try { localStorage.removeItem(BG_REFRESH_KEY); } catch {}
+}
 
 interface PollerState {
   timer: ReturnType<typeof setInterval> | null;
@@ -50,7 +103,7 @@ async function obtainAccessToken(): Promise<string | null> {
 
   state.refreshing = (async () => {
     try {
-      const refreshToken = localStorage.getItem(BG_REFRESH_KEY);
+      const refreshToken = await loadBgRefreshToken();
       if (!refreshToken) return null;
 
       const res = await fetch(`${API_BASE}/api/auth/refresh`, {
@@ -62,7 +115,6 @@ async function obtainAccessToken(): Promise<string | null> {
       if (!res.ok) {
         // refresh-токен мёртв — поллер бесполезен, останавливаемся.
         if (res.status === 401) {
-          localStorage.removeItem(BG_REFRESH_KEY);
           stopBackgroundMailPoller();
         }
         return null;
@@ -116,7 +168,7 @@ async function fetchUnreadCount(): Promise<number | null> {
   }
 }
 
-function shouldNotifyInBackground(): boolean {
+async function shouldNotifyInBackground(): Promise<boolean> {
   // Сценарии, когда показываем «Пришло новое письмо» именно бакграундом:
   //   — UI на /login или /pin (пользователя выкинуто),
   //   — окно действительно свернуто (не просто переключилась вкладка).
@@ -136,7 +188,11 @@ function shouldNotifyInBackground(): boolean {
     // Дополнительная проверка через Electron API если доступно
     const electron = (window as any).electron;
     if (electron?.isWindowMinimized) {
-      return electron.isWindowMinimized();
+      try {
+        return await electron.isWindowMinimized();
+      } catch {
+        return true;
+      }
     }
     console.log('Window is hidden, should show background notification');
     return true;
@@ -218,7 +274,7 @@ async function tick(): Promise<void> {
   const prev = prevRaw == null ? null : Number.parseInt(prevRaw, 10);
   localStorage.setItem(LAST_UNREAD_KEY, String(count));
 
-  const isBackground = shouldNotifyInBackground();
+  const isBackground = await shouldNotifyInBackground();
   console.log('Background poller tick:', { count, prev, isBackground, path: window.location.pathname });
 
   // На самом первом тике prev=null — просто запоминаем значение и не
@@ -277,7 +333,7 @@ async function showNotificationWithText(): Promise<void> {
 
 export function startBackgroundMailPoller(refreshToken: string): void {
   if (refreshToken) {
-    localStorage.setItem(BG_REFRESH_KEY, refreshToken);
+    void persistBgRefreshToken(refreshToken);
   }
   if (state.timer) return;
 
@@ -291,13 +347,15 @@ export function stopBackgroundMailPoller(): void {
     clearInterval(state.timer);
     state.timer = null;
   }
-  localStorage.removeItem(BG_REFRESH_KEY);
+  void clearBgRefreshToken();
   localStorage.removeItem(LAST_UNREAD_KEY);
 }
 
 // Реанимирует поллер при старте приложения (например, после релоада
 // страницы в Electron-сессии). Если bgRefreshToken есть — снова запускаем.
 export function resumeBackgroundMailPollerIfPossible(): void {
-  const bgRefresh = localStorage.getItem(BG_REFRESH_KEY);
-  if (bgRefresh) startBackgroundMailPoller(bgRefresh);
+  void (async () => {
+    const token = await loadBgRefreshToken();
+    if (token) startBackgroundMailPoller(token);
+  })();
 }

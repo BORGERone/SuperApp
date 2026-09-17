@@ -187,7 +187,7 @@ export const Sidebar: React.FC = () => {
       }
       setIsHiding(false);
       setShowContainer(true);
-      const t = setTimeout(() => setAnimateSubItems(true), 80);
+      const t = setTimeout(() => setAnimateSubItems(true), 16);
       return () => clearTimeout(t);
     } else {
       setExpandedItems((prev) => prev.filter((id) => id !== 'mail'));
@@ -365,11 +365,11 @@ export const Sidebar: React.FC = () => {
                       style={{
                         // Островок подпунктов теперь стоит отдельным блоком
                         // под островком почты, не наезжая на него (как titlebar↔sidebar).
-                        maxHeight: expandedItems.includes(item.id) && isMailActive ? '320px' : '0px',
-                        opacity: expandedItems.includes(item.id) && isMailActive ? 1 : 0,
-                        paddingTop: expandedItems.includes(item.id) && isMailActive ? '8px' : '0px',
-                        paddingBottom: expandedItems.includes(item.id) && isMailActive ? '8px' : '0px',
-                        marginTop: expandedItems.includes(item.id) && isMailActive ? '6px' : '0px',
+                        maxHeight: isMailActive ? '260px' : '0px',
+                        opacity: isMailActive ? 1 : 0,
+                        paddingTop: isMailActive ? '8px' : '0px',
+                        paddingBottom: isMailActive ? '8px' : '0px',
+                        marginTop: isMailActive ? '6px' : '0px',
                         transition:
                           'max-height 380ms cubic-bezier(0.16, 1, 0.3, 1), opacity 280ms cubic-bezier(0.16, 1, 0.3, 1), padding 380ms cubic-bezier(0.16, 1, 0.3, 1), margin 380ms cubic-bezier(0.16, 1, 0.3, 1)',
                       }}
@@ -393,17 +393,15 @@ export const Sidebar: React.FC = () => {
                                 subItem.path !== '/mail/compose' && isSubItemActive(subItem.path)
                                   ? 'var(--color-primary)'
                                   : 'var(--text-primary)',
-                              transform:
-                                expandedItems.includes(item.id) && isMailActive
-                                  ? 'translateY(0)'
-                                  : 'translateY(-12px)',
-                              opacity: expandedItems.includes(item.id) && isMailActive ? 1 : 0,
+                              transform: isMailActive
+                                ? 'translateY(0)'
+                                : 'translateY(-12px)',
+                              opacity: isMailActive ? 1 : 0,
                               transition:
-                                'transform 360ms cubic-bezier(0.16, 1, 0.3, 1), opacity 260ms cubic-bezier(0.16, 1, 0.3, 1), background 200ms ease-out, color 200ms ease-out',
-                              transitionDelay:
-                                expandedItems.includes(item.id) && isMailActive
-                                  ? `${index * 50}ms`
-                                  : `${(item.subItems!.length - 1 - index) * 40}ms`,
+                                'transform 320ms cubic-bezier(0.16, 1, 0.3, 1), opacity 220ms cubic-bezier(0.16, 1, 0.3, 1), background 200ms ease-out, color 200ms ease-out',
+                              transitionDelay: isMailActive
+                                ? `${index * 22}ms`
+                                : `${(item.subItems!.length - 1 - index) * 30}ms`,
                             }}
                           >
                             {subItem.icon}
@@ -495,7 +493,7 @@ export const Sidebar: React.FC = () => {
                                       transition:
                                         'background 200ms ease-out, color 200ms ease-out, transform 360ms cubic-bezier(0.16, 1, 0.3, 1), opacity 260ms cubic-bezier(0.16, 1, 0.3, 1)',
                                       transitionDelay: (animateSubItems && !isHiding)
-                                        ? `${index * 50}ms`
+                                        ? `${index * 22}ms`
                                         : isHiding
                                           ? `${(item.subItems!.length - 1 - index) * 35}ms`
                                           : '0ms',

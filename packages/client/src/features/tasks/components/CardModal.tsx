@@ -21,6 +21,7 @@ import {
 } from '../api/tasksApi';
 import { AssigneePicker } from './AssigneePicker';
 import { useBodyModalOpen } from '../../../utils/useBodyModalOpen';
+import { useModal } from '../../../utils/useModal';
 
 interface CardModalProps {
   card: TaskCard;
@@ -46,6 +47,7 @@ function localInputToIso(value: string): string | null {
 
 export const CardModal: React.FC<CardModalProps> = ({ card, columns, onClose }) => {
 
+  const { showModal } = useModal();
   const updateCard = useUpdateCard();
   const deleteCard = useDeleteCard();
   const createSubtask = useCreateSubtask();
@@ -124,7 +126,14 @@ export const CardModal: React.FC<CardModalProps> = ({ card, columns, onClose }) 
   };
 
   const handleDeleteCard = async () => {
-    if (!window.confirm('Удалить карточку безвозвратно?')) return;
+    const confirmed = await showModal({
+      type: 'confirm',
+      title: 'Удаление карточки',
+      message: 'Удалить карточку безвозвратно?',
+      confirmText: 'Удалить',
+      cancelText: 'Отмена',
+    });
+    if (!confirmed) return;
     try {
       await deleteCard.mutateAsync(card.id);
       onClose();
@@ -396,7 +405,7 @@ export const CardModal: React.FC<CardModalProps> = ({ card, columns, onClose }) 
               )}
             </div>
 
-            <div className="mt-3 flex items-center gap-2">
+            <div className="sticky bottom-0 mt-3 flex items-center gap-2 pt-3" style={{ background: 'var(--surface)' }}>
               <input
                 type="text"
                 value={newSubtaskTitle}

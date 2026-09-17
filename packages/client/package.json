@@ -1,6 +1,8 @@
 {
   "name": "@superapp/client",
   "version": "0.1.0",
+  "description": "SuperApp desktop client",
+  "author": "SuperApp",
   "type": "module",
   "main": "electron/main.cjs",
   "scripts": {
@@ -8,8 +10,8 @@
     "build": "vite build",
     "preview": "vite preview",
     "electron": "cross-env NODE_ENV=development node ../../node_modules/electron/cli.js .",
-    "electron:dev": "concurrently \"C:\\Users\\BORGER\\.bun\\bin\\bun.exe run dev\" \"wait-on http://localhost:8080 && cross-env NODE_ENV=development node ../../node_modules/electron/cli.js .\"",
-    "electron:build": "C:\\Users\\BORGER\\.bun\\bin\\bun.exe run build && electron-builder"
+    "electron:dev": "concurrently \"bun run dev\" \"wait-on http://localhost:8080 && cross-env NODE_ENV=development node ../../node_modules/electron/cli.js .\"",
+    "electron:build": "bun run build && electron-builder"
   },
   "dependencies": {
     "@capacitor/android": "^8.3.1",

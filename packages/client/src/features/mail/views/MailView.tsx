@@ -42,6 +42,7 @@ export const MailView: React.FC = () => {
     markAsUnread,
     toggleStar,
     toggleEmailSelection,
+    setSelectedEmails,
     setSelectedEmail,
     clearSelectedEmail,
   } = useMailStore();
@@ -351,7 +352,7 @@ export const MailView: React.FC = () => {
                 />
               </div>
             ) : (
-              <div className="glass-mid p-2 overflow-hidden flex flex-col h-full slide-in-left">
+              <div key={currentFolder} className="glass-mid p-2 overflow-hidden flex flex-col h-full slide-in-left">
                 <div className="flex-1 overflow-y-auto px-1">
                   {filteredEmails.length === 0 ? (
                     <div className="flex items-center justify-center h-full">
@@ -367,6 +368,7 @@ export const MailView: React.FC = () => {
                       selectedEmail={selectedEmail}
                       onEmailSelect={handleEmailSelect}
                       onToggleEmailSelection={toggleEmailSelection}
+                      onSetSelectedEmails={setSelectedEmails}
                       onToggleStar={handleToggleStar}
                     />
                   )}

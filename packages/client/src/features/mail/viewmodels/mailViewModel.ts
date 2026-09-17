@@ -21,6 +21,7 @@ interface MailState {
   updateEmail: (id: string, updates: Partial<Email>) => void;
   deleteEmail: (id: string) => void;
   toggleEmailSelection: (id: string) => void;
+  setSelectedEmails: (ids: string[]) => void;
   setCurrentFolder: (folder: MailFolder) => void;
   setFilters: (filters: Partial<MailFilters>) => void;
   openCompose: (replyTo?: Email) => void;
@@ -76,6 +77,8 @@ export const useMailStore = create<MailState>((set, get) => ({
       ? state.selectedEmails.filter(selectedId => selectedId !== id)
       : [...state.selectedEmails, id]
   })),
+
+  setSelectedEmails: (ids) => set({ selectedEmails: [...ids] }),
   
   selectAllEmails: () => set((state) => ({
     selectedEmails: state.emails.map(email => email.id)

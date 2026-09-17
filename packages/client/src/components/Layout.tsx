@@ -1,7 +1,12 @@
 import React, { useEffect, useState } from 'react';
-import { Sidebar, SIDEBAR_WIDTH_COLLAPSED, SIDEBAR_WIDTH_EXPANDED, SIDEBAR_LEFT_MARGIN, TITLEBAR_HEIGHT } from './Sidebar';
+import { useLocation } from 'react-router-dom';
+import { Sidebar, SIDEBAR_WIDTH_COLLAPSED, SIDEBAR_WIDTH_EXPANDED, SIDEBAR_LEFT_MARGIN } from './Sidebar';
 import { TitleBar } from './TitleBar';
+import { MobileNav } from './MobileNav';
+import { MobileMailSubNav } from './MobileMailSubNav';
+import { useIsMobile } from '../hooks/useIsMobile';
 import { useMailStore } from '../features/mail/viewmodels/mailViewModel';
+import { getApiBase } from '../lib/serverConfig';
 
 interface LayoutProps {
   children: React.ReactNode;
@@ -9,6 +14,12 @@ interface LayoutProps {
 
 export const Layout: React.FC<LayoutProps> = ({ children }) => {
   const { emails, setEmails } = useMailStore();
+  const isMobile = useIsMobile();
+  const location = useLocation();
+  // Ключ верхнего раздела (drive/mail/tasks/settings). Меняется только при
+  // переходе между вкладками — тогда обёртка пересоздаётся и проигрывает
+  // плавный переход. Внутри одного раздела (напр. папки почты) не дёргается.
+  const sectionKey = location.pathname.split('/')[1] || 'home';
   const [isSidebarCollapsed, setIsSidebarCollapsed] = useState(() => {
     const saved = localStorage.getItem('sidebarCollapsed');
     return saved === 'true';
@@ -31,9 +42,8 @@ export const Layout: React.FC<LayoutProps> = ({ children }) => {
   useEffect(() => {
     const checkInboxEmails = async () => {
       try {
-        // Определяем базовый URL как в mailApi
-        const isElectron = typeof window !== 'undefined' && (window as any).electronAPI !== undefined;
-        const API_BASE = isElectron ? 'http://localhost:3002/api/mail' : '/api/mail';
+        // Базовый URL бэкенда (см. serverConfig.ts).
+        const API_BASE = `${getApiBase()}/api/mail`;
         
         const token = localStorage.getItem('accessToken');
         
@@ -93,21 +103,29 @@ export const Layout: React.FC<LayoutProps> = ({ children }) => {
         <div className="app-bg__veil" />
       </div>
 
-      {/* Кастомный титлбар, визуально вкладывающийся в верх сайдбара */}
-      <TitleBar
-        collapsed={isSidebarCollapsed}
-        sidebarWidthCollapsed={SIDEBAR_WIDTH_COLLAPSED}
-        sidebarWidthExpanded={SIDEBAR_WIDTH_EXPANDED}
-        sidebarLeftMargin={SIDEBAR_LEFT_MARGIN}
-      />
+      {/* Кастомный титлбар, визуально вкладывающийся в верх сайдбара.
+          На телефонных разрешениях прячем его — навигация уходит вниз. */}
+      {!isMobile && (
+        <TitleBar
+          collapsed={isSidebarCollapsed}
+          sidebarWidthCollapsed={SIDEBAR_WIDTH_COLLAPSED}
+          sidebarWidthExpanded={SIDEBAR_WIDTH_EXPANDED}
+          sidebarLeftMargin={SIDEBAR_LEFT_MARGIN}
+        />
+      )}
 
-      <div
-        className="flex h-screen"
-      >
-        <Sidebar />
-        <main className="flex-1 overflow-hidden">
-          {children}
+      <div className={isMobile ? 'flex flex-col h-screen' : 'flex h-screen'}>
+        {!isMobile && <Sidebar />}
+        <main
+          className="flex-1 overflow-hidden"
+          style={isMobile ? { paddingBottom: location.pathname.startsWith('/mail') ? 'calc(120px + env(safe-area-inset-bottom))' : 'calc(64px + env(safe-area-inset-bottom))' } : undefined}
+        >
+          <div key={sectionKey} className="h-full page-fade-in">
+            {children}
+          </div>
         </main>
+        {isMobile && location.pathname.startsWith('/mail') && <MobileMailSubNav />}
+        {isMobile && <MobileNav />}
       </div>
     </>
   );

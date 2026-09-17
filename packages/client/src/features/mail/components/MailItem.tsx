@@ -1,6 +1,8 @@
 import React from 'react';
 import { Email, MailFolder } from '../models/mailModel';
 import { Reply, Forward, Trash2, Star, Mail, Paperclip, User, Download } from 'lucide-react';
+import { getApiBase } from '../../../lib/serverConfig';
+import { useModal } from '../../../utils/useModal';
 
 interface MailItemProps {
   email: Email;
@@ -23,6 +25,8 @@ export const MailItem: React.FC<MailItemProps> = ({
   onMarkAsUnread,
   onMoveToFolder,
 }) => {
+  const { showModal } = useModal();
+
   const formatDate = (date: Date) => {
     return date.toLocaleString('ru-RU', {
       day: 'numeric',
@@ -36,8 +40,7 @@ export const MailItem: React.FC<MailItemProps> = ({
   const handleDownloadAttachment = async (attachment: any) => {
     try {
       // В Electron используем абсолютный URL, в браузере - относительный (через proxy)
-      const isElectron = typeof window !== 'undefined' && (window as any).electronAPI !== undefined;
-      const apiUrl = isElectron ? 'http://localhost:3002' : '';
+      const apiUrl = getApiBase();
 
       console.log('Downloading attachment:', attachment);
 
@@ -84,7 +87,12 @@ export const MailItem: React.FC<MailItemProps> = ({
       console.log('Download completed successfully');
     } catch (error) {
       console.error('Failed to download attachment:', error);
-      alert('Не удалось скачать файл');
+      void showModal({
+        type: 'alert',
+        title: 'Ошибка',
+        message: 'Не удалось скачать файл',
+        confirmText: 'OK',
+      });
     }
   };
 
@@ -93,7 +101,7 @@ export const MailItem: React.FC<MailItemProps> = ({
 
     try {
       // Используем абсолютный URL напрямую к бэкенду для тестирования
-      const apiUrl = 'http://localhost:3002';
+      const apiUrl = getApiBase();
 
       console.log('Downloading all attachments for email:', email.id);
       console.log('apiUrl:', apiUrl);
@@ -126,7 +134,12 @@ export const MailItem: React.FC<MailItemProps> = ({
       console.log('Download completed successfully');
     } catch (error) {
       console.error('Failed to download attachments:', error);
-      alert('Не удалось скачать файлы');
+      void showModal({
+        type: 'alert',
+        title: 'Ошибка',
+        message: 'Не удалось скачать файлы',
+        confirmText: 'OK',
+      });
     }
   };
 

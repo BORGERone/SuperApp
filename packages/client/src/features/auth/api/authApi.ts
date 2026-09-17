@@ -3,10 +3,10 @@ import {
   startBackgroundMailPoller,
   stopBackgroundMailPoller,
 } from '../../../utils/backgroundNotifications';
+import { getApiBase } from '../../../lib/serverConfig';
 
-// API базовый URL - в Electron используем абсолютный URL, в браузере - относительный (работает через proxy)
-const isElectron = typeof window !== 'undefined' && (window as any).electronAPI !== undefined;
-const API_BASE = isElectron ? 'http://localhost:3002/api/auth' : '/api/auth';
+// Базовый URL бэкенда (см. serverConfig.ts).
+const API_BASE = `${getApiBase()}/api/auth`;
 
 // API функции
 const authApi = {

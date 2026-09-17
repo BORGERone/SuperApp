@@ -1,7 +1,7 @@
 import { refreshAccessToken, clearAuthAndRedirect } from './tokenRefresh';
+import { getApiBase } from './serverConfig';
 
-const isElectron = typeof window !== 'undefined' && (window as any).electronAPI !== undefined;
-const API_BASE = isElectron ? 'http://localhost:3002' : '';
+const API_BASE = getApiBase();
 
 function buildHeaders(options: RequestInit): Headers {
   const headers = new Headers({ 'Content-Type': 'application/json' });

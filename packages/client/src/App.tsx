@@ -3,6 +3,7 @@ import { useAuthStore } from './store';
 import { useEffect } from 'react';
 import { Layout } from './components/Layout';
 import { ThemeProvider } from './components/ThemeProvider';
+import { ModalProvider } from './utils/useModal';
 import { resumeBackgroundMailPollerIfPossible } from './utils/backgroundNotifications';
 import { playTapSound } from './utils/notifications';
 import { useNotificationsStore } from './features/settings/viewmodels/notificationsViewModel';
@@ -66,11 +67,13 @@ function App() {
   }, [isAuthenticated, navigate]);
 
   return (
-    <ThemeProvider>
-      <Layout>
-        <Outlet />
-      </Layout>
-    </ThemeProvider>
+    <ModalProvider>
+      <ThemeProvider>
+        <Layout>
+          <Outlet />
+        </Layout>
+      </ThemeProvider>
+    </ModalProvider>
   );
 }
 
