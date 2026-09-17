@@ -112,8 +112,12 @@ def soft_shadow(img, box, r, blur=18, dy=10, color=(60, 70, 120, 60)):
     img.alpha_composite(layer.filter(ImageFilter.GaussianBlur(px(blur))))
 
 
-def card(img, box, r=18, fill=CARD, outline=BORDER, width=1, shadow=None):
-    """Карточка с мягкой тенью (shadow = (blur, dy, alpha))."""
+def card(img, box, r=18, fill=CARD, outline=None, width=1, shadow=None):
+    """Карточка с мягкой тенью (shadow = (blur, dy, alpha)).
+
+    По умолчанию рамки нет: в прежнем стиле панели «плавали» на фоне за счёт
+    одной тени, без обводки.
+    """
     if shadow:
         soft_shadow(img, box, r, blur=shadow[0], dy=shadow[1],
                     color=(70, 82, 140, shadow[2]))
@@ -319,8 +323,7 @@ def stat_chip(img, x, cy, label, icon=None):
     """Чип-плашка со статистикой («Колонок: 3», «Карточек: 7»)."""
     d = ImageDraw.Draw(img, 'RGBA')
     w = text_w(label, 13.5, True) + (38 if icon else 26)
-    card(img, [x, cy - 13, x + w, cy + 13], r=13, fill=(238, 241, 248),
-         outline=(238, 241, 248), shadow=False)
+    card(img, [x, cy - 13, x + w, cy + 13], r=13, fill=(238, 241, 248), shadow=False)
     if icon:
         icon(d, x + 17, cy, 15, (100, 116, 139))
         text(d, (x + 30, cy), label, 13.5, (100, 116, 139), bold=True, anchor='lm')
@@ -655,7 +658,7 @@ def draw_sidebar(img, active):
         icon(d, 44, y + 22, 20, PRIMARY_DARK if on else (55, 65, 81))
         text(d, (70, y + 13), label, 15.5, PRIMARY_DARK if on else TEXT, bold=on)
         if badge:
-            pastel_shape(img, [SIDEBAR - 58, y + 11, SIDEBAR - 34, y + 35], 'squircle',
+            pastel_shape(img, [SIDEBAR - 58, y + 11, SIDEBAR - 34, y + 35], 'disc',
                          PASTELS['indigo'], fold=False)
             text(d, (SIDEBAR - 46, y + 23), str(badge), 12, (255, 255, 255), bold=True, anchor='mm')
         y += 50
@@ -678,7 +681,7 @@ def draw_sidebar(img, active):
         icon(d, 44, yy + 20, 19, PRIMARY_DARK if on else (75, 85, 99))
         text(d, (70, yy + 11), label, 14.5, PRIMARY_DARK if on else TEXT, bold=on)
         if badge:
-            pastel_shape(img, [SIDEBAR - 58, yy + 9, SIDEBAR - 34, yy + 33], 'squircle',
+            pastel_shape(img, [SIDEBAR - 58, yy + 9, SIDEBAR - 34, yy + 33], 'disc',
                          PASTELS['indigo'], fold=False)
             text(d, (SIDEBAR - 46, yy + 21), str(badge), 12, (255, 255, 255), bold=True, anchor='mm')
         yy += 44
@@ -769,7 +772,7 @@ def draw_mail():
     ic_search(d, x0 + 32, 112, 19, (156, 163, 175))
     text(d, (x0 + 56, 112), 'Поиск писем...', 15, TEXT_SOFT, anchor='lm')
     for bx, ic in ((x0 + list_w + 16, ic_funnel), (x0 + list_w + 76, ic_star)):
-        card(img, [bx, 88, bx + 48, 136], r=14, shadow=(12, 5, 20))
+        card(img, [bx, 88, bx + 48, 136], r=24, shadow=(12, 5, 20))
         ic(d, bx + 24, 112, 20, (107, 114, 128))
 
     # список писем
@@ -854,29 +857,30 @@ def draw_drive():
     text(d, (x0 + 178, 186), '/', 16, (156, 163, 175), anchor='lm')
     sk_bar(img, [x0 + 196, 181, x0 + 300, 191], fill=SK)
 
-    # одна сетка на все плитки: 6 колонок, папки — двумя рядами, файлы — третьим
+    # квадратные плитки в одной сетке: 6 колонок, первый ряд — папки, второй — файлы
     gap, cols = 16, 6
     tw = ((W - 25) - x0 - gap * (cols - 1)) // cols
-    folders = ['indigo', 'teal', 'amber', 'rose', 'blue', 'violet',
-               'coral', 'indigo', 'teal', 'amber', 'rose', 'blue']
+    row1, row2 = 232, 232 + tw + gap
+    folders = ['indigo', 'teal', 'amber', 'rose', 'blue', 'violet']
     for i, key in enumerate(folders):
-        col, row = i % cols, i // cols
-        x, y = x0 + col * (tw + gap), 232 + row * 166
+        x = x0 + i * (tw + gap)
         selected = (i == 0)
-        card(img, [x, y, x + tw, y + 150], r=16, shadow=(14, 6, 22),
-             outline=(196, 205, 245) if selected else BORDER, width=1.6 if selected else 1)
-        pastel_shape(img, [x + 30, y + 36, x + tw - 30, y + 114], 'folder', PASTELS[key])
+        card(img, [x, row1, x + tw, row1 + tw], r=20, shadow=(16, 7, 24),
+             outline=(199, 208, 246) if selected else None, width=1.6 if selected else 1)
+        pastel_shape(img, [x + 34, row1 + 64, x + tw - 34, row1 + tw - 58], 'folder', PASTELS[key])
         if selected:
-            pastel_shape(img, [x + 12, y + 12, x + 36, y + 36], 'disc', PASTELS['indigo'], fold=False)
-            ic_check(d, x + 24, y + 24, 13, (255, 255, 255), w=2.0)
+            pastel_shape(img, [x + 14, row1 + 14, x + 40, row1 + 40], 'disc',
+                         PASTELS['indigo'], fold=False)
+            ic_check(d, x + 27, row1 + 27, 14, (255, 255, 255), w=2.0)
 
     files = [('rose', 'image'), ('teal', 'grid'), ('indigo', 'chart'),
              ('violet', 'lines'), ('coral', 'play'), ('blue', 'code')]
     for i, (key, glyph) in enumerate(files):
-        x, y = x0 + i * (tw + gap), 564
-        card(img, [x, y, x + tw, y + 150], r=16, shadow=(14, 6, 22))
-        pastel_shape(img, [x + tw / 2 - 30, y + 20, x + tw / 2 + 30, y + 100], 'doc', PASTELS[key])
-        pastel_glyph(img, x + tw / 2, y + 58, 17, glyph, alpha=170)
+        x = x0 + i * (tw + gap)
+        card(img, [x, row2, x + tw, row2 + tw], r=20, shadow=(16, 7, 24))
+        pastel_shape(img, [x + tw / 2 - 32, row2 + 46, x + tw / 2 + 32, row2 + tw - 50],
+                     'doc', PASTELS[key])
+        pastel_glyph(img, x + tw / 2, row2 + tw / 2 - 2, 18, glyph, alpha=170)
 
     # панель выбранного
     px0, py0 = W - 325, H - 156
@@ -929,8 +933,8 @@ def task_card(img, box, chips, title_w, items, done=False, key='indigo', tint=No
 
     def draw(target, bx0, by0):
         b = [bx0, by0, bx0 + w, by0 + h]
-        card(target, b, r=14, fill=tint or CARD, outline=(236, 241, 250),
-             shadow=None if tilt is not None else (12, 5, 18))
+        card(target, b, r=16, fill=tint or CARD,
+             shadow=None if tilt is not None else (14, 6, 22))
         d = ImageDraw.Draw(target, 'RGBA')
         cx, cy = bx0 + 14, by0 + 29
         if done:
@@ -990,10 +994,17 @@ def draw_tasks():
     card(img, [x0, 88, x0 + 250, 136], r=14, shadow=(12, 5, 18))
     ic_search(d, x0 + 28, 112, 18, (156, 163, 175))
     text(d, (x0 + 48, 112), 'Поиск карточек', 14.5, TEXT_SOFT, anchor='lm')
-    pill(img, [x0 + 266, 88, x0 + 470, 136], 'Все ответственные', icon=ic_funnel, size=14.5)
-    ic_chevron(d, x0 + 448, 112, 14, (107, 114, 128))
-    pill(img, [x0 + 486, 88, x0 + 630, 136], 'Обновить', icon=ic_refresh, size=14.5)
-    pill(img, [x0 + 646, 88, x0 + 770, 136], 'Архив', icon=ic_archive, size=14.5)
+    gx = x0 + 276
+    for icon, label, wide in ((ic_funnel, 'Все ответственные', True),
+                              (ic_refresh, 'Обновить', False),
+                              (ic_archive, 'Архив', False)):
+        icon(d, gx, 112, 18, (124, 134, 154))
+        text(d, (gx + 19, 112), label, 14.5, (88, 98, 120), bold=True, anchor='lm')
+        gx += 19 + text_w(label, 14.5, True) + 12
+        if wide:
+            ic_chevron(d, gx + 7, 112, 14, (152, 162, 180))
+            gx += 28
+        gx += 26
 
     # статистика — чипами, как в клиенте
     sx = stat_chip(img, x0, 162, 'Колонок: 3', icon=ic_users)
@@ -1027,15 +1038,15 @@ def draw_tasks():
     cw = ((W - 25) - x0 - gap * 3) // 4
     for ci, (title, accent, cards) in enumerate(columns):
         x = x0 + ci * (cw + gap)
-        card(img, [x, col_top, x + cw, col_top + col_h], r=18, fill=(251, 251, 254),
-             outline=BORDER, shadow=(14, 6, 20))
+        card(img, [x, col_top, x + cw, col_top + col_h], r=22, fill=(251, 251, 254),
+             shadow=(18, 8, 26))
         # заголовок колонки: точка-акцент, название, счётчик, корзина
         pastel_shape(img, [x + 18, col_top + 16, x + 32, col_top + 30], 'disc',
                      PASTELS[accent], fold=False)
         text(d, (x + 40, col_top + 16), title, 15, (31, 41, 55), bold=True)
         tx = x + 40 + text_w(title, 15, True) + 8
-        card(img, [tx, col_top + 12, tx + 26, col_top + 40], r=8, fill=(238, 241, 248),
-             outline=(238, 241, 248), shadow=False)
+        card(img, [tx, col_top + 12, tx + 26, col_top + 40], r=10, fill=(238, 241, 248),
+             shadow=False)
         text(d, (tx + 13, col_top + 26), str(len(cards)), 13, (100, 116, 139), bold=True, anchor='mm')
         ic_trash(d, x + cw - 24, col_top + 26, 16, (176, 186, 202))
 
@@ -1056,7 +1067,7 @@ def draw_tasks():
 
     # панель «Новая колонка» — четвёртая колонка доски
     nx = x0 + 3 * (cw + gap)
-    card(img, [nx, col_top, nx + cw, col_top + 320], r=18, shadow=(16, 7, 24))
+    card(img, [nx, col_top, nx + cw, col_top + 320], r=22, shadow=(18, 8, 26))
     text(d, (nx + 18, col_top + 18), 'Новая колонка', 15.5, TEXT, bold=True)
     sk_bar(img, [nx + 18, col_top + 56, nx + cw - 18, col_top + 104], fill=(246, 248, 252), r=12)
     sk_bar(img, [nx + 34, col_top + 76, nx + 150, col_top + 86], fill=SK)
@@ -1071,69 +1082,13 @@ def draw_tasks():
 # --- кадр «Вход» --------------------------------------------------------------
 
 def draw_login():
-    img = Image.new('RGBA', (W * S, H * S), (255, 255, 255, 255))
-    # фон: глубокий градиент + мягкие световые пятна
-    gradient_fill(img, [0, 0, W, H], 0, (96, 108, 214), (140, 96, 200))
-    glow = Image.new('RGBA', img.size, (0, 0, 0, 0))
-    gd = ImageDraw.Draw(glow, 'RGBA')
-    gd.ellipse([px(-160), px(-300), px(700), px(470)], fill=(255, 255, 255, 46))
-    gd.ellipse([px(880), px(470), px(1720), px(1180)], fill=(255, 255, 255, 36))
-    gd.ellipse([px(150), px(720), px(620), px(1240)], fill=(255, 255, 255, 28))
-    img.alpha_composite(glow.filter(ImageFilter.GaussianBlur(px(110))))
-
-    d = ImageDraw.Draw(img, 'RGBA')
-    # кнопка закрытия окна — как в клиенте (только в Electron)
-    glass_box(img, [W - 52, 12, W - 12, 52], 10, (255, 255, 255, 46),
-              outline=(255, 255, 255, 96))
-    ic_cross(d, W - 32, 32, 15, (255, 255, 255, 220))
-
-    # «стеклянная» карточка входа
-    cw, ch = 470, 612
-    cx, cy = (W - cw) / 2, (H - ch) / 2
-    glass_box(img, [cx, cy, cx + cw, cy + ch], 26, (255, 255, 255, 176),
-              outline=(255, 255, 255, 120))
-    pastel_shape(img, [W / 2 - 37, cy + 34, W / 2 + 37, cy + 108], 'disc', PASTELS['indigo'], fold=False)
-    person_glyph(img, W / 2, cy + 71, 30, alpha=210)
-    gradient_text(img, (W / 2, cy + 124), 'SuperApp', 32, PRIMARY, VIOLET, anchor='ma')
-
-    y = cy + 176
-    for label in ('Логин', 'Пароль'):
-        text(d, (cx + 40, y), label, 13.5, (86, 92, 130))
-        glass_box(img, [cx + 40, y + 22, cx + cw - 40, y + 72], 12,
-                  (255, 255, 255, 190), outline=(255, 255, 255, 140))
-        sk_bar(img, [cx + 58, y + 42, cx + 178, y + 52], fill=(214, 220, 236))
-        y += 96
-
-    # «Запомнить пароль»
-    gradient_fill(img, [cx + 40, y + 1, cx + 60, y + 21], 6, GRAD_A, GRAD_B)
-    ic_check(d, cx + 50, y + 11, 12, (255, 255, 255), w=2.2)
-    text(d, (cx + 70, y + 11), 'Запомнить пароль', 14, (86, 92, 130), anchor='lm')
-    y += 44
-
-    # PIN-код — в отдельном светлом контейнере
-    text(d, (cx + 40, y), 'PIN-код', 13.5, (86, 92, 130))
-    y += 20
-    glass_box(img, [cx + 40, y, cx + cw - 40, y + 100], 14,
-              (255, 255, 255, 120), outline=(255, 255, 255, 96))
-    bw, bgap = 54, 18
-    bx0 = cx + cw / 2 - (bw * 4 + bgap * 3) / 2
-    for i in range(4):
-        bx = bx0 + i * (bw + bgap)
-        glass_box(img, [bx, y + 24, bx + bw, y + 76], 12,
-                  (255, 255, 255, 205), outline=(255, 255, 255, 150))
-        if i < 2:
-            pastel_shape(img, [bx + bw / 2 - 7, y + 50 - 7, bx + bw / 2 + 7, y + 50 + 7],
-                         'disc', PASTELS['indigo'], fold=False)
-    y += 124
-
-    gradient_fill(img, [cx + 40, y, cx + cw - 40, y + 50], 12, GRAD_A, GRAD_B)
-    text(d, (W / 2, y + 25), 'Войти', 16, (255, 255, 255), bold=True, anchor='mm')
-    return img
+    """Экран входа — прежняя иллюстрация (raw-login.jpg), как была в README."""
+    return Image.open(os.path.join(HERE, 'raw-login.jpg')).convert('RGBA')
 
 
 # --- оформление кадра (скругление + тень + фон) -------------------------------
 
-def present(screen, out_name, pad=38, radius=22):
+def present(screen, out_name, pad=64, radius=22):
     win = screen.resize((W, H), Image.LANCZOS)          # уменьшаем 2× → 1×
     # Полупрозрачные заливки внутри кадра нужно один раз «печь» на белом фоне,
     # иначе при обрезке по скруглению альфа теряется и, например, активный
@@ -1144,25 +1099,27 @@ def present(screen, out_name, pad=38, radius=22):
     ImageDraw.Draw(mask).rounded_rectangle([0, 0, W - 1, H - 1], radius=radius, fill=255)
 
     CW, CH = W + pad * 2, H + pad * 2
-    canvas = Image.new('RGBA', (CW, CH), (255, 255, 255, 255))
+    # фон — как фон GitHub в тёмной теме: #0d1117, с лёгким затемнением книзу
+    canvas = Image.new('RGBA', (CW, CH), (13, 17, 23, 255))
     bg = ImageDraw.Draw(canvas)
-    for y in range(CH):                                  # мягкий фон
+    for y in range(CH):
         k = y / (CH - 1)
-        bg.line([(0, y), (CW, y)], fill=(int(247 - 6 * k), int(249 - 4 * k), int(254 - 2 * k)))
+        bg.line([(0, y), (CW, y)], fill=(int(13 - 4 * k), int(17 - 5 * k), int(23 - 6 * k)))
 
     # Тени и рамку рисуем в пикселях кадра — helpers rounded()/soft_shadow()
     # умножают координаты на S и здесь, после уменьшения, не подходят.
     box = [pad, pad, pad + W, pad + H]
-    for blur, dy, alpha in ((34, 16, 70), (10, 4, 46)):
+    for blur, dy, alpha in ((40, 18, 170), (12, 5, 120)):
         layer = Image.new('RGBA', (CW, CH), (0, 0, 0, 0))
         ImageDraw.Draw(layer).rounded_rectangle(
             [box[0], box[1] + dy, box[2], box[3] + dy], radius=radius,
-            fill=(64, 76, 130, alpha))
+            fill=(0, 0, 0, alpha))
         canvas.alpha_composite(layer.filter(ImageFilter.GaussianBlur(blur)))
     canvas.paste(flat.convert('RGB'), (pad, pad), mask)
 
+    # тонкая рамка в цвет границ тёмной темы GitHub (#21262d)
     ImageDraw.Draw(canvas, 'RGBA').rounded_rectangle(
-        box, radius=radius, outline=(230, 234, 246), width=1)
+        box, radius=radius, outline=(33, 38, 45), width=1)
 
     canvas.convert('RGB').save(os.path.join(HERE, out_name), optimize=True)
     return os.path.join(HERE, out_name)
