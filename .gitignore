@@ -78,3 +78,6 @@ packages/server/uploads/*
 
 # Локальные резервные копии базы (installer\db-backup.bat)
 installer/backups/
+
+# Кэш Python от скриптов генерации картинок (docs/images/make-*.py)
+__pycache__/

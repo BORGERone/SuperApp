@@ -1,20 +1,24 @@
 #!/usr/bin/env python3
 # Генерация картинок для корневого README.md.
 #
-#   python3 docs/images/make-images.py           (запускать из корня репозитория)
+#   python3 docs/images/make-images.py            (запускать из корня репозитория)
+#   python3 docs/images/make-images.py --shots    + обернуть raw-*.jpg в рамку
 #
 # Что делает:
 #   logo.png          — логотип: двойной шеврон, градиент #667eea → #8b5cf6
 #   banner.png        — баннер для шапки README: raw-banner.jpg + заголовок и слоган
-#   screen-*.png      — макеты интерфейса: raw-*.png + скругление, тень, светлый фон
+#   screen-*.png      — НЕ здесь: макеты интерфейса рисует make-screens.py
+#
+# Кадры интерфейса (screen-mail/drive/tasks/login.png) с этой версии рисуются
+# «с нуля» скриптом make-screens.py — по реальным подписям и цветам клиента.
+# Функция make_shot() осталась для другого случая: когда макет заменяют
+# настоящим скриншотом. Положите снимок рядом как raw-mail.jpg и запустите
+# скрипт с ключом --shots — он добавит скругление, тень и светлый фон.
 #
 # Требуется Pillow:  pip install Pillow
 # Шрифты — DejaVu Sans (в Debian/Ubuntu лежат в /usr/share/fonts/truetype/dejavu).
 #
 # QR-код (qr-server.png) генерируется отдельно, см. docs/images/README.md.
-# Исходники raw-*.jpg сделаны генератором изображений; если меняете текст на
-# баннере или заменяете макеты настоящими скриншотами — правьте здесь и
-# перезапускайте скрипт.
 
 import os
 from PIL import Image, ImageDraw, ImageFont, ImageFilter
@@ -117,10 +121,18 @@ def make_shot(out_name, raw_name, size=(1280, 800), bg=(241, 243, 250), pad=34):
 
 
 if __name__ == '__main__':
+    import sys
+
     make_logo()
     make_banner()
-    make_shot('screen-drive.png', 'raw-drive.jpg')
-    make_shot('screen-mail.png', 'raw-mail.jpg')
-    make_shot('screen-tasks.png', 'raw-tasks.jpg')
-    make_shot('screen-login.png', 'raw-login.jpg')
-    print('Готово: logo.png, banner.png, screen-*.png')
+    print('Готово: logo.png, banner.png')
+
+    # Кадры интерфейса рисует make-screens.py; сюда они попадают только по
+    # --shots — когда макеты заменяют настоящими скриншотами raw-*.jpg.
+    if '--shots' in sys.argv:
+        for shot, raw in (('screen-drive.png', 'raw-drive.jpg'),
+                          ('screen-mail.png', 'raw-mail.jpg'),
+                          ('screen-tasks.png', 'raw-tasks.jpg'),
+                          ('screen-login.png', 'raw-login.jpg')):
+            make_shot(shot, raw)
+        print('Готово: screen-*.png (из raw-*.jpg)')
