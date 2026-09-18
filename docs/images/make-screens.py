@@ -853,18 +853,18 @@ FOLDER_BOXES = [
 ]
 
 FILE_BOXES = [
-    (386, 608, 471, 726),
-    (588, 608, 667, 726),
-    (794, 608, 863, 726),
-    (993, 608, 1059, 726),
-    (1196, 608, 1255, 726),
-    (1388, 608, 1451, 726),
-    (387, 779, 471, 893),
-    (587, 779, 667, 893),
-    (788, 779, 863, 893),
-    (993, 779, 1059, 893),
-    (1193, 779, 1255, 895),
-    (1389, 779, 1451, 893),
+    (380, 608, 480, 732),
+    (579, 608, 683, 732),
+    (784, 608, 882, 732),
+    (989, 608, 1088, 732),
+    (1187, 608, 1286, 732),
+    (1380, 608, 1474, 730),
+    (384, 772, 479, 899),
+    (576, 774, 679, 899),
+    (783, 772, 880, 899),
+    (987, 772, 1087, 899),
+    (1184, 776, 1285, 900),
+    (1376, 778, 1473, 899),
 ]
 
 _folder_sprites = None
@@ -878,7 +878,7 @@ def _get_drive_sprites():
 
     raw = Image.open(os.path.join(HERE, 'raw-drive.jpg')).convert('RGB')
 
-    def make_sprite(box):
+    def make_sprite(box, trim=False):
         pad = 6
         crop = raw.crop((box[0] - pad, box[1] - pad, box[2] + pad, box[3] + pad))
         w, h = crop.size
@@ -894,10 +894,14 @@ def _get_drive_sprites():
                 else:
                     alpha = 255
                 rgba.putpixel((x, y), (r, g, b, alpha))
+        if trim:
+            bbox = rgba.getbbox()
+            if bbox:
+                rgba = rgba.crop(bbox)
         return rgba
 
     _folder_sprites = [make_sprite(b) for b in FOLDER_BOXES]
-    _file_sprites = [make_sprite(b) for b in FILE_BOXES]
+    _file_sprites = [make_sprite(b, trim=True) for b in FILE_BOXES]
     return _folder_sprites, _file_sprites
 
 
