@@ -3,6 +3,9 @@ import react from '@vitejs/plugin-react'
 
 export default defineConfig({
   clearScreen: false,
+  // Относительный base обязателен для desktop-сборки: Electron в production
+  // грузит index.html через file://, и абсолютные пути /assets/* не находятся.
+  base: './',
   plugins: [react()],
   css: {
     postcss: './postcss.config.js',
@@ -12,6 +15,10 @@ export default defineConfig({
     strictPort: true,
     proxy: {
       '/api': {
+        target: 'http://localhost:3002',
+        changeOrigin: true,
+      },
+      '/uploads': {
         target: 'http://localhost:3002',
         changeOrigin: true,
       },

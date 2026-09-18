@@ -1,4 +1,5 @@
 import { create } from 'zustand';
+import { stopBackgroundMailPoller } from '../utils/backgroundNotifications';
 
 interface AuthState {
   isAuthenticated: boolean;
@@ -18,6 +19,8 @@ export const useAuthStore = create<AuthState>((set) => ({
     localStorage.removeItem('accessToken');
     localStorage.removeItem('refreshToken');
     localStorage.removeItem('user');
+    // Явный logout — останавливаем бакграунд-уведомления о почте.
+    stopBackgroundMailPoller();
     set({ isAuthenticated: false, currentUser: null, isAdmin: false });
   },
   checkAuth: () => {

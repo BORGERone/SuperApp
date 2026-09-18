@@ -22,6 +22,8 @@ export interface EmailAttachment {
   size: number;
   mimeType: string;
   url?: string;
+  storageType?: 'local' | 'drive';
+  driveFileId?: string;
 }
 
 export type MailFolder = 'inbox' | 'sent' | 'drafts' | 'trash' | 'spam';
@@ -39,7 +41,15 @@ export interface ComposeEmail {
   bcc?: string[];
   subject: string;
   body: string;
-  attachments: File[];
+  attachmentIds?: string[]; // ID загруженных вложений
+}
+
+// Интерфейс для отображения вложений в UI (до загрузки на сервер)
+export interface PendingAttachment {
+  id: string;
+  file: File;
+  storageType: 'local' | 'drive';
+  driveFileId?: string;
 }
 
 export interface MailSettings {

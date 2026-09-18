@@ -1,18 +1,49 @@
-import React, { useEffect } from 'react';
-import { Outlet } from 'react-router-dom';
-import { Sidebar } from './Sidebar';
+import React, { useEffect, useState } from 'react';
+import { useLocation } from 'react-router-dom';
+import { Sidebar, SIDEBAR_WIDTH_COLLAPSED, SIDEBAR_WIDTH_EXPANDED, SIDEBAR_LEFT_MARGIN } from './Sidebar';
+import { TitleBar } from './TitleBar';
+import { MobileNav } from './MobileNav';
+import { MobileMailSubNav } from './MobileMailSubNav';
+import { useIsMobile } from '../hooks/useIsMobile';
 import { useMailStore } from '../features/mail/viewmodels/mailViewModel';
+import { getApiBase } from '../lib/serverConfig';
 
-export const Layout: React.FC = () => {
+interface LayoutProps {
+  children: React.ReactNode;
+}
+
+export const Layout: React.FC<LayoutProps> = ({ children }) => {
   const { emails, setEmails } = useMailStore();
+  const isMobile = useIsMobile();
+  const location = useLocation();
+  // Ключ верхнего раздела (drive/mail/tasks/settings). Меняется только при
+  // переходе между вкладками — тогда обёртка пересоздаётся и проигрывает
+  // плавный переход. Внутри одного раздела (напр. папки почты) не дёргается.
+  const sectionKey = location.pathname.split('/')[1] || 'home';
+  const [isSidebarCollapsed, setIsSidebarCollapsed] = useState(() => {
+    const saved = localStorage.getItem('sidebarCollapsed');
+    return saved === 'true';
+  });
+  // Подписываемся на изменения localStorage от Sidebar — Sidebar при
+  // переключении сохраняет состояние в localStorage и шлёт CustomEvent,
+  // чтобы TitleBar знал ширину brand-зоны.
+  useEffect(() => {
+    const handler = (e: Event) => {
+      const detail = (e as CustomEvent<{ collapsed: boolean }>).detail;
+      if (detail && typeof detail.collapsed === 'boolean') {
+        setIsSidebarCollapsed(detail.collapsed);
+      }
+    };
+    window.addEventListener('sidebar:collapsed-change', handler as EventListener);
+    return () => window.removeEventListener('sidebar:collapsed-change', handler as EventListener);
+  }, []);
 
   // Периодическая проверка новых писем в inbox для обновления счетчика
   useEffect(() => {
     const checkInboxEmails = async () => {
       try {
-        // Определяем базовый URL как в mailApi
-        const isElectron = typeof window !== 'undefined' && (window as any).electronAPI !== undefined;
-        const API_BASE = isElectron ? 'http://localhost:3002/api/mail' : '/api/mail';
+        // Базовый URL бэкенда (см. serverConfig.ts).
+        const API_BASE = `${getApiBase()}/api/mail`;
         
         const token = localStorage.getItem('accessToken');
         
@@ -63,11 +94,39 @@ export const Layout: React.FC = () => {
   }, [emails, setEmails]);
 
   return (
-    <div className="flex h-screen bg-gradient-to-br from-blue-50 via-white to-purple-50">
-      <Sidebar />
-      <main className="flex-1 overflow-auto">
-        <Outlet />
-      </main>
-    </div>
+    <>
+      {/* Фоновые слои приложения (контролируются ThemeProvider через CSS-переменные) */}
+      <div className="app-bg" aria-hidden="true">
+        <div className="app-bg__base" />
+        <div className="app-bg__gradient" />
+        <div className="app-bg__image" />
+        <div className="app-bg__veil" />
+      </div>
+
+      {/* Кастомный титлбар, визуально вкладывающийся в верх сайдбара.
+          На телефонных разрешениях прячем его — навигация уходит вниз. */}
+      {!isMobile && (
+        <TitleBar
+          collapsed={isSidebarCollapsed}
+          sidebarWidthCollapsed={SIDEBAR_WIDTH_COLLAPSED}
+          sidebarWidthExpanded={SIDEBAR_WIDTH_EXPANDED}
+          sidebarLeftMargin={SIDEBAR_LEFT_MARGIN}
+        />
+      )}
+
+      <div className={isMobile ? 'flex flex-col h-screen' : 'flex h-screen'}>
+        {!isMobile && <Sidebar />}
+        <main
+          className="flex-1 overflow-hidden"
+          style={isMobile ? { paddingBottom: location.pathname.startsWith('/mail') ? 'calc(120px + env(safe-area-inset-bottom))' : 'calc(64px + env(safe-area-inset-bottom))' } : undefined}
+        >
+          <div key={sectionKey} className="h-full page-fade-in">
+            {children}
+          </div>
+        </main>
+        {isMobile && location.pathname.startsWith('/mail') && <MobileMailSubNav />}
+        {isMobile && <MobileNav />}
+      </div>
+    </>
   );
 };

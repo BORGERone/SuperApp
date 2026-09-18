@@ -7,6 +7,12 @@ export function useFilesList(path: string) {
   return useQuery({
     queryKey: ['files', path],
     queryFn: () => api.listFiles(path) as Promise<{ files: Omit<FileItem, 'isSelected'>[] }>,
+    // Отключаем кэширование и добавляем периодическое обновление
+    staleTime: 0,
+    gcTime: 0,
+    refetchOnWindowFocus: true,
+    refetchOnMount: 'always',
+    refetchInterval: 5000, // Обновляем каждые 5 секунд
   });
 }
 

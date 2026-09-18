@@ -1,0 +1,6 @@
+{
+  "apiBaseUrl": "http://localhost:3002",
+  "protocol": "http",
+  "serverHost": "localhost",
+  "serverPort": 3002
+}

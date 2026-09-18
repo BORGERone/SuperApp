@@ -5,27 +5,30 @@ interface MailState {
   // Data
   emails: Email[];
   selectedEmails: string[];
+  selectedEmail: Email | null;
   currentFolder: MailFolder;
   filters: MailFilters;
   isComposeOpen: boolean;
   replyEmail: Email | null;
-  
+
   // Loading states
   isLoading: boolean;
   isSending: boolean;
-  
+
   // Actions
   setEmails: (emails: Email[]) => void;
   addEmail: (email: Email) => void;
   updateEmail: (id: string, updates: Partial<Email>) => void;
   deleteEmail: (id: string) => void;
   toggleEmailSelection: (id: string) => void;
-  selectAllEmails: () => void;
-  deselectAllEmails: () => void;
+  setSelectedEmails: (ids: string[]) => void;
   setCurrentFolder: (folder: MailFolder) => void;
   setFilters: (filters: Partial<MailFilters>) => void;
   openCompose: (replyTo?: Email) => void;
+  openComposeForForward: () => void;
   closeCompose: () => void;
+  setSelectedEmail: (email: Email | null) => void;
+  clearSelectedEmail: () => void;
   sendEmail: (email: ComposeEmail) => Promise<void>;
   markAsRead: (id: string) => void;
   markAsUnread: (id: string) => void;
@@ -38,6 +41,7 @@ export const useMailStore = create<MailState>((set, get) => ({
   // Initial state
   emails: [],
   selectedEmails: [],
+  selectedEmail: null,
   currentFolder: 'inbox',
   filters: {
     folder: 'inbox',
@@ -73,6 +77,8 @@ export const useMailStore = create<MailState>((set, get) => ({
       ? state.selectedEmails.filter(selectedId => selectedId !== id)
       : [...state.selectedEmails, id]
   })),
+
+  setSelectedEmails: (ids) => set({ selectedEmails: [...ids] }),
   
   selectAllEmails: () => set((state) => ({
     selectedEmails: state.emails.map(email => email.id)
@@ -89,16 +95,25 @@ export const useMailStore = create<MailState>((set, get) => ({
     filters: { ...state.filters, ...newFilters }
   })),
   
-  openCompose: (replyTo) => set({ 
-    isComposeOpen: true, 
-    replyEmail: replyTo || null 
+  openCompose: (replyTo) => set({
+    isComposeOpen: true,
+    replyEmail: replyTo || null
   }),
-  
-  closeCompose: () => set({ 
-    isComposeOpen: false, 
-    replyEmail: null 
+
+  openComposeForForward: () => set({
+    isComposeOpen: true,
+    replyEmail: null
   }),
-  
+
+  closeCompose: () => set({
+    isComposeOpen: false,
+    replyEmail: null
+  }),
+
+  setSelectedEmail: (email) => set({ selectedEmail: email }),
+
+  clearSelectedEmail: () => set({ selectedEmail: null }),
+
   sendEmail: async (email) => {
     set({ isSending: true });
     try {

@@ -1,6 +1,8 @@
-import React from 'react';
+import React, { useState, useRef } from 'react';
 import { useDriveStore } from '../viewmodels/driveViewModel';
 import { FileItem } from '../models/driveModel';
+import { api } from '../../../lib/apiClient';
+import { useModal } from '../../../utils/useModal';
 
 interface FileListProps {
   files: FileItem[];
@@ -10,14 +12,24 @@ interface FileListProps {
   setDownloadFileName: (name: string) => void;
 }
 
-export const FileList: React.FC<FileListProps> = ({ 
-  files, 
+export const FileList: React.FC<FileListProps> = ({
+  files,
   currentPath,
   setDownloading,
   setDownloadProgress,
   setDownloadFileName,
 }) => {
-  const { viewMode, toggleFileSelection, navigateToDirectory } = useDriveStore();
+  const { showModal } = useModal();
+  const { viewMode, toggleFileSelection, selectFile, setSelectedFiles, navigateToDirectory, selectedFiles } = useDriveStore();
+  
+  // Swipe selection state
+  const [isSwipeSelecting, setIsSwipeSelecting] = useState(false);
+  const startIndexRef = useRef<number>(-1); // Индекс начального (якорного) элемента
+  const endIndexRef = useRef<number>(-1); // Индекс текущего элемента
+  const initialSelectionRef = useRef<Set<string>>(new Set()); // Выделение до начала swipe-selection
+  const mouseDownPosRef = useRef<{ x: number; y: number } | null>(null);
+  const hasMovedRef = useRef(false);
+  const isMouseDownRef = useRef(false);
 
   const getFileIcon = (filename: string): string => {
     const ext = filename.split('.').pop()?.toLowerCase() || '';
@@ -49,81 +61,148 @@ export const FileList: React.FC<FileListProps> = ({
     return icons[ext] || '📄';
   };
 
-  const handleFileClick = async (file: FileItem) => {
-    if (file.type === 'directory') {
-      navigateToDirectory(file.name);
-    } else {
-      // Скачиваем файл при клике с токеном авторизации
-      const filePath = currentPath === '/' ? `/${file.name}` : `${currentPath}/${file.name}`;
+  const handleFileMouseDown = (e: React.MouseEvent) => {
+    // Сохраняем позицию мыши и отмечаем что кнопка нажата
+    mouseDownPosRef.current = { x: e.clientX, y: e.clientY };
+    hasMovedRef.current = false;
+    isMouseDownRef.current = true;
+  };
 
-      setDownloading(true);
-      setDownloadFileName(file.name);
-      setDownloadProgress(0);
-
-      try {
-        // В Electron используем абсолютный URL, в браузере - относительный (через proxy)
-        const isElectron = typeof window !== 'undefined' && (window as any).electronAPI !== undefined;
-        const apiUrl = isElectron ? 'http://localhost:3002' : '';
-        
-        const response = await fetch(`${apiUrl}/api/drive/download?path=${encodeURIComponent(filePath)}`, {
-          headers: {
-            'Authorization': `Bearer ${localStorage.getItem('accessToken')}`,
-          },
-        });
-
-        if (!response.ok) {
-          throw new Error('Failed to download file');
-        }
-
-        // Получаем размер файла из заголовка Content-Length
-        const contentLength = response.headers.get('Content-Length');
-        const totalSize = contentLength ? parseInt(contentLength, 10) : 0;
-        let downloadedSize = 0;
-
-        // Читаем поток данных
-        const reader = response.body?.getReader();
-        const chunks: Uint8Array[] = [];
-
-        if (reader) {
-          while (true) {
-            const { done, value } = await reader.read();
-            if (done) break;
-
-            chunks.push(value);
-            downloadedSize += value.length;
-
-            if (totalSize > 0) {
-              const progress = (downloadedSize / totalSize) * 100;
-              setDownloadProgress(progress);
-            }
-          }
-        }
-
-        // Создаем blob из чанков
-        const blob = new Blob(chunks as BlobPart[]);
-        const url = URL.createObjectURL(blob);
-        const a = document.createElement('a');
-        a.href = url;
-        a.download = file.name;
-        document.body.appendChild(a);
-        a.click();
-        document.body.removeChild(a);
-        URL.revokeObjectURL(url);
-
-        setDownloadProgress(100);
-
-        setTimeout(() => {
-          setDownloading(false);
-          setDownloadProgress(0);
-        }, 500);
-      } catch (error) {
-        console.error('Failed to download file:', error);
-        alert('Не удалось скачать файл');
-        setDownloading(false);
-        setDownloadProgress(0);
+  const handleFileMouseMove = (e: React.MouseEvent) => {
+    if (mouseDownPosRef.current) {
+      const dx = e.clientX - mouseDownPosRef.current.x;
+      const dy = e.clientY - mouseDownPosRef.current.y;
+      // Если мышь сдвинулась более чем на 5 пикселей, считаем что это движение
+      if (Math.abs(dx) > 5 || Math.abs(dy) > 5) {
+        hasMovedRef.current = true;
       }
     }
   };
+
+  // Детерминированно пересчитывает выделение для текущего диапазона swipe.
+  // Итоговое выделение = (выделение до начала swipe) XOR (элементы диапазона).
+  // Считается каждый раз заново от неизменного initialSelectionRef, поэтому
+  // не зависит от промежуточного (устаревшего) состояния — якорь/первый
+  // элемент больше не «теряется через раз».
+  const applyRange = (endIndex: number) => {
+    const initial = initialSelectionRef.current;
+    const lo = Math.min(startIndexRef.current, endIndex);
+    const hi = Math.max(startIndexRef.current, endIndex);
+    const next = new Set(initial);
+    for (let i = lo; i <= hi; i++) {
+      const f = sortedFiles[i];
+      if (!f) continue;
+      if (initial.has(f.name)) {
+        next.delete(f.name);
+      } else {
+        next.add(f.name);
+      }
+    }
+    setSelectedFiles(next);
+  };
+
+  const handleFileMouseLeave = (file: FileItem) => {
+    // Активируем swipe-selection только если ЛКМ зажата и swipe ещё не начат.
+    if (!isMouseDownRef.current || isSwipeSelecting) return;
+    const fileIndex = sortedFiles.findIndex(f => f.name === file.name);
+    if (fileIndex === -1) return;
+
+    // Запоминаем выделение на момент старта и фиксируем якорь.
+    initialSelectionRef.current = new Set(selectedFiles);
+    startIndexRef.current = fileIndex;
+    endIndexRef.current = fileIndex;
+    setIsSwipeSelecting(true);
+    applyRange(fileIndex);
+  };
+
+  const handleFileClick = async (file: FileItem) => {
+    // Если это было движение мыши (swipe-selection), не обрабатываем клик
+    if (hasMovedRef.current) {
+      return;
+    }
+
+    // Если файл уже выделен, снимаем выделение
+    if (selectedFiles.has(file.name)) {
+      toggleFileSelection(file.name);
+      return;
+    }
+
+    // Если есть выделенные файлы, клик добавляет этот файл к выделению
+    if (selectedFiles.size > 0) {
+      selectFile(file.name);
+      return;
+    }
+
+    // Если нет выделенных файлов и не в режиме swipe-selection, открываем папку или скачиваем файл
+    if (!isSwipeSelecting) {
+      if (file.type === 'directory') {
+        navigateToDirectory(file.name);
+      } else {
+        // Скачиваем файл при клике с токеном авторизации
+        const filePath = currentPath === '/' ? `/${file.name}` : `${currentPath}/${file.name}`;
+
+        setDownloading(true);
+        setDownloadFileName(file.name);
+        setDownloadProgress(0);
+
+        try {
+          const blob = await api.downloadFile(filePath);
+
+          // Создаем URL для скачивания
+          const url = URL.createObjectURL(blob);
+          const a = document.createElement('a');
+          a.href = url;
+          a.download = file.name;
+          document.body.appendChild(a);
+          a.click();
+          document.body.removeChild(a);
+          URL.revokeObjectURL(url);
+
+          setDownloadProgress(100);
+
+          setTimeout(() => {
+            setDownloading(false);
+            setDownloadProgress(0);
+          }, 500);
+        } catch (error) {
+          console.error('Failed to download file:', error);
+          void showModal({
+            type: 'alert',
+            title: 'Ошибка',
+            message: 'Не удалось скачать файл',
+            confirmText: 'OK',
+          });
+          setDownloading(false);
+          setDownloadProgress(0);
+        }
+      }
+    }
+  };
+
+  const handleFileMouseEnter = (file: FileItem) => {
+    if (!isSwipeSelecting) return;
+    const fileIndex = sortedFiles.findIndex(f => f.name === file.name);
+    if (fileIndex === -1) return;
+    endIndexRef.current = fileIndex;
+    applyRange(fileIndex);
+  };
+
+  const handleGlobalMouseUp = () => {
+    if (isSwipeSelecting) {
+      setIsSwipeSelecting(false);
+      startIndexRef.current = -1;
+      endIndexRef.current = -1;
+      mouseDownPosRef.current = null;
+      hasMovedRef.current = false;
+      initialSelectionRef.current = new Set();
+    }
+    isMouseDownRef.current = false;
+  };
+
+  React.useEffect(() => {
+    document.addEventListener('mouseup', handleGlobalMouseUp);
+    return () => document.removeEventListener('mouseup', handleGlobalMouseUp);
+  }, [isSwipeSelecting]);
 
   const handleCheckboxClick = (e: React.MouseEvent, fileName: string) => {
     e.stopPropagation();
@@ -139,7 +218,13 @@ export const FileList: React.FC<FileListProps> = ({
     );
   }
 
-  const gridClassName = viewMode === 'list' ? 'space-y-2' : 'grid grid-cols-4 gap-4';
+  const gridClassName = viewMode === 'list' ? 'space-y-2' : 'grid grid-cols-2 sm:grid-cols-4 gap-3 sm:gap-4';
+
+  const CheckIcon = (
+    <svg viewBox="0 0 16 16" aria-hidden="true">
+      <path d="M3.5 8.2 L6.7 11.4 L12.5 4.8" />
+    </svg>
+  );
 
   // Сортируем файлы: сначала папки, потом файлы
   const sortedFiles = [...files].sort((a, b) => {
@@ -153,48 +238,65 @@ export const FileList: React.FC<FileListProps> = ({
       {sortedFiles.map((file) => (
         <div
           key={file.id}
-          className={`glass-card p-4 rounded-lg cursor-pointer transition-all duration-200 hover:bg-white/60 relative group ${
-            viewMode === 'list' 
-              ? (file.isSelected ? 'translate-x-1' : 'hover:translate-x-1')
-              : (file.isSelected ? 'scale-105' : 'hover:scale-105')
-          } ${
-            file.isSelected ? '!bg-blue-200/90' : ''
+          data-file-name={file.name}
+          className={`glass-mid select-shimmer relative group cursor-pointer ${
+            viewMode === 'list' ? 'px-4 py-3 pl-12' : 'p-4'
           }`}
+          data-selected={file.isSelected ? 'true' : 'false'}
+          style={{
+            // Никаких translateX/scale при выделении — это вызывало
+            // обрезку справа и визуальное «размытие» текста плитки.
+            // Подсветка идёт через класс .select-shimmer (см. index.css):
+            // светлеющая подложка + бегущая радужная рамка, без блюра.
+            transition: 'background 300ms ease-out, box-shadow 300ms ease-out, transform 300ms ease-out',
+            userSelect: 'none',
+          }}
+          onMouseDown={handleFileMouseDown}
+          onMouseEnter={() => handleFileMouseEnter(file)}
+          onMouseMove={handleFileMouseMove}
+          onMouseLeave={() => handleFileMouseLeave(file)}
           onClick={() => handleFileClick(file)}
         >
           {viewMode === 'list' && (
             <div
-              className={`absolute left-0 top-0 bottom-0 w-12 flex items-center justify-center cursor-pointer z-10 transition-opacity ${
-                file.isSelected ? 'opacity-100' : 'opacity-0 group-hover:opacity-100'
-              }`}
+              className="absolute left-0 top-0 bottom-0 w-12 flex items-center justify-center cursor-pointer z-10"
+              style={{
+                opacity: file.isSelected ? 1 : undefined,
+                transition: 'opacity 200ms ease-out',
+              }}
               onClick={(e) => handleCheckboxClick(e, file.name)}
             >
-              <input
-                type="checkbox"
-                checked={file.isSelected}
-                readOnly
-                className="w-6 h-6 rounded accent-indigo-500"
-              />
+              <span
+                className={`ui-checkbox ${file.isSelected ? '' : 'opacity-0 group-hover:opacity-100'}`}
+                data-checked={file.isSelected ? 'true' : 'false'}
+                style={{ transition: 'opacity 200ms ease-out' }}
+              >
+                <span className="ui-checkbox__box">{CheckIcon}</span>
+              </span>
             </div>
           )}
           {viewMode !== 'list' && (
             <div
-              className={`absolute left-0 top-0 cursor-pointer z-10 transition-opacity ${
-                file.isSelected ? 'opacity-100' : 'opacity-0 group-hover:opacity-100'
-              }`}
+              className="absolute left-2 top-2 cursor-pointer z-10"
               onClick={(e) => handleCheckboxClick(e, file.name)}
             >
-              <input
-                type="checkbox"
-                checked={file.isSelected}
-                readOnly
-                className="w-4 h-4 rounded accent-indigo-500"
-              />
+              <span
+                className={`ui-checkbox ui-checkbox--sm ${file.isSelected ? '' : 'opacity-0 group-hover:opacity-100'}`}
+                data-checked={file.isSelected ? 'true' : 'false'}
+                style={{ transition: 'opacity 200ms ease-out' }}
+              >
+                <span className="ui-checkbox__box">{CheckIcon}</span>
+              </span>
             </div>
           )}
-          <div className={`flex items-center gap-1 ${viewMode === 'list' ? 'pl-4' : ''}`}>
-            <span className="text-2xl filter drop-shadow-sm">{file.type === 'directory' ? '📁' : getFileIcon(file.name)}</span>
-            <span className="text-sm font-medium text-gray-700 truncate flex-1">
+          <div className={`flex items-center gap-2 ${viewMode === 'list' ? '' : 'mt-1'}`}>
+            <span
+              className="text-2xl filter drop-shadow-sm"
+              style={{ transition: 'transform 220ms cubic-bezier(0.16,1,0.3,1)' }}
+            >
+              {file.type === 'directory' ? '📁' : getFileIcon(file.name)}
+            </span>
+            <span className="text-sm font-medium text-app truncate flex-1">
               {file.name.replace(/\/$/, '')}
             </span>
           </div>

@@ -1,63 +1,23 @@
 import { Context, Next } from 'hono';
 import { AuthService } from '../../features/auth/services/authService';
+import { verifyAccessToken } from '../utils/jwt';
 
-// Простая JWT реализация для демонстрации
-interface JWTPayload {
-  userId: string;
-  email: string;
-  role: string;
-  exp: number;
-  iat: number;
-}
-
-class SimpleJWT {
-  private static SECRET = 'your-secret-key-change-in-production';
-
-  static generate(payload: Partial<JWTPayload>): string {
-    const now = Math.floor(Date.now() / 1000);
-    const tokenPayload: JWTPayload = {
-      userId: payload.userId || '',
-      email: payload.email || '',
-      role: payload.role || 'user',
-      iat: now,
-      exp: now + (60 * 60 * 24), // 24 часа
-    };
-
-    // Создаем настоящий JWT токен
-    const header = { alg: 'HS256', typ: 'JWT' };
-    const encodedHeader = btoa(JSON.stringify(header));
-    const encodedPayload = btoa(JSON.stringify(tokenPayload));
-    
-    // Для простоты используем фиксированную подпись (в реальном приложении нужен секрет)
-    const signature = btoa('signature');
-    
-    return `${encodedHeader}.${encodedPayload}.${signature}`;
-  }
-
-  static verify(token: string): JWTPayload | null {
-    try {
-      // Разделяем JWT токен на части
-      const parts = token.split('.');
-      if (parts.length !== 3) {
-        return null;
-      }
-
-      // Декодируем payload (вторая часть)
-      const payload = parts[1];
-      const decoded = JSON.parse(atob(payload));
-      const now = Math.floor(Date.now() / 1000);
-
-      if (decoded.exp < now) {
-        return null;
-      }
-
-      return decoded;
-    } catch (error) {
-      return null;
-    }
-  }
-}
-
+/**
+ * Аутентификация для маршрутов mail/tasks/user.
+ *
+ * Раньше здесь была самописная «SimpleJWT», у которой было две проблемы:
+ *   1) она вообще не проверяла подпись токена — payload можно было
+ *      подделать (дыра в безопасности);
+ *   2) payload декодировался через atob(), который не понимает base64url
+ *      (символы «-» и «_») настоящих JWT. Из-за этого часть валидных
+ *      токенов периодически не парсилась → 401 → пользователя выкидывало
+ *      из сессии «на ровном месте».
+ *
+ * Теперь используем ту же настоящую проверку, что и drive
+ * (verifyAccessToken на базе jsonwebtoken). В контекст по-прежнему кладём
+ * полную запись пользователя (с полем `id`), т.к. маршруты mail/tasks/user
+ * обращаются к `user.id`.
+ */
 export const authMiddleware = async (c: Context, next: Next) => {
   const authHeader = c.req.header('Authorization');
 
@@ -66,7 +26,7 @@ export const authMiddleware = async (c: Context, next: Next) => {
   }
 
   const token = authHeader.substring(7);
-  const payload = SimpleJWT.verify(token);
+  const payload = verifyAccessToken(token);
 
   if (!payload) {
     return c.json({ error: 'Invalid token' }, 401);
@@ -81,5 +41,3 @@ export const authMiddleware = async (c: Context, next: Next) => {
   c.set('user', user);
   await next();
 };
-
-export { SimpleJWT };

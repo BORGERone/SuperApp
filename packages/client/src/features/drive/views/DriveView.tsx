@@ -1,6 +1,7 @@
 import React, { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useDriveStore } from '../viewmodels/driveViewModel';
+import { getApiBase } from '../../../lib/serverConfig';
 import { useAuthStore } from '../../../store';
 import { FileList } from './FileList';
 import { useFilesList } from '../api/driveHooks';
@@ -8,10 +9,13 @@ import { FolderOpen, RefreshCw, Upload, Plus, Grid, List, LogOut, X } from 'luci
 import { FileItem } from '../models/driveModel';
 import { api } from '../../../lib/apiClient';
 import { useQueryClient } from '@tanstack/react-query';
+import { useBodyModalOpen } from '../../../utils/useBodyModalOpen';
+import { useModal } from '../../../utils/useModal';
 
 export const DriveView: React.FC = () => {
   const navigate = useNavigate();
   const queryClient = useQueryClient();
+  const { showModal } = useModal();
   const {
     currentPath,
     selectedFiles,
@@ -34,6 +38,8 @@ export const DriveView: React.FC = () => {
   const [allUsers, setAllUsers] = useState<Array<{id: string, username: string, role: string}>>([]);
   const [allowedUsers, setAllowedUsers] = useState<Set<string>>(new Set());
 
+  useBodyModalOpen(showCreateFolderModal || showPermissionsModal);
+
   const handleLogout = () => {
     logout();
     queryClient.clear();
@@ -53,7 +59,12 @@ export const DriveView: React.FC = () => {
       refetch();
     } catch (error) {
       console.error('Failed to create folder:', error);
-      alert('Не удалось создать папку');
+      void showModal({
+        type: 'alert',
+        title: 'Ошибка',
+        message: 'Не удалось создать папку',
+        confirmText: 'OK',
+      });
     } finally {
       setIsCreating(false);
     }
@@ -69,8 +80,7 @@ export const DriveView: React.FC = () => {
 
     try {
       // В Electron используем абсолютный URL, в браузере - относительный (через proxy)
-      const isElectron = typeof window !== 'undefined' && (window as any).electronAPI !== undefined;
-      const apiUrl = isElectron ? 'http://localhost:3002' : '';
+      const apiUrl = getApiBase();
 
       for (const file of files) {
         setUploadFileName(file.name);
@@ -106,7 +116,12 @@ export const DriveView: React.FC = () => {
       }, 500);
     } catch (error) {
       console.error('Failed to upload files:', error);
-      alert('Не удалось загрузить файлы');
+      void showModal({
+        type: 'alert',
+        title: 'Ошибка',
+        message: 'Не удалось загрузить файлы',
+        confirmText: 'OK',
+      });
       setIsUploading(false);
       setUploadProgress(0);
       setUploadFileName('');
@@ -116,7 +131,14 @@ export const DriveView: React.FC = () => {
   const handleDeleteSelected = async () => {
     if (selectedFiles.size === 0) return;
     
-    if (!confirm(`Удалить ${selectedFiles.size} элементов?`)) return;
+    const confirmed = await showModal({
+      type: 'confirm',
+      title: 'Удаление файлов',
+      message: `Удалить ${selectedFiles.size} элементов?`,
+      confirmText: 'Удалить',
+      cancelText: 'Отмена',
+    });
+    if (!confirmed) return;
     
     try {
       for (const fileName of selectedFiles) {
@@ -126,7 +148,12 @@ export const DriveView: React.FC = () => {
       refetch();
     } catch (error) {
       console.error('Failed to delete files:', error);
-      alert('Не удалось удалить файлы');
+      await showModal({
+        type: 'alert',
+        title: 'Ошибка',
+        message: 'Не удалось удалить файлы',
+        confirmText: 'OK',
+      });
     }
   };
 
@@ -138,28 +165,14 @@ export const DriveView: React.FC = () => {
     let downloadedCount = 0;
 
     try {
-      // В Electron используем абсолютный URL, в браузере - относительный (через proxy)
-      const isElectron = typeof window !== 'undefined' && (window as any).electronAPI !== undefined;
-      const apiUrl = isElectron ? 'http://localhost:3002' : '';
-
       setIsDownloading(true);
       setDownloadFileName(`${totalFiles} файлов`);
       setDownloadProgress(0);
 
       for (const file of filesArray) {
         const filePath = currentPath === '/' ? `/${file}` : `${currentPath}/${file}`;
-        const response = await fetch(`${apiUrl}/api/drive/download?path=${encodeURIComponent(filePath)}`, {
-          headers: {
-            'Authorization': `Bearer ${localStorage.getItem('accessToken')}`,
-          },
-        });
+        const blob = await api.downloadFile(filePath);
 
-        if (!response.ok) {
-          console.error(`Failed to download file: ${file}`);
-          continue;
-        }
-
-        const blob = await response.blob();
         const url = URL.createObjectURL(blob);
         const a = document.createElement('a');
         a.href = url;
@@ -181,7 +194,12 @@ export const DriveView: React.FC = () => {
       }, 500);
     } catch (error) {
       console.error('Failed to download files:', error);
-      alert('Не удалось скачать файлы');
+      void showModal({
+        type: 'alert',
+        title: 'Ошибка',
+        message: 'Не удалось скачать файлы',
+        confirmText: 'OK',
+      });
       setIsDownloading(false);
       setDownloadProgress(0);
       setDownloadFileName('');
@@ -193,8 +211,7 @@ export const DriveView: React.FC = () => {
 
     try {
       // В Electron используем абсолютный URL, в браузере - относительный (через proxy)
-      const isElectron = typeof window !== 'undefined' && (window as any).electronAPI !== undefined;
-      const apiUrl = isElectron ? 'http://localhost:3002' : '';
+      const apiUrl = getApiBase();
 
       const usersResponse = await fetch(`${apiUrl}/api/drive/users`, {
         headers: {
@@ -225,7 +242,12 @@ export const DriveView: React.FC = () => {
       setShowPermissionsModal(true);
     } catch (error) {
       console.error('Failed to load permissions:', error);
-      alert('Не удалось загрузить права доступа');
+      void showModal({
+        type: 'alert',
+        title: 'Ошибка',
+        message: 'Не удалось загрузить права доступа',
+        confirmText: 'OK',
+      });
     }
   };
 
@@ -234,8 +256,7 @@ export const DriveView: React.FC = () => {
 
     try {
       // В Electron используем абсолютный URL, в браузере - относительный (через proxy)
-      const isElectron = typeof window !== 'undefined' && (window as any).electronAPI !== undefined;
-      const apiUrl = isElectron ? 'http://localhost:3002' : '';
+      const apiUrl = getApiBase();
 
       const filesArray = Array.from(selectedFiles);
 
@@ -256,10 +277,16 @@ export const DriveView: React.FC = () => {
       
       setShowPermissionsModal(false);
       useDriveStore.getState().clearSelection();
-      refetch();
+      // Инвалидируем все кэши файлов, чтобы права обновились у всех пользователей
+      queryClient.invalidateQueries({ queryKey: ['files'] });
     } catch (error) {
       console.error('Failed to save permissions:', error);
-      alert('Не удалось сохранить права доступа');
+      void showModal({
+        type: 'alert',
+        title: 'Ошибка',
+        message: 'Не удалось сохранить права доступа',
+        confirmText: 'OK',
+      });
     }
   };
 
@@ -286,29 +313,36 @@ export const DriveView: React.FC = () => {
     refetch();
   }, [currentPath, refetch]);
 
+  // Также обновляем список при закрытии модального окна прав доступа
+  React.useEffect(() => {
+    if (!showPermissionsModal) {
+      refetch();
+    }
+  }, [showPermissionsModal, refetch]);
+
   return (
-    <div className="min-h-screen">
+    <div className="flex flex-col h-full p-3 gap-3 overflow-hidden">
       {/* Header */}
-      <div className="glass px-10 py-6">
+      <div className="glass-deep blur-smooth-deep px-6 py-4 flex flex-col gap-3 slide-in-left">
         <div className="flex items-center justify-between">
-          <h1 className="text-2xl font-bold text-gradient">☁️ Сетевой диск</h1>
+          <h1 className="text-2xl font-semibold text-gradient flex items-center gap-2">
+            <span aria-hidden="true">☁️</span>Сетевой диск
+          </h1>
           <div className="flex items-center gap-4">
-            <span className="text-sm font-medium text-gray-700">{currentUser}</span>
+            <span className="text-sm font-medium text-app-secondary">{currentUser}</span>
             <button
               onClick={handleLogout}
-              className="flex items-center gap-2 px-4 py-2 btn-glass-secondary rounded-lg"
+              className="flex items-center gap-2 px-4 py-2 btn-glass-secondary no-drag"
             >
               <LogOut size={16} />
               <span>Выйти</span>
             </button>
           </div>
         </div>
-      </div>
 
-      {/* Toolbar */}
-      <div className="bg-white/50 backdrop-blur-sm border-b border-white/60 px-10 py-4">
-        <div className="flex items-center gap-3">
-          <label className="flex items-center gap-2 px-4 py-2 btn-glass rounded-lg cursor-pointer">
+        {/* Toolbar */}
+        <div className="flex items-center gap-2 flex-wrap">
+          <label className="flex items-center gap-2 px-4 py-2 btn-glass cursor-pointer">
             <Upload size={16} />
             <span>{isUploading ? 'Загрузка...' : 'Загрузить файл'}</span>
             <input
@@ -321,74 +355,75 @@ export const DriveView: React.FC = () => {
           </label>
           <button
             onClick={() => setShowCreateFolderModal(true)}
-            className="flex items-center gap-2 px-4 py-2 btn-glass-secondary rounded-lg"
+            className="flex items-center gap-2 px-4 py-2 btn-glass-secondary"
           >
             <Plus size={16} />
             <span>Создать папку</span>
           </button>
-          <button onClick={() => refetch()} className="flex items-center gap-2 px-4 py-2 btn-glass-secondary rounded-lg">
+          <button onClick={() => refetch()} className="flex items-center gap-2 px-4 py-2 btn-glass-secondary">
             <RefreshCw size={16} />
             <span>Обновить</span>
           </button>
           <button
             onClick={handleViewModeToggle}
-            className="flex items-center gap-2 px-4 py-2 btn-glass-secondary rounded-lg"
+            className="flex items-center gap-2 px-4 py-2 btn-glass-secondary"
+            title={viewMode === 'list' ? 'Колонки' : 'Список'}
           >
             {viewMode === 'list' ? <Grid size={16} /> : <List size={16} />}
           </button>
         </div>
-      </div>
 
-      {/* Breadcrumb */}
-      <div className="bg-white/40 backdrop-blur-sm border-b border-white/60 px-10 py-3">
-        <div className="flex items-center gap-3">
+        {/* Breadcrumb */}
+        <div className="flex items-center gap-3 pt-1">
           <button
             onClick={navigateBack}
             disabled={!canNavigateBack}
-            className="flex items-center gap-2 px-3 py-1.5 btn-glass-secondary rounded-lg disabled:opacity-50 disabled:cursor-not-allowed"
+            className="flex items-center gap-2 px-3 py-1.5 btn-glass-secondary disabled:opacity-50 disabled:cursor-not-allowed"
           >
             <FolderOpen size={16} />
             <span>Назад</span>
           </button>
-          <span className="text-sm font-medium text-gray-700">{currentPath}</span>
+          <span className="text-sm font-medium text-app-secondary">{currentPath}</span>
         </div>
       </div>
 
-      {/* File List */}
-      <div className="p-6">
-        <FileList 
-          files={files} 
-          currentPath={currentPath}
-          setDownloading={setIsDownloading}
-          setDownloadProgress={setDownloadProgress}
-          setDownloadFileName={setDownloadFileName}
-        />
+      {/* File List — без фонового островка, файлы лежат прямо на app-bg */}
+      <div className="flex-1 overflow-hidden px-1 slide-in-right">
+        <div className="h-full overflow-y-auto">
+          <FileList
+            files={files}
+            currentPath={currentPath}
+            setDownloading={setIsDownloading}
+            setDownloadProgress={setDownloadProgress}
+            setDownloadFileName={setDownloadFileName}
+          />
+        </div>
       </div>
 
       {/* Action Island */}
       {selectedFiles.size > 0 && (
-        <div className="fixed bottom-6 right-6 glass rounded-xl px-6 py-4 min-w-56">
+        <div className="fixed bottom-6 right-6 glass-top px-6 py-4 min-w-56 fade-in">
           <div className="flex flex-col gap-2">
-            <div className="text-sm font-medium text-gray-700 text-center">
+            <div className="text-sm font-medium text-app text-center">
               Выбрано: {selectedFiles.size}
             </div>
             <div className="flex items-center gap-2">
               <button
                 onClick={handleDownloadSelected}
-                className="px-4 py-2 btn-glass-secondary rounded-lg"
+                className="px-4 py-2 btn-glass-secondary"
               >
                 Скачать
               </button>
               <button
                 onClick={handleDeleteSelected}
-                className="px-4 py-2 btn-glass-danger rounded-lg"
+                className="px-4 py-2 btn-glass-danger"
               >
                 Удалить
               </button>
               {isAdmin && (
                 <button
                   onClick={handlePermissions}
-                  className="px-4 py-2 btn-glass-secondary rounded-lg"
+                  className="px-4 py-2 btn-glass-secondary"
                 >
                   Права доступа
                 </button>
@@ -400,17 +435,20 @@ export const DriveView: React.FC = () => {
 
       {/* Upload Progress */}
       {isUploading && (
-        <div className="fixed bottom-6 right-6 glass rounded-xl px-6 py-4 min-w-80">
-          <div className="text-sm font-medium text-gray-700 mb-2">
+        <div className="fixed bottom-6 right-6 glass-top px-6 py-4 min-w-80 fade-in">
+          <div className="text-sm font-medium text-app mb-2">
             Загрузка: {uploadFileName}
           </div>
-          <div className="w-full bg-gray-200 rounded-full h-2 mb-2">
+          <div
+            className="w-full rounded-full h-2 mb-2 overflow-hidden"
+            style={{ background: 'var(--surface-2)' }}
+          >
             <div
-              className="bg-gradient-to-r from-indigo-500 to-purple-500 h-2 rounded-full transition-all duration-300"
-              style={{ width: `${uploadProgress}%` }}
+              className="h-2 rounded-full"
+              style={{ width: `${uploadProgress}%`, background: 'linear-gradient(90deg, var(--gradient-from), var(--gradient-to))', transition: 'width 300ms ease-out' }}
             />
           </div>
-          <div className="text-xs text-gray-500 text-right">
+          <div className="text-xs text-app-muted text-right">
             {Math.round(uploadProgress)}%
           </div>
         </div>
@@ -418,17 +456,20 @@ export const DriveView: React.FC = () => {
 
       {/* Download Progress */}
       {isDownloading && (
-        <div className="fixed bottom-6 right-6 glass rounded-xl px-6 py-4 min-w-80">
-          <div className="text-sm font-medium text-gray-700 mb-2">
+        <div className="fixed bottom-6 right-6 glass-top px-6 py-4 min-w-80 fade-in">
+          <div className="text-sm font-medium text-app mb-2">
             Скачивание: {downloadFileName}
           </div>
-          <div className="w-full bg-gray-200 rounded-full h-2 mb-2">
+          <div
+            className="w-full rounded-full h-2 mb-2 overflow-hidden"
+            style={{ background: 'var(--surface-2)' }}
+          >
             <div
-              className="bg-gradient-to-r from-indigo-500 to-purple-500 h-2 rounded-full transition-all duration-300"
-              style={{ width: `${downloadProgress}%` }}
+              className="h-2 rounded-full"
+              style={{ width: `${downloadProgress}%`, background: 'linear-gradient(90deg, var(--gradient-from), var(--gradient-to))', transition: 'width 300ms ease-out' }}
             />
           </div>
-          <div className="text-xs text-gray-500 text-right">
+          <div className="text-xs text-app-muted text-right">
             {Math.round(downloadProgress)}%
           </div>
         </div>
@@ -436,48 +477,61 @@ export const DriveView: React.FC = () => {
 
       {/* Permissions Modal */}
       {showPermissionsModal && (
-        <div className="fixed inset-0 bg-black/30 backdrop-blur-sm flex items-center justify-center z-50">
-          <div className="glass rounded-xl p-6 w-full max-w-md">
+        <div className="fixed inset-0 modal-backdrop flex items-center justify-center z-50 fade-in p-4">
+          <div className="glass-top scale-in p-6 w-full max-w-md">
             <div className="flex items-center justify-between mb-4">
               <h3 className="text-lg font-semibold text-gradient">Права доступа</h3>
               <button
                 onClick={() => setShowPermissionsModal(false)}
-                className="text-gray-500 hover:text-gray-700"
+                className="btn-icon"
               >
                 <X size={20} />
               </button>
             </div>
-            <div className="space-y-3">
-              {allUsers.map((user) => (
-                <div key={user.id} className="glass-card flex items-center justify-between p-3">
-                  <span className="text-sm font-medium text-gray-700">{user.username} ({user.role})</span>
-                  <input
-                    type="checkbox"
-                    checked={allowedUsers.has(user.id)}
-                    onChange={(e) => {
-                      const newAllowedUsers = new Set(allowedUsers);
-                      if (e.target.checked) {
-                        newAllowedUsers.add(user.id);
-                      } else {
-                        newAllowedUsers.delete(user.id);
-                      }
-                      setAllowedUsers(newAllowedUsers);
-                    }}
-                    className="w-4 h-4 rounded accent-indigo-500"
-                  />
-                </div>
-              ))}
+            <div className="space-y-2 max-h-80 overflow-y-auto pr-1">
+              {allUsers.map((user) => {
+                const checked = allowedUsers.has(user.id);
+                const toggle = () => {
+                  const next = new Set(allowedUsers);
+                  if (checked) next.delete(user.id);
+                  else next.add(user.id);
+                  setAllowedUsers(next);
+                };
+                return (
+                  <label
+                    key={user.id}
+                    className="glass-mid flex items-center justify-between p-3 cursor-pointer"
+                    style={{ transition: 'background 200ms ease-out' }}
+                  >
+                    <span className="text-sm font-medium text-app-secondary">
+                      {user.username} ({user.role})
+                    </span>
+                    <span
+                      className="ui-checkbox"
+                      data-checked={checked ? 'true' : 'false'}
+                      onClick={(e) => { e.preventDefault(); toggle(); }}
+                    >
+                      <input type="checkbox" checked={checked} onChange={toggle} />
+                      <span className="ui-checkbox__box">
+                        <svg viewBox="0 0 16 16" aria-hidden="true">
+                          <path d="M3.5 8.2 L6.7 11.4 L12.5 4.8" />
+                        </svg>
+                      </span>
+                    </span>
+                  </label>
+                );
+              })}
             </div>
             <div className="flex justify-end gap-2 mt-6">
               <button
                 onClick={() => setShowPermissionsModal(false)}
-                className="px-4 py-2 btn-glass-secondary rounded-lg"
+                className="px-4 py-2 btn-glass-secondary"
               >
                 Отмена
               </button>
               <button
                 onClick={handleSavePermissions}
-                className="px-4 py-2 btn-glass rounded-lg"
+                className="px-4 py-2 btn-glass"
               >
                 Сохранить
               </button>
@@ -488,13 +542,19 @@ export const DriveView: React.FC = () => {
 
       {/* Create Folder Modal */}
       {showCreateFolderModal && (
-        <div className="fixed inset-0 bg-black/30 backdrop-blur-sm flex items-center justify-center z-50">
-          <div className="glass rounded-xl p-6 w-full max-w-md">
+        <div className="fixed inset-0 modal-backdrop flex items-center justify-center z-50 fade-in p-4">
+          <div
+            className="scale-in p-6 w-full max-w-md rounded-3xl compose-modal-solid"
+            style={{
+              boxShadow: '0 10px 30px rgba(0,0,0,0.2)',
+              backdropFilter: 'none'
+            }}
+          >
             <div className="flex items-center justify-between mb-4">
               <h3 className="text-lg font-semibold text-gradient">Создать папку</h3>
               <button
                 onClick={() => setShowCreateFolderModal(false)}
-                className="text-gray-500 hover:text-gray-700"
+                className="btn-icon"
               >
                 <X size={20} />
               </button>
@@ -504,20 +564,20 @@ export const DriveView: React.FC = () => {
               value={folderName}
               onChange={(e) => setFolderName(e.target.value)}
               placeholder="Название папки"
-              className="w-full px-4 py-2 glass-input rounded-lg mb-4"
+              className="w-full px-4 py-2 glass-input mb-4"
               onKeyPress={(e) => e.key === 'Enter' && handleCreateFolder()}
             />
             <div className="flex gap-3">
               <button
                 onClick={() => setShowCreateFolderModal(false)}
-                className="flex-1 px-4 py-2 btn-glass-secondary rounded-lg"
+                className="flex-1 px-4 py-2 btn-glass-secondary"
               >
                 Отмена
               </button>
               <button
                 onClick={handleCreateFolder}
                 disabled={isCreating || !folderName.trim()}
-                className="flex-1 px-4 py-2 btn-glass rounded-lg disabled:opacity-50 disabled:cursor-not-allowed"
+                className="flex-1 px-4 py-2 btn-glass disabled:opacity-50 disabled:cursor-not-allowed"
               >
                 {isCreating ? 'Создание...' : 'Создать'}
               </button>

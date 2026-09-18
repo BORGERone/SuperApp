@@ -8,14 +8,27 @@ package-lock.json
 
 # Build outputs
 dist/
+dist-electron/
 build/
 target/
 *.log
+
+# Артефакты сборки установщиков (zip сервера, .exe клиента)
+installer/dist/
+
+# Рантайм HTTPS (setup-https.bat): скачанный Caddy и сгенерированный конфиг
+installer/caddy.exe
+installer/Caddyfile.local
+installer/caddy_data/
 
 # Environment variables
 .env
 .env.local
 .env.*.local
+!.env.example
+
+# Локальная конфигурация клиента (адрес сервера)
+packages/client/config.json
 
 # IDE
 .vscode/
@@ -46,3 +59,25 @@ server.log
 # Temporary files
 *.tmp
 *.temp
+SuperApp/
+SupperApp/
+
+# Живая база данных SuperApp: файл лежит рядом с кодом, но живёт ТОЛЬКО на
+# сервере. В git его хранить нельзя — иначе каждый pull подменяет базу.
+# Подробности и порядок действий: installer\README.md, раздел
+# «База данных, загрузки и git».
+#
+# Вторая строка закрывает *.db-wal / *.db-shm / *.db-journal (режим WAL) и
+# *.db.before-restore — страховочную копию, которую делает installer\db-backup.bat.
+packages/server/src/db/*.db
+packages/server/src/db/*.db.*
+
+# Файлы, загруженные пользователями (рантайм-данные сервера, не код).
+packages/server/uploads/*
+!packages/server/uploads/.gitkeep
+
+# Локальные резервные копии базы (installer\db-backup.bat)
+installer/backups/
+
+# Кэш Python от скриптов генерации картинок (docs/images/make-*.py)
+__pycache__/

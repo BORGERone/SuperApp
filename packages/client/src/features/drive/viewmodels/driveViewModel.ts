@@ -6,6 +6,8 @@ interface DriveViewModel extends DriveState {
   setCurrentPath: (path: string) => void;
   setFiles: (files: FileItem[]) => void;
   toggleFileSelection: (fileName: string) => void;
+  selectFile: (fileName: string) => void;
+  setSelectedFiles: (fileNames: Set<string>) => void;
   clearSelection: () => void;
   setViewMode: (mode: ViewMode) => void;
   setCurrentUser: (user: string | null) => void;
@@ -19,7 +21,13 @@ export const useDriveStore = create<DriveViewModel>((set, get) => ({
   currentPath: '/',
   files: [],
   selectedFiles: new Set(),
-  viewMode: 'list',
+  viewMode: (() => {
+    const saved = localStorage.getItem('driveViewMode');
+    console.log('Loading view mode from localStorage:', saved);
+    const mode = (saved === 'list' || saved === 'grid') ? saved : 'list';
+    console.log('Set initial view mode:', mode);
+    return mode;
+  })(),
   currentUser: null,
   isAdmin: false,
 
@@ -38,9 +46,22 @@ export const useDriveStore = create<DriveViewModel>((set, get) => ({
     set({ selectedFiles });
   },
 
+  selectFile: (fileName) => {
+    const selectedFiles = new Set(get().selectedFiles);
+    selectedFiles.add(fileName);
+    set({ selectedFiles });
+  },
+
+  setSelectedFiles: (fileNames) => set({ selectedFiles: new Set(fileNames) }),
+
   clearSelection: () => set({ selectedFiles: new Set() }),
 
-  setViewMode: (mode) => set({ viewMode: mode }),
+  setViewMode: (mode) => {
+    console.log('Setting view mode:', mode);
+    localStorage.setItem('driveViewMode', mode);
+    console.log('Saved to localStorage:', localStorage.getItem('driveViewMode'));
+    set({ viewMode: mode });
+  },
 
   setCurrentUser: (user) => set({ currentUser: user }),
 
@@ -50,7 +71,7 @@ export const useDriveStore = create<DriveViewModel>((set, get) => ({
     const currentPath = get().currentPath;
     const cleanDirName = dirName.replace(/\/$/, '');
     const newPath = currentPath === '/' ? `/${cleanDirName}` : `${currentPath}/${cleanDirName}`;
-    set({ 
+    set({
       currentPath: newPath,
       selectedFiles: new Set()
     });
