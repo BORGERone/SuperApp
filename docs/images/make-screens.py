@@ -966,74 +966,60 @@ def doc_glyph(img, cx, cy, s, kind, alpha=205):
     img.alpha_composite(layer, (px(cx - s), px(cy - s)))
 
 
+def paste_grid(img, name, box, feather=10):
+    """Вклеивает готовую сетку плиток (drive-grid.png) с растушёванными краями."""
+    src = Image.open(os.path.join(HERE, name)).convert('RGB')
+    x0, y0, x1, y1 = [px(v) for v in box]
+    src = src.resize((x1 - x0, y1 - y0), Image.LANCZOS).convert('RGBA')
+    f = px(feather)
+    mask = Image.new('L', (x1 - x0, y1 - y0), 0)
+    mask.paste(Image.new('L', (x1 - x0 - 2 * f, y1 - y0 - 2 * f), 255), (f, f))
+    src.putalpha(mask.filter(ImageFilter.GaussianBlur(f * 0.5)))
+    img.alpha_composite(src, (x0, y0))
+
+
+
 def draw_drive():
-    img = Image.new('RGBA', (W * S, H * S), BG + (255,))
+    """Кадр диска: наша шапка и панель, а область с файлами — из прежней
+    иллюстрации (docs/images/drive-grid.png)."""
+    img = Image.new('RGBA', (W * S, H * S), (252, 252, 253, 255))
     d = ImageDraw.Draw(img, 'RGBA')
     draw_rail(img, 'drive')
     x0 = RAIL + 24
     screen_head(img, 'Сетевой диск', x0=x0, cloud=True)
 
-    # поиск — светлая «пилюля», как на прежних макетах
-    gradient_fill(img, [x0, 88, x0 + 560, 136], 24, (246, 248, 253), (255, 255, 255))
-    rounded(d, [x0, 88, x0 + 560, 136], 24, outline=(238, 241, 248), width=1)
-    ic_search(d, x0 + 34, 112, 19, (156, 163, 175))
-    text(d, (x0 + 58, 112), 'Поиск файлов...', 15, TEXT_SOFT, anchor='lm')
-
-    # кнопки прижаты вправо, как на прежних макетах
+    # кнопки панели — прижаты вправо, как в прежнем макете
     rx = W - 25
     card(img, [rx - 48, 88, rx, 136], r=24, shadow=(9, 3, 14))
     ic_list(d, rx - 24, 112, 20, (107, 114, 128))
     rx -= 64
-    w_obn = pill(img, [rx - 152, 88, rx, 136], 'Обновить', icon=ic_refresh, size=14.5)
+    pill(img, [rx - 152, 88, rx, 136], 'Обновить', icon=ic_refresh, size=14.5)
     rx -= 168
-    w_pap = pill(img, [rx - 194, 88, rx, 136], 'Создать папку', icon=ic_plus, size=14.5)
+    pill(img, [rx - 194, 88, rx, 136], 'Создать папку', icon=ic_plus, size=14.5)
     rx -= 210
     gradient_fill(img, [rx - 214, 88, rx, 136], 12, GRAD_A, GRAD_B)
     ic_upload(d, rx - 182, 112, 20, (255, 255, 255))
     text(d, (rx - 162, 112), 'Загрузить файл', 15, (255, 255, 255), bold=True, anchor='lm')
+
+    # поиск — светлая «пилюля»
+    gradient_fill(img, [x0, 88, x0 + 560, 136], 24, (247, 248, 252), (255, 255, 255))
+    rounded(d, [x0, 88, x0 + 560, 136], 24, outline=(238, 241, 248), width=1)
+    ic_search(d, x0 + 34, 112, 19, (156, 163, 175))
+    text(d, (x0 + 58, 112), 'Поиск файлов...', 15, TEXT_SOFT, anchor='lm')
 
     # хлебные крошки
     card(img, [x0, 148, x0 + 136, 182], r=12, shadow=(8, 3, 12))
     ic_folder_open(d, x0 + 26, 165, 17, (107, 114, 128))
     text(d, (x0 + 44, 165), 'Назад', 14.5, (55, 65, 81), bold=True, anchor='lm')
     text(d, (x0 + 154, 165), '/', 16, (156, 163, 175), anchor='lm')
-    sk_bar(img, [x0 + 172, 160, x0 + 286, 170], fill=SK)
 
-    # папки: 5 × 2 крупных плиток, общая ширина сетки — как у файлов
-    gap, cols = 18, 5
-    fw = 186
-    fh = 156
-    folders = ['violet', 'teal', 'orange', 'magenta', 'sky',
-               'orange', 'magenta', 'indigo', 'teal', 'coral']
-    for i, key in enumerate(folders):
-        col, row = i % cols, i // cols
-        x, y = x0 + col * (fw + gap), 190 + row * (fh + gap)
-        card(img, [x, y, x + fw, y + fh], r=20, outline=(238, 241, 248), shadow=(9, 3, 12))
-        folder_graphic(img, x + fw / 2, y + fh / 2 + 4, 138, 118, key)
-
-    # файлы: 6 × 2 плиток поменьше, той же сеткой по ширине
-    fgap = 18
-    fw2 = 152
-    fh2 = 125
-    files = [('blue', 'image'), ('teal', 'grid'), ('coral', 'pie'), ('violet', 'lines'),
-             ('magenta', 'music'), ('sky', 'play'),
-             ('coral', 'pdf'), ('violet', 'lines'), ('blue', 'code'), ('amber', 'diamond'),
-             ('teal', 'network'), ('indigo', 'pen')]
-    for i, (key, glyph) in enumerate(files):
-        col, row = i % 6, i // 6
-        x, y = x0 + col * (fw2 + fgap), 546 + row * (fh2 + fgap)
-        card(img, [x, y, x + fw2, y + fh2], r=18, outline=(238, 241, 248), shadow=(9, 3, 12))
-        page_graphic(img, x + fw2 / 2, y + fh2 / 2, 84, 96, key, glyph)
-
-    # панель выбранного
-    px0, py0 = W - 325, H - 156
-    card(img, [px0, py0, W - 25, py0 + 96], r=18, shadow=(12, 5, 18))
-    text(d, (px0 + 150, py0 + 26), 'Выбрано: 1', 15, (31, 41, 55), bold=True, anchor='mm')
-    pill(img, [px0 + 18, py0 + 48, px0 + 150, py0 + 88], 'Скачать',
-         icon=ic_download, size=14, shadow=False)
-    gradient_fill(img, [px0 + 162, py0 + 48, px0 + 280, py0 + 88], 12, DANGER_A, DANGER_B)
-    ic_trash(d, px0 + 186, py0 + 68, 17, (255, 255, 255))
-    text(d, (px0 + 202, py0 + 68), 'Удалить', 14, (255, 255, 255), bold=True, anchor='lm')
+    # область с файлами — из прежней иллюстрации, по центру рабочей области
+    gw = 1260 / 822                      # пропорции исходной сетки
+    top, bottom = 196, H - 24
+    gh = bottom - top
+    w = gh * gw
+    gx = x0 + ((W - 25) - x0 - w) / 2
+    paste_grid(img, 'drive-grid.png', [gx, top, gx + w, bottom])
     return img
 
 
@@ -1242,17 +1228,13 @@ def present(screen, out_name, pad=64, radius=22):
     ImageDraw.Draw(mask).rounded_rectangle([0, 0, W - 1, H - 1], radius=radius, fill=255)
 
     CW, CH = W + pad * 2, H + pad * 2
-    # фон — как фон GitHub в тёмной теме: #0d1117, с лёгким затемнением книзу
-    canvas = Image.new('RGBA', (CW, CH), (13, 17, 23, 255))
-    bg = ImageDraw.Draw(canvas)
-    for y in range(CH):
-        k = y / (CH - 1)
-        bg.line([(0, y), (CW, y)], fill=(int(13 - 4 * k), int(17 - 5 * k), int(23 - 6 * k)))
+    # фон — как фон GitHub в тёмной теме, ровно #0d1117
+    canvas = Image.new('RGBA', (CW, CH), (0x0d, 0x11, 0x17, 255))
 
     # Тени и рамку рисуем в пикселях кадра — helpers rounded()/soft_shadow()
     # умножают координаты на S и здесь, после уменьшения, не подходят.
     box = [pad, pad, pad + W, pad + H]
-    for blur, dy, alpha in ((30, 12, 58), (6, 2, 34)):
+    for blur, dy, alpha in ((52, 18, 78), (20, 8, 34)):
         layer = Image.new('RGBA', (CW, CH), (0, 0, 0, 0))
         ImageDraw.Draw(layer).rounded_rectangle(
             [box[0], box[1] + dy, box[2], box[3] + dy], radius=radius,
