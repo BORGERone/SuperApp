@@ -58,6 +58,9 @@ PASTELS = {
     'blue': ((96, 165, 250), (147, 197, 253)),
     'coral': ((251, 113, 133), (253, 164, 175)),
     'slate': ((148, 163, 184), (203, 213, 225)),
+    'orange': ((255, 154, 61), (255, 92, 110)),
+    'magenta': ((255, 138, 193), (200, 107, 255)),
+    'sky': ((111, 199, 255), (63, 195, 255)),
 }
 PASTEL_KEYS = list(PASTELS)
 
@@ -834,6 +837,135 @@ def draw_mail():
 
 # --- кадр «Диск» --------------------------------------------------------------
 
+def folder_graphic(img, cx, cy, w, h, key):
+    """Папка с язычком и насыщенным градиентом — как в прежних макетах диска."""
+    pair = PASTELS[key]
+    x0, y0 = cx - w / 2, cy - h / 2
+    tab_h, tab_w = h * 0.26, w * 0.46
+    body_top = y0 + h * 0.2
+    # язычок
+    layer = Image.new('RGBA', (px(w), px(tab_h + 2)), (0, 0, 0, 0))
+    g = ImageDraw.Draw(layer)
+    g.rounded_rectangle([0, 0, px(tab_w), px(tab_h)], radius=px(tab_h * 0.35),
+                        fill=lerp(pair[0], (255, 255, 255), 0.05))
+    img.alpha_composite(layer, (px(x0), px(y0)))
+    # корпус с градиентом
+    bx0, by0, bx1, by1 = px(x0), px(body_top), px(x0 + w), px(y0 + h)
+    gg = Image.new('RGB', (bx1 - bx0, by1 - by0))
+    gd = ImageDraw.Draw(gg)
+    for i in range(gg.width + gg.height):
+        gd.line([(i, 0), (0, i)],
+                fill=lerp(pair[0], pair[1], i / max(1, gg.width + gg.height - 1)))
+    mask = Image.new('L', gg.size, 0)
+    ImageDraw.Draw(mask).rounded_rectangle([0, 0, gg.width - 1, gg.height - 1],
+                                           radius=px(h * 0.13), fill=255)
+    gg.putalpha(mask)
+    img.alpha_composite(gg, (bx0, by0))
+    # блик сверху и мягкий «карман» снизу
+    hl = Image.new('RGBA', (bx1 - bx0, by1 - by0), (0, 0, 0, 0))
+    ImageDraw.Draw(hl).polygon([(0, 0), (bx1 - bx0, 0),
+                                (bx1 - bx0, (by1 - by0) * 0.24), (0, (by1 - by0) * 0.14)],
+                               fill=(255, 255, 255, 46))
+    hl.putalpha(Image.composite(hl.getchannel('A'), Image.new('L', hl.size, 0), mask))
+    img.alpha_composite(hl, (bx0, by0))
+
+
+def page_graphic(img, cx, cy, w, h, key, glyph, alpha=205):
+    """Страница файла с загнутым углом и белым значком типа."""
+    pair = PASTELS[key]
+    x0, y0 = cx - w / 2, cy - h / 2
+    fold = min(w, h) * 0.34
+    x0p, y0p, x1p, y1p = px(x0), px(y0), px(x0 + w), px(y0 + h)
+    gg = Image.new('RGB', (x1p - x0p, y1p - y0p))
+    gd = ImageDraw.Draw(gg)
+    for i in range(gg.width + gg.height):
+        gd.line([(i, 0), (0, i)],
+                fill=lerp(pair[0], pair[1], i / max(1, gg.width + gg.height - 1)))
+    mask = Image.new('L', gg.size, 0)
+    md = ImageDraw.Draw(mask)
+    fd = px(fold)
+    md.rounded_rectangle([0, 0, gg.width - 1, gg.height - 1], radius=px(w * 0.16), fill=255)
+    md.polygon([(gg.width - fd - 1, -1), (gg.width, -1), (gg.width, fd - 1)], fill=0)
+    gg.putalpha(mask)
+    img.alpha_composite(gg, (x0p, y0p))
+    # загнутый уголок
+    fl = Image.new('RGBA', (fd + 2, fd + 2), (0, 0, 0, 0))
+    ImageDraw.Draw(fl).polygon([(0, 0), (fd, fd), (0, fd)], fill=(255, 255, 255, 110))
+    img.alpha_composite(fl, (x1p - fd, y0p))
+    if glyph == 'pdf':
+        text(ImageDraw.Draw(img, 'RGBA'), (cx, cy + h * 0.05), 'PDF', max(11, w * 0.2),
+             (255, 255, 255), bold=True, anchor='mm')
+    else:
+        doc_glyph(img, cx, cy + h * 0.04, w * 0.34, glyph, alpha)
+
+
+def doc_glyph(img, cx, cy, s, kind, alpha=205):
+    """Белый значок типа файла (как в прежних макетах диска)."""
+    size = px(s * 2)
+    layer = Image.new('RGBA', (size, size), (0, 0, 0, 0))
+    g = ImageDraw.Draw(layer, 'RGBA')
+    c = size / 2
+    fill = (255, 255, 255, alpha)
+    lw = max(1, int(size * 0.075))
+    if kind == 'image':
+        g.ellipse([c - size * 0.3, c - size * 0.3, c - size * 0.12, c - size * 0.12], fill=fill)
+        g.polygon([(c - size * 0.34, c + size * 0.28), (c - size * 0.02, c - size * 0.1),
+                   (c + size * 0.34, c + size * 0.28)], fill=fill)
+    elif kind == 'grid':
+        for dx in (-1, 1):
+            for dy in (-1, 1):
+                g.rounded_rectangle([c + dx * size * 0.26 - size * 0.1,
+                                     c + dy * size * 0.26 - size * 0.1,
+                                     c + dx * size * 0.26 + size * 0.1,
+                                     c + dy * size * 0.26 + size * 0.1],
+                                    radius=lw / 2, fill=fill)
+    elif kind == 'pie':
+        g.pieslice([c - size * 0.32, c - size * 0.32, c + size * 0.32, c + size * 0.32],
+                   120, 60, fill=fill)
+        g.pieslice([c - size * 0.32, c - size * 0.32, c + size * 0.32, c + size * 0.32],
+                   300, 420, fill=fill)
+    elif kind == 'lines':
+        for i, k in enumerate((0.62, 0.62, 0.42)):
+            y = c - size * 0.2 + i * size * 0.2
+            g.rounded_rectangle([c - size * k / 2, y, c + size * k / 2, y + lw],
+                                radius=lw / 2, fill=fill)
+    elif kind == 'music':
+        g.ellipse([c - size * 0.3, c + size * 0.14, c - size * 0.08, c + size * 0.32], fill=fill)
+        g.ellipse([c + size * 0.06, c + size * 0.02, c + size * 0.28, c + size * 0.2], fill=fill)
+        g.line([(c - size * 0.1, c + size * 0.22), (c - size * 0.1, c - size * 0.3)], fill=fill, width=lw)
+        g.line([(c + size * 0.26, c + size * 0.1), (c + size * 0.26, c - size * 0.34)], fill=fill, width=lw)
+        g.line([(c - size * 0.1, c - size * 0.3), (c + size * 0.26, c - size * 0.34)], fill=fill, width=lw)
+    elif kind == 'play':
+        g.polygon([(c - size * 0.18, c - size * 0.3), (c + size * 0.3, c),
+                   (c - size * 0.18, c + size * 0.3)], fill=fill)
+    elif kind == 'pdf':
+        g.text((c, c), 'PDF', font=font(size * 0.4, True), fill=fill, anchor='mm')
+    elif kind == 'code':
+        g.line([(c - size * 0.08, c - size * 0.24), (c - size * 0.3, c), (c - size * 0.08, c + size * 0.24)],
+               fill=fill, width=lw, joint='curve')
+        g.line([(c + size * 0.08, c - size * 0.24), (c + size * 0.3, c), (c + size * 0.08, c + size * 0.24)],
+               fill=fill, width=lw, joint='curve')
+    elif kind == 'diamond':
+        g.polygon([(c, c - size * 0.34), (c + size * 0.32, c), (c, c + size * 0.34),
+                   (c - size * 0.32, c)], outline=fill, width=lw)
+        g.polygon([(c, c - size * 0.16), (c + size * 0.15, c), (c, c + size * 0.16),
+                   (c - size * 0.15, c)], fill=fill)
+    elif kind == 'network':
+        pts = [(c - size * 0.28, c + size * 0.24), (c, c - size * 0.3), (c + size * 0.3, c + size * 0.18)]
+        for a, b in ((0, 1), (1, 2), (0, 2)):
+            g.line([pts[a], pts[b]], fill=fill, width=lw)
+        for x, y in pts:
+            g.ellipse([x - size * 0.09, y - size * 0.09, x + size * 0.09, y + size * 0.09],
+                      fill=(255, 255, 255, alpha))
+    elif kind == 'pen':
+        g.polygon([(c, c - size * 0.34), (c + size * 0.22, c + size * 0.28),
+                   (c - size * 0.22, c + size * 0.28)], fill=fill)
+        g.ellipse([c - size * 0.07, c + size * 0.02, c + size * 0.07, c + size * 0.16],
+                  fill=(255, 255, 255, alpha))
+        g.line([(c, c + size * 0.16), (c, c + size * 0.32)], fill=fill, width=lw)
+    img.alpha_composite(layer, (px(cx - s), px(cy - s)))
+
+
 def draw_drive():
     img = Image.new('RGBA', (W * S, H * S), BG + (255,))
     d = ImageDraw.Draw(img, 'RGBA')
@@ -841,50 +973,61 @@ def draw_drive():
     x0 = RAIL + 24
     screen_head(img, 'Сетевой диск', x0=x0, cloud=True)
 
-    # панель действий
-    gradient_fill(img, [x0, 96, x0 + 214, 144], 12, GRAD_A, GRAD_B)
-    ic_upload(d, x0 + 32, 120, 20, (255, 255, 255))
-    text(d, (x0 + 52, 120), 'Загрузить файл', 15, (255, 255, 255), bold=True, anchor='lm')
-    pill(img, [x0 + 230, 96, x0 + 424, 144], 'Создать папку', icon=ic_plus)
-    pill(img, [x0 + 440, 96, x0 + 592, 144], 'Обновить', icon=ic_refresh)
-    card(img, [x0 + 608, 96, x0 + 654, 144], r=12, shadow=(12, 5, 20))
-    ic_list(d, x0 + 631, 120, 20, (107, 114, 128))
+    # поиск — светлая «пилюля», как на прежних макетах
+    gradient_fill(img, [x0, 88, x0 + 560, 136], 24, (246, 248, 253), (255, 255, 255))
+    rounded(d, [x0, 88, x0 + 560, 136], 24, outline=(238, 241, 248), width=1)
+    ic_search(d, x0 + 34, 112, 19, (156, 163, 175))
+    text(d, (x0 + 58, 112), 'Поиск файлов...', 15, TEXT_SOFT, anchor='lm')
+
+    # кнопки прижаты вправо, как на прежних макетах
+    rx = W - 25
+    card(img, [rx - 48, 88, rx, 136], r=24, shadow=(9, 3, 14))
+    ic_list(d, rx - 24, 112, 20, (107, 114, 128))
+    rx -= 64
+    w_obn = pill(img, [rx - 152, 88, rx, 136], 'Обновить', icon=ic_refresh, size=14.5)
+    rx -= 168
+    w_pap = pill(img, [rx - 194, 88, rx, 136], 'Создать папку', icon=ic_plus, size=14.5)
+    rx -= 210
+    gradient_fill(img, [rx - 214, 88, rx, 136], 12, GRAD_A, GRAD_B)
+    ic_upload(d, rx - 182, 112, 20, (255, 255, 255))
+    text(d, (rx - 162, 112), 'Загрузить файл', 15, (255, 255, 255), bold=True, anchor='lm')
 
     # хлебные крошки
-    card(img, [x0, 164, x0 + 160, 208], r=12, shadow=(10, 4, 16))
-    ic_folder_open(d, x0 + 28, 186, 18, (107, 114, 128))
-    text(d, (x0 + 46, 186), 'Назад', 15, (55, 65, 81), bold=True, anchor='lm')
-    text(d, (x0 + 178, 186), '/', 16, (156, 163, 175), anchor='lm')
-    sk_bar(img, [x0 + 196, 181, x0 + 300, 191], fill=SK)
+    card(img, [x0, 148, x0 + 136, 182], r=12, shadow=(8, 3, 12))
+    ic_folder_open(d, x0 + 26, 165, 17, (107, 114, 128))
+    text(d, (x0 + 44, 165), 'Назад', 14.5, (55, 65, 81), bold=True, anchor='lm')
+    text(d, (x0 + 154, 165), '/', 16, (156, 163, 175), anchor='lm')
+    sk_bar(img, [x0 + 172, 160, x0 + 286, 170], fill=SK)
 
-    # квадратные плитки в одной сетке: 6 колонок, первый ряд — папки, второй — файлы
-    gap, cols = 16, 6
-    tw = ((W - 25) - x0 - gap * (cols - 1)) // cols
-    row1, row2 = 232, 232 + tw + gap
-    folders = ['indigo', 'teal', 'amber', 'rose', 'blue', 'violet']
+    # папки: 5 × 2 крупных плиток, общая ширина сетки — как у файлов
+    gap, cols = 18, 5
+    fw = 186
+    fh = 156
+    folders = ['violet', 'teal', 'orange', 'magenta', 'sky',
+               'orange', 'magenta', 'indigo', 'teal', 'coral']
     for i, key in enumerate(folders):
-        x = x0 + i * (tw + gap)
-        selected = (i == 0)
-        card(img, [x, row1, x + tw, row1 + tw], r=20, shadow=(16, 7, 24),
-             outline=(199, 208, 246) if selected else None, width=1.6 if selected else 1)
-        pastel_shape(img, [x + 34, row1 + 64, x + tw - 34, row1 + tw - 58], 'folder', PASTELS[key])
-        if selected:
-            pastel_shape(img, [x + 14, row1 + 14, x + 40, row1 + 40], 'disc',
-                         PASTELS['indigo'], fold=False)
-            ic_check(d, x + 27, row1 + 27, 14, (255, 255, 255), w=2.0)
+        col, row = i % cols, i // cols
+        x, y = x0 + col * (fw + gap), 190 + row * (fh + gap)
+        card(img, [x, y, x + fw, y + fh], r=20, outline=(238, 241, 248), shadow=(9, 3, 12))
+        folder_graphic(img, x + fw / 2, y + fh / 2 + 4, 138, 118, key)
 
-    files = [('rose', 'image'), ('teal', 'grid'), ('indigo', 'chart'),
-             ('violet', 'lines'), ('coral', 'play'), ('blue', 'code')]
+    # файлы: 6 × 2 плиток поменьше, той же сеткой по ширине
+    fgap = 18
+    fw2 = 152
+    fh2 = 125
+    files = [('blue', 'image'), ('teal', 'grid'), ('coral', 'pie'), ('violet', 'lines'),
+             ('magenta', 'music'), ('sky', 'play'),
+             ('coral', 'pdf'), ('violet', 'lines'), ('blue', 'code'), ('amber', 'diamond'),
+             ('teal', 'network'), ('indigo', 'pen')]
     for i, (key, glyph) in enumerate(files):
-        x = x0 + i * (tw + gap)
-        card(img, [x, row2, x + tw, row2 + tw], r=20, shadow=(16, 7, 24))
-        pastel_shape(img, [x + tw / 2 - 32, row2 + 46, x + tw / 2 + 32, row2 + tw - 50],
-                     'doc', PASTELS[key])
-        pastel_glyph(img, x + tw / 2, row2 + tw / 2 - 2, 18, glyph, alpha=170)
+        col, row = i % 6, i // 6
+        x, y = x0 + col * (fw2 + fgap), 546 + row * (fh2 + fgap)
+        card(img, [x, y, x + fw2, y + fh2], r=18, outline=(238, 241, 248), shadow=(9, 3, 12))
+        page_graphic(img, x + fw2 / 2, y + fh2 / 2, 84, 96, key, glyph)
 
     # панель выбранного
     px0, py0 = W - 325, H - 156
-    card(img, [px0, py0, W - 25, py0 + 96], r=18, shadow=(20, 9, 34))
+    card(img, [px0, py0, W - 25, py0 + 96], r=18, shadow=(12, 5, 18))
     text(d, (px0 + 150, py0 + 26), 'Выбрано: 1', 15, (31, 41, 55), bold=True, anchor='mm')
     pill(img, [px0 + 18, py0 + 48, px0 + 150, py0 + 88], 'Скачать',
          icon=ic_download, size=14, shadow=False)
@@ -1109,7 +1252,7 @@ def present(screen, out_name, pad=64, radius=22):
     # Тени и рамку рисуем в пикселях кадра — helpers rounded()/soft_shadow()
     # умножают координаты на S и здесь, после уменьшения, не подходят.
     box = [pad, pad, pad + W, pad + H]
-    for blur, dy, alpha in ((40, 18, 170), (12, 5, 120)):
+    for blur, dy, alpha in ((30, 12, 58), (6, 2, 34)):
         layer = Image.new('RGBA', (CW, CH), (0, 0, 0, 0))
         ImageDraw.Draw(layer).rounded_rectangle(
             [box[0], box[1] + dy, box[2], box[3] + dy], radius=radius,
