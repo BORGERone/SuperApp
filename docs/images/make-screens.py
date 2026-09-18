@@ -838,219 +838,73 @@ def draw_mail():
 
 # --- кадр «Диск» --------------------------------------------------------------
 
-# 16 палитр для папок в мягком 3D-градиентном стиле (как в иллюстрациях диска)
-DRIVE_FOLDER_PALETTES = [
-    ((99, 102, 241), (59, 130, 246)),     # Indigo -> Blue
-    ((45, 212, 191), (14, 165, 233)),     # Teal -> Cyan
-    ((251, 146, 60), (244, 63, 94)),      # Amber -> Coral
-    ((244, 114, 182), (168, 85, 247)),    # Pink -> Purple
-    ((56, 189, 248), (37, 99, 235)),      # Sky -> Blue
-    ((251, 146, 60), (239, 68, 68)),      # Orange -> Red
-    ((232, 121, 249), (168, 85, 247)),    # Magenta -> Violet
-    ((99, 102, 241), (67, 56, 202)),      # Indigo -> Navy
-    ((52, 211, 153), (13, 148, 136)),     # Mint -> Teal
-    ((249, 115, 22), (225, 29, 72)),      # Tangerine -> Rose
-    ((56, 189, 248), (99, 102, 241)),     # Sky -> Indigo
-    ((168, 85, 247), (236, 72, 153)),     # Purple -> Pink
-    ((45, 212, 191), (16, 185, 129)),     # Teal -> Emerald
-    ((251, 113, 133), (244, 63, 94)),     # Coral -> Rose
-    ((96, 165, 250), (56, 189, 248)),     # Blue -> Sky
-    ((168, 85, 247), (99, 102, 241)),     # Violet -> Indigo
+# Точные координаты иконок из оригинальной иллюстрации (docs/images/raw-drive.jpg)
+FOLDER_BOXES = [
+    (376, 198, 532, 336),
+    (615, 198, 766, 336),
+    (849, 198, 997, 336),
+    (1083, 198, 1230, 336),
+    (1317, 198, 1468, 336),
+    (378, 407, 529, 542),
+    (615, 407, 763, 542),
+    (848, 407, 996, 542),
+    (1081, 407, 1232, 542),
+    (1316, 407, 1466, 542),
 ]
 
-# 16 типов файлов с мягкими градиентами и чёткими иконками
-DRIVE_FILE_DEFS = [
-    (((96, 165, 250), (37, 99, 235)), 'image'),     # Blue image
-    (((52, 211, 153), (16, 185, 129)), 'grid'),      # Green sheet
-    (((251, 113, 133), (249, 115, 22)), 'pie'),      # Coral pie
-    (((167, 139, 250), (139, 92, 246)), 'list'),     # Purple list
-    (((244, 114, 182), (236, 72, 153)), 'music'),    # Pink music
-    (((56, 189, 248), (2, 132, 199)), 'play'),       # Sky video
-    (((251, 113, 133), (239, 68, 68)), 'pdf'),       # Red PDF
-    (((129, 140, 248), (99, 102, 241)), 'doc'),      # Indigo doc
-    (((59, 130, 246), (79, 70, 229)), 'code'),       # Blue code
-    (((251, 191, 36), (245, 158, 11)), 'cube'),      # Amber cube
-    (((45, 212, 191), (13, 148, 136)), 'vector'),    # Teal vector
-    (((192, 132, 252), (147, 51, 234)), 'zip'),      # Violet zip
-    (((56, 189, 248), (37, 99, 235)), 'image'),      # Sky image
-    (((52, 211, 153), (13, 148, 136)), 'grid'),      # Mint sheet
-    (((251, 146, 60), (244, 63, 94)), 'pie'),        # Orange pie
-    (((167, 139, 250), (124, 58, 237)), 'list'),     # Purple list
+FILE_BOXES = [
+    (386, 608, 471, 726),
+    (588, 608, 667, 726),
+    (794, 608, 863, 726),
+    (993, 608, 1059, 726),
+    (1196, 608, 1255, 726),
+    (1388, 608, 1451, 726),
+    (387, 779, 471, 893),
+    (587, 779, 667, 893),
+    (788, 779, 863, 893),
+    (993, 779, 1059, 893),
+    (1193, 779, 1255, 895),
+    (1389, 779, 1451, 893),
 ]
 
-
-def folder_graphic(img, cx, cy, w, h, pair):
-    """Папка с язычком, волновым 3D-градиентом и полупрозрачным бликом."""
-    x0, y0 = cx - w / 2, cy - h / 2
-    pw, ph = px(w), px(h)
-    tab_w = int(pw * 0.44)
-    tab_h = int(ph * 0.25)
-    r = int(ph * 0.15)
-
-    # 1. Задняя стенка папки и язычок
-    back_mask = Image.new('L', (pw, ph), 0)
-    bd = ImageDraw.Draw(back_mask)
-    bd.rounded_rectangle([0, 0, tab_w, tab_h * 2], radius=r, fill=255)
-    body_y = int(ph * 0.15)
-    bd.rounded_rectangle([0, body_y, pw - 1, ph - 1], radius=r, fill=255)
-
-    back_img = Image.new('RGB', (pw, ph))
-    bgd = ImageDraw.Draw(back_img)
-    for i in range(pw + ph):
-        k = i / (pw + ph - 1)
-        bgd.line([(i, 0), (0, i)], fill=lerp(pair[0], pair[1], k * 0.8))
-    back_img.putalpha(back_mask)
-    img.alpha_composite(back_img, (px(x0), px(y0)))
-
-    # 2. Передний карман с мягкой волной и бликом
-    flap_y = int(ph * 0.20)
-    flap_h = ph - flap_y
-    flap_mask = Image.new('L', (pw, flap_h), 0)
-    fd = ImageDraw.Draw(flap_mask)
-    fd.rounded_rectangle([0, 0, pw - 1, flap_h - 1], radius=r, fill=255)
-
-    flap_img = Image.new('RGBA', (pw, flap_h), (0, 0, 0, 0))
-    for y in range(flap_h):
-        for x in range(pw):
-            wave = math.sin(x / pw * math.pi * 1.15) * (flap_h * 0.20) + (x / pw) * (flap_h * 0.22)
-            eff_y = y + wave
-            k = max(0.0, min(1.0, (x * 0.45 + eff_y) / (pw * 0.45 + flap_h * 1.15)))
-            col = lerp(pair[0], pair[1], k)
-            flap_img.putpixel((x, y), col + (255,))
-
-    # Блик сверху кармана
-    hl_layer = Image.new('RGBA', (pw, flap_h), (0, 0, 0, 0))
-    ImageDraw.Draw(hl_layer).rounded_rectangle(
-        [0, 0, pw - 1, int(flap_h * 0.38)], radius=r, fill=(255, 255, 255, 45))
-    flap_img.alpha_composite(hl_layer)
-
-    flap_img.putalpha(flap_mask)
-    img.alpha_composite(flap_img, (px(x0), px(y0 + flap_y / S)))
+_folder_sprites = None
+_file_sprites = None
 
 
-def page_graphic(img, cx, cy, w, h, pair, glyph):
-    """Страница файла с загнутым уголком и белым значком типа."""
-    x0, y0 = cx - w / 2, cy - h / 2
-    pw, ph = px(w), px(h)
-    r = int(min(pw, ph) * 0.16)
-    fold = int(min(pw, ph) * 0.32)
+def _get_drive_sprites():
+    global _folder_sprites, _file_sprites
+    if _folder_sprites is not None:
+        return _folder_sprites, _file_sprites
 
-    # 1. Основа документа со срезанным уголком
-    doc_mask = Image.new('L', (pw, ph), 0)
-    dd = ImageDraw.Draw(doc_mask)
-    dd.rounded_rectangle([0, 0, pw - 1, ph - 1], radius=r, fill=255)
-    dd.polygon([(pw - fold - 1, -1), (pw + 1, -1), (pw + 1, fold + 1)], fill=0)
+    raw = Image.open(os.path.join(HERE, 'raw-drive.jpg')).convert('RGB')
 
-    doc_img = Image.new('RGBA', (pw, ph), (0, 0, 0, 0))
-    dgd = ImageDraw.Draw(doc_img)
-    for i in range(pw + ph):
-        k = i / (pw + ph - 1)
-        dgd.line([(i, 0), (0, i)], fill=lerp(pair[0], pair[1], k) + (255,))
-    doc_img.putalpha(doc_mask)
-    img.alpha_composite(doc_img, (px(x0), px(y0)))
+    def make_sprite(box):
+        pad = 6
+        crop = raw.crop((box[0] - pad, box[1] - pad, box[2] + pad, box[3] + pad))
+        w, h = crop.size
+        rgba = Image.new('RGBA', (w, h), (0, 0, 0, 0))
+        for y in range(h):
+            for x in range(w):
+                r, g, b = crop.getpixel((x, y))
+                diff = max(255 - r, 255 - g, 255 - b)
+                if diff < 6:
+                    alpha = 0
+                elif diff < 20:
+                    alpha = int(255 * (diff - 6) / 14)
+                else:
+                    alpha = 255
+                rgba.putpixel((x, y), (r, g, b, alpha))
+        return rgba
 
-    # 2. Загнутый уголок с мягкой тенью
-    fold_layer = Image.new('RGBA', (pw, ph), (0, 0, 0, 0))
-    fld = ImageDraw.Draw(fold_layer)
-    fld.polygon([(pw - fold, 0), (pw - fold, fold - 1), (pw - 1, fold - 1)],
-                fill=lerp(pair[0], (255, 255, 255), 0.45) + (230,))
-    img.alpha_composite(fold_layer, (px(x0), px(y0)))
-
-    # 3. Белый значок типа файла
-    doc_glyph(img, cx, cy + h * 0.05, w * 0.52, glyph)
-
-
-def doc_glyph(img, cx, cy, size, kind):
-    """Белый значок типа файла."""
-    sz = px(size)
-    layer = Image.new('RGBA', (sz, sz), (0, 0, 0, 0))
-    g = ImageDraw.Draw(layer, 'RGBA')
-    c = sz / 2
-    fill = (255, 255, 255, 230)
-    lw = max(1, int(sz * 0.08))
-
-    if kind == 'image':
-        g.ellipse([c - sz * 0.32, c - sz * 0.32, c - sz * 0.12, c - sz * 0.12], fill=fill)
-        g.polygon([(c - sz * 0.38, c + sz * 0.32), (c - sz * 0.1, c - sz * 0.08), (c + sz * 0.18, c + sz * 0.32)], fill=fill)
-        g.polygon([(c - sz * 0.02, c + sz * 0.32), (c + sz * 0.18, c + sz * 0.04), (c + sz * 0.38, c + sz * 0.32)], fill=(255, 255, 255, 180))
-
-    elif kind == 'grid':
-        box = [c - sz * 0.36, c - sz * 0.36, c + sz * 0.36, c + sz * 0.36]
-        g.rounded_rectangle(box, radius=sz * 0.08, outline=fill, width=lw)
-        g.line([(c, box[1]), (c, box[3])], fill=fill, width=lw)
-        g.line([(box[0], c), (box[2], c)], fill=fill, width=lw)
-
-    elif kind == 'pie':
-        r = sz * 0.36
-        g.pieslice([c - r, c - r, c + r, c + r], start=100, end=40, fill=fill)
-        dx, dy = sz * 0.08, -sz * 0.08
-        g.pieslice([c - r + dx, c - r + dy, c + r + dx, c + r + dy], start=45, end=95, fill=fill)
-
-    elif kind == 'list':
-        for i in range(3):
-            y = c - sz * 0.22 + i * sz * 0.22
-            g.ellipse([c - sz * 0.34, y - lw * 0.7, c - sz * 0.34 + lw * 1.4, y + lw * 0.7], fill=fill)
-            g.rounded_rectangle([c - sz * 0.18, y - lw / 2, c + sz * 0.34, y + lw / 2], radius=lw / 2, fill=fill)
-
-    elif kind == 'music':
-        g.ellipse([c - sz * 0.32, c + sz * 0.12, c - sz * 0.08, c + sz * 0.32], fill=fill)
-        g.ellipse([c + sz * 0.06, c + sz * 0.02, c + sz * 0.3, c + sz * 0.22], fill=fill)
-        g.line([(c - sz * 0.1, c + sz * 0.2), (c - sz * 0.1, c - sz * 0.28)], fill=fill, width=lw)
-        g.line([(c + sz * 0.28, c + sz * 0.1), (c + sz * 0.28, c - sz * 0.34)], fill=fill, width=lw)
-        g.polygon([(c - sz * 0.1, c - sz * 0.28), (c + sz * 0.28, c - sz * 0.34),
-                   (c + sz * 0.28, c - sz * 0.22), (c - sz * 0.1, c - sz * 0.16)], fill=fill)
-
-    elif kind == 'play':
-        pts = [(c - sz * 0.2, c - sz * 0.3), (c + sz * 0.3, c), (c - sz * 0.2, c + sz * 0.3)]
-        g.polygon(pts, fill=fill)
-
-    elif kind == 'pdf':
-        try:
-            f = ImageFont.truetype(BOLD, int(sz * 0.42))
-            g.text((c, c), 'PDF', font=f, fill=fill, anchor='mm')
-        except Exception:
-            pass
-
-    elif kind == 'doc':
-        for i, w_pct in enumerate((0.68, 0.68, 0.45)):
-            y = c - sz * 0.2 + i * sz * 0.2
-            g.rounded_rectangle([c - sz * w_pct / 2, y - lw / 2, c + sz * w_pct / 2, y + lw / 2], radius=lw / 2, fill=fill)
-
-    elif kind == 'code':
-        g.line([(c - sz * 0.12, c - sz * 0.24), (c - sz * 0.32, c), (c - sz * 0.12, c + sz * 0.24)], fill=fill, width=lw)
-        g.line([(c + sz * 0.06, c - sz * 0.28), (c - sz * 0.06, c + sz * 0.28)], fill=fill, width=lw)
-        g.line([(c + sz * 0.12, c - sz * 0.24), (c + sz * 0.32, c), (c + sz * 0.12, c + sz * 0.24)], fill=fill, width=lw)
-
-    elif kind == 'cube':
-        r = sz * 0.34
-        pts_top = [(c, c - r), (c + r * 0.86, c - r * 0.5), (c, c), (c - r * 0.86, c - r * 0.5)]
-        pts_left = [(c - r * 0.86, c - r * 0.5), (c, c), (c, c + r), (c - r * 0.86, c + r * 0.5)]
-        pts_right = [(c, c), (c + r * 0.86, c - r * 0.5), (c + r * 0.86, c + r * 0.5), (c, c + r)]
-        g.polygon(pts_top, fill=(255, 255, 255, 245))
-        g.polygon(pts_left, fill=(255, 255, 255, 175))
-        g.polygon(pts_right, fill=(255, 255, 255, 215))
-
-    elif kind == 'vector':
-        g.arc([c - sz * 0.32, c - sz * 0.1, c + sz * 0.32, c + sz * 0.54], start=190, end=350, fill=fill, width=lw)
-        g.line([(c - sz * 0.3, c - sz * 0.1), (c + sz * 0.3, c - sz * 0.1)], fill=fill, width=lw)
-        for dx in (-0.3, 0.0, 0.3):
-            g.ellipse([c + sz * dx - lw * 1.2, c - sz * 0.1 - lw * 1.2,
-                       c + sz * dx + lw * 1.2, c - sz * 0.1 + lw * 1.2], fill=fill)
-
-    elif kind == 'zip':
-        for i in range(4):
-            y = c - sz * 0.26 + i * sz * 0.12
-            dx = (sz * 0.08) if i % 2 == 0 else (-sz * 0.08)
-            g.rounded_rectangle([c + dx - sz * 0.12, y, c + dx + sz * 0.12, y + lw], radius=lw / 2, fill=fill)
-        g.rounded_rectangle([c - sz * 0.12, c + sz * 0.18, c + sz * 0.12, c + sz * 0.36], radius=sz * 0.06, outline=fill, width=lw)
-
-    img.alpha_composite(layer, (px(cx - size / 2), px(cy - size / 2)))
+    _folder_sprites = [make_sprite(b) for b in FOLDER_BOXES]
+    _file_sprites = [make_sprite(b) for b in FILE_BOXES]
+    return _folder_sprites, _file_sprites
 
 
 def draw_drive():
-    """Кадр диска: шапка, тулбар с кнопками («Загрузить файл», «Создать папку»,
-    «Обновить», режим вида), строка поиска, хлебные крошки и полноразмерная
-    сетка квадратных плиток с папками и файлами."""
+    """Кадр диска: оригинальные мягкие пастельные иконки из исходной иллюстрации,
+    размещённые в строго квадратных плитках (148×148 px) по сетке 8×4,
+    равномерно заполняющей экран с сохранением всех кнопок и элементов управления."""
     img = Image.new('RGBA', (W * S, H * S), BG + (255,))
     d = ImageDraw.Draw(img, 'RGBA')
     draw_rail(img, 'drive')
@@ -1082,8 +936,9 @@ def draw_drive():
     text(d, (x0 + 44, 165), 'Назад', 14.5, (55, 65, 81), bold=True, anchor='lm')
     text(d, (x0 + 154, 165), '/', 16, (156, 163, 175), anchor='lm')
 
-    # Сетка квадратных плиток: 8 колонок × 4 ряда (16 папок + 16 файлов)
-    # Плитки строго квадратные (148 × 148 px) и равномерно заполняют область
+    folder_sprites, file_sprites = _get_drive_sprites()
+
+    # Сетка квадратных плиток: 8 колонок × 4 ряда
     tile_cols = 8
     tile_rows = 4
     tile_size = 148
@@ -1102,12 +957,17 @@ def draw_drive():
             cx = tx + tile_size / 2
             cy = ty + tile_size / 2
             if r < 2:
-                f_idx = r * tile_cols + c
-                folder_graphic(img, cx, cy, tile_size * 0.70, tile_size * 0.50, DRIVE_FOLDER_PALETTES[f_idx])
+                spr = folder_sprites[(r * tile_cols + c) % len(folder_sprites)]
+                target_w = int(tile_size * 0.72 * S)
+                target_h = int(spr.height * target_w / spr.width)
+                scaled = spr.resize((target_w, target_h), Image.LANCZOS)
+                img.alpha_composite(scaled, (px(cx) - target_w // 2, px(cy) - target_h // 2))
             else:
-                f_idx = (r - 2) * tile_cols + c
-                pair, glyph = DRIVE_FILE_DEFS[f_idx]
-                page_graphic(img, cx, cy, tile_size * 0.46, tile_size * 0.60, pair, glyph)
+                spr = file_sprites[((r - 2) * tile_cols + c) % len(file_sprites)]
+                target_h = int(tile_size * 0.65 * S)
+                target_w = int(spr.width * target_h / spr.height)
+                scaled = spr.resize((target_w, target_h), Image.LANCZOS)
+                img.alpha_composite(scaled, (px(cx) - target_w // 2, px(cy) - target_h // 2))
 
     return img
 
