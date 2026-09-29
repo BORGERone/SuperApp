@@ -15,7 +15,7 @@
 
 <p>
   <b>Windows 10/11</b> · <b>Windows 7</b> · <b>браузер</b> · <b>Android</b> (в разработке)<br>
-  Сервер: Bun + SQLite на Windows, HTTPS через Caddy, домен <code>prostroykrym.ru</code>
+  Сервер: Bun + SQLite на Windows, HTTPS через Caddy</code>
 </p>
 
 <a href="#что-такое-superapp">Что такое SuperApp</a> ·
